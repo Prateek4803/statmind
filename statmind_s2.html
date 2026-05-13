@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StatMind — Process Statistics Engine</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0f14; --bg2: #141720; --bg3: #1c2030;
+    --border: rgba(99,117,179,0.18); --border2: rgba(99,117,179,0.35);
+    --text: #e8eaf2; --text2: #8b92b0; --text3: #5a607a;
+    --accent: #4f7cff; --accent2: #7b4fff;
+    --green: #2dd4a0; --amber: #f5a623; --red: #f2525a; --purple: #b47aff;
+    --blue-dim: rgba(79,124,255,0.12);
+    --card-r: 12px; --font: 'SF Pro Display','Segoe UI',system-ui,sans-serif;
+    --mono: 'SF Mono','Fira Code',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.6;min-height:100vh;}
+  .header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;border-bottom:1px solid var(--border);background:var(--bg2);}
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-mark{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;}
+  .logo-name{font-size:17px;font-weight:600;letter-spacing:-0.3px;}
+  .logo-tag{font-size:11px;color:var(--text2);}
+  .api-status{display:flex;align-items:center;gap:6px;font-size:12px;}
+  .dot{width:7px;height:7px;border-radius:50%;}
+  .dot.ok{background:var(--green);box-shadow:0 0 7px var(--green);}
+  .dot.err{background:var(--red);}
+  .dot.checking{background:var(--amber);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+  /* Tab nav */
+  .tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--bg2);padding:0 28px;}
+  .tab{padding:11px 20px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+  .main{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 105px);}
+  .sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:20px 16px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;}
+  .content{padding:24px 28px;overflow-y:auto;}
+
+  .section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:var(--text3);margin-bottom:8px;}
+
+  .upload-zone{border:1.5px dashed var(--border2);border-radius:var(--card-r);padding:24px 16px;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--bg3);position:relative;}
+  .upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:var(--blue-dim);}
+  .upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+  .upload-icon{font-size:26px;margin-bottom:8px;}
+  .upload-title{font-size:13px;font-weight:600;}
+  .upload-sub{font-size:11px;color:var(--text2);margin-top:3px;}
+
+  .alpha-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg3);border-radius:8px;}
+  .alpha-row label{font-size:12px;color:var(--text2);flex:1;}
+  select,input[type=number]{background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px;font-family:var(--font);}
+  input[type=number]{width:100%;}
+
+  .col-list{display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;}
+  .col-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;background:var(--bg3);border:1px solid transparent;transition:all 0.15s;}
+  .col-item:hover{border-color:var(--border2);}
+  .col-item.active{background:var(--blue-dim);border-color:var(--accent);}
+  .col-item.active .col-name{color:var(--accent);}
+  .verdict-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;white-space:nowrap;margin-left:auto;}
+  .badge-normal,.badge-capable,.badge-excellent{background:rgba(45,212,160,0.15);color:var(--green);}
+  .badge-likely,.badge-marginal{background:rgba(245,166,35,0.15);color:var(--amber);}
+  .badge-nonnormal,.badge-not-capable{background:rgba(242,82,90,0.15);color:var(--red);}
+
+  .run-btn{width:100%;padding:11px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity 0.2s;}
+  .run-btn:hover{opacity:0.9;}
+  .run-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+  .spec-form{display:flex;flex-direction:column;gap:10px;}
+  .spec-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .spec-field label{font-size:11px;color:var(--text2);display:block;margin-bottom:4px;}
+  .spec-hint{font-size:11px;color:var(--text3);background:var(--bg3);border-radius:6px;padding:8px 10px;line-height:1.5;}
+
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);margin-bottom:16px;overflow:hidden;}
+  .card-header{padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  .card-title{font-size:13px;font-weight:600;}
+  .card-sub{font-size:12px;color:var(--text2);margin-left:auto;}
+  .card-body{padding:14px 16px;}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+  .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:14px 16px;}
+  .stat-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;}
+  .stat-value{font-size:21px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums;font-family:var(--mono);}
+  .stat-sub{font-size:11px;color:var(--text2);margin-top:2px;}
+
+  .indices-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
+  .idx-card{background:var(--bg3);border-radius:10px;padding:12px 14px;border:1px solid var(--border);text-align:center;}
+  .idx-name{font-size:11px;color:var(--text2);margin-bottom:4px;}
+  .idx-val{font-size:22px;font-weight:600;font-family:var(--mono);}
+  .idx-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+
+  .ci-table{width:100%;border-collapse:collapse;}
+  .ci-table th{font-size:11px;color:var(--text3);text-align:left;padding:6px 12px;border-bottom:1px solid var(--border);}
+  .ci-table td{font-size:13px;padding:8px 12px;border-bottom:1px solid var(--border);font-family:var(--mono);}
+  .ci-table tr:last-child td{border-bottom:none;}
+
+  .verdict-banner{border-radius:var(--card-r);padding:14px 18px;display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;border:1px solid;}
+  .vb-excellent{background:rgba(45,212,160,0.06);border-color:rgba(45,212,160,0.3);}
+  .vb-capable{background:rgba(45,212,160,0.04);border-color:rgba(45,212,160,0.2);}
+  .vb-marginal{background:rgba(245,166,35,0.06);border-color:rgba(245,166,35,0.3);}
+  .vb-not-capable{background:rgba(242,82,90,0.06);border-color:rgba(242,82,90,0.3);}
+  .verdict-icon{font-size:22px;}
+  .verdict-label{font-size:15px;font-weight:600;}
+  .verdict-desc{font-size:13px;color:var(--text2);margin-top:3px;}
+
+  .capa-banner{background:rgba(242,82,90,0.06);border:1px solid rgba(242,82,90,0.25);border-radius:var(--card-r);padding:14px 16px;margin-bottom:16px;}
+  .capa-title{font-size:13px;font-weight:600;color:var(--red);margin-bottom:8px;}
+  .capa-note{display:flex;align-items:flex-start;gap:8px;font-size:12px;margin-bottom:6px;color:var(--text2);}
+  .capa-dot{width:5px;height:5px;border-radius:50%;background:var(--red);margin-top:5px;flex-shrink:0;}
+
+  .chart-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:16px;}
+  .chart-wrap{position:relative;height:240px;}
+
+  .sigma-gauge{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg3);border-radius:10px;margin-bottom:16px;}
+  .sigma-num{font-size:36px;font-weight:700;font-family:var(--mono);min-width:80px;}
+  .sigma-label{font-size:12px;color:var(--text2);}
+  .sigma-bar-wrap{flex:1;height:10px;background:var(--bg2);border-radius:5px;overflow:hidden;margin-top:6px;}
+  .sigma-bar{height:100%;border-radius:5px;transition:width 0.8s ease;}
+
+  .ppm-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+
+  .desc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .desc-item{background:var(--bg3);border-radius:8px;padding:9px 12px;}
+  .desc-lbl{font-size:11px;color:var(--text3);}
+  .desc-val{font-size:14px;font-weight:500;font-family:var(--mono);margin-top:2px;}
+
+  .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:460px;text-align:center;gap:12px;}
+  .empty-icon{font-size:48px;opacity:0.15;}
+  .empty-title{font-size:17px;font-weight:500;color:var(--text2);}
+  .empty-sub{font-size:13px;color:var(--text3);max-width:380px;line-height:1.7;}
+
+  .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;gap:14px;}
+  .spinner{width:32px;height:32px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--accent);animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:11px 16px;border-radius:10px;font-size:13px;z-index:1000;opacity:0;transition:opacity 0.3s;max-width:340px;}
+  .toast.show{opacity:1;}
+  .toast.error{border-color:var(--red);}
+
+  .col-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;}
+  .col-tab{padding:5px 13px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);transition:all 0.15s;}
+  .col-tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+  ::-webkit-scrollbar{width:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+  .hint-list{display:flex;flex-direction:column;gap:7px;}
+  .hint-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text2);}
+  .hint-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0;}
+
+  /* variation breakdown */
+  .var-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+  .var-row:last-child{border-bottom:none;}
+  .var-label{font-size:12px;color:var(--text2);width:120px;flex-shrink:0;}
+  .var-bar-wrap{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+  .var-bar{height:100%;border-radius:4px;}
+  .var-val{font-size:12px;font-family:var(--mono);width:70px;text-align:right;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-mark">S</div>
+    <div>
+      <div class="logo-name">StatMind</div>
+      <div class="logo-tag">Process Statistics Engine</div>
+    </div>
+  </div>
+  <div class="api-status">
+    <div class="dot checking" id="status-dot"></div>
+    <span id="status-text">Checking API…</span>
+  </div>
+</header>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <div class="tab active" data-tab="normality">Session 1 — Normality</div>
+  <div class="tab" data-tab="capability">Session 2 — Capability</div>
+</div>
+
+<div class="main">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+
+    <!-- Upload zone (shared) -->
+    <div>
+      <div class="section-label">Data Source</div>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls" />
+        <div class="upload-icon">📊</div>
+        <div class="upload-title" id="upload-title">Drop file or click to browse</div>
+        <div class="upload-sub">Excel (.xlsx) or CSV</div>
+      </div>
+    </div>
+
+    <!-- Normality sidebar -->
+    <div id="sb-normality">
+      <div class="alpha-row">
+        <label>Significance (α)</label>
+        <select id="alpha-select">
+          <option value="0.10">0.10</option>
+          <option value="0.05" selected>0.05</option>
+          <option value="0.01">0.01</option>
+        </select>
+      </div>
+      <div id="col-section" style="display:none">
+        <div class="section-label">Detected Columns</div>
+        <div class="col-list" id="col-list"></div>
+      </div>
+      <button class="run-btn" id="run-norm-btn" disabled>Run Normality Analysis</button>
+      <div id="norm-results-nav" style="display:none">
+        <div class="section-label">Results</div>
+        <div class="col-list" id="norm-col-results"></div>
+      </div>
+    </div>
+
+    <!-- Capability sidebar -->
+    <div id="sb-capability" style="display:none">
+      <div id="cap-col-section">
+        <div class="section-label">Select Column</div>
+        <div class="col-list" id="cap-col-list"></div>
+      </div>
+      <div class="spec-form" id="spec-form" style="display:none">
+        <div class="section-label" style="margin-bottom:0">Spec Limits</div>
+        <div class="spec-hint" id="spec-hint">Select a column to see data range</div>
+        <div class="spec-row">
+          <div class="spec-field"><label>USL</label><input type="number" id="usl-input" step="any" /></div>
+          <div class="spec-field"><label>LSL</label><input type="number" id="lsl-input" step="any" /></div>
+        </div>
+        <div class="spec-field"><label>Target (optional)</label><input type="number" id="target-input" step="any" placeholder="(defaults to midspec)" /></div>
+        <div class="alpha-row">
+          <label>Subgroup size</label>
+          <select id="subgroup-select">
+            <option value="1" selected>1 (individuals)</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+        <button class="run-btn" id="run-cap-btn">Run Capability Analysis</button>
+      </div>
+      <div id="cap-results-nav" style="display:none">
+        <div class="section-label">Analyzed Columns</div>
+        <div class="col-list" id="cap-col-results"></div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- Content -->
+  <main class="content" id="content">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">⚗️</div>
+      <div class="empty-title">Upload process data to begin</div>
+      <div class="empty-sub">Session 1: Normality analysis with Shapiro-Wilk, Anderson-Darling, and Ryan-Joiner tests.<br><br>Session 2: Cp, Cpk, Pp, Ppk capability indices with confidence intervals and CAPA guidance.</div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:8010';
+let normData = null, capData = {}, colStats = [];
+let selectedFile = null, activeTab = 'normality', selectedCapCol = null;
+let charts = {};
+
+// Health check
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    if (r.ok) { setStatus('ok', 'API connected'); }
+    else throw new Error();
+  } catch { setStatus('err', 'API offline'); }
+}
+function setStatus(state, text) {
+  document.getElementById('status-dot').className = `dot ${state}`;
+  document.getElementById('status-text').textContent = text;
+}
+checkHealth(); setInterval(checkHealth, 15000);
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    activeTab = t.dataset.tab;
+    document.getElementById('sb-normality').style.display = activeTab === 'normality' ? 'contents' : 'none';
+    document.getElementById('sb-capability').style.display = activeTab === 'capability' ? 'contents' : 'none';
+    if (activeTab === 'capability' && colStats.length === 0 && selectedFile) loadColStats();
+    if (activeTab === 'capability' && capData && Object.keys(capData).length > 0) {
+      const first = Object.keys(capData)[0];
+      renderCapability(capData[first]);
+    } else if (activeTab === 'capability') {
+      showContent(emptyState('📐', 'Set spec limits to run capability', 'Upload a file, select a column, enter your USL and LSL, then click Run Capability Analysis.'));
+    }
+    if (activeTab === 'normality' && normData) {
+      const first = normData.results[0]?.column;
+      if (first) showNormColumn(first);
+    } else if (activeTab === 'normality' && !normData) {
+      showContent(emptyState('⚗️', 'Upload process data to begin', 'Session 1: Normality analysis with Shapiro-Wilk, Anderson-Darling, and Ryan-Joiner tests.'));
+    }
+  });
+});
+
+// File upload
+const fileInput = document.getElementById('file-input');
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  selectedFile = file;
+  document.getElementById('upload-title').textContent = file.name;
+  document.getElementById('run-norm-btn').disabled = false;
+  colStats = [];
+  if (activeTab === 'capability') loadColStats();
+  showToast(`📂 ${file.name}`);
+}
+
+// ── Session 1: Normality ───────────────────────────────────────────────────
+
+document.getElementById('run-norm-btn').addEventListener('click', runNormality);
+
+async function runNormality() {
+  if (!selectedFile) return;
+  const alpha = parseFloat(document.getElementById('alpha-select').value);
+  const btn = document.getElementById('run-norm-btn');
+  btn.disabled = true; btn.textContent = 'Analyzing…';
+  showContent(loadingHtml('Running normality tests…'));
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+
+  try {
+    const r = await fetch(`${API}/api/v1/normality/analyze?alpha=${alpha}`, { method:'POST', body:fd });
+    if (!r.ok) throw new Error((await r.json()).detail || 'Analysis failed');
+    normData = await r.json();
+    buildNormResultsNav();
+    if (normData.results[0]) showNormColumn(normData.results[0].column);
+  } catch(e) {
+    showToast(`Error: ${e.message}`, true);
+    showContent(emptyState('❌', e.message, 'Check that the API is running on port 8010.'));
+  } finally { btn.disabled = false; btn.textContent = 'Run Normality Analysis'; }
+}
+
+function buildNormResultsNav() {
+  const nav = document.getElementById('norm-col-results');
+  nav.innerHTML = '';
+  document.getElementById('norm-results-nav').style.display = 'block';
+  normData.results.forEach(r => {
+    const bc = r.overall_verdict === 'Normal' ? 'badge-normal' : r.overall_verdict === 'Likely Normal' ? 'badge-likely' : 'badge-nonnormal';
+    const el = document.createElement('div');
+    el.className = 'col-item'; el.dataset.col = r.column;
+    el.innerHTML = `<div><div class="col-name" style="font-size:13px;font-weight:500">${r.column}</div><div class="col-n" style="font-size:11px;color:var(--text3)">n=${r.n}</div></div><span class="verdict-badge ${bc}">${r.overall_verdict}</span>`;
+    el.addEventListener('click', () => showNormColumn(r.column));
+    nav.appendChild(el);
+  });
+}
+
+function showNormColumn(colName) {
+  document.querySelectorAll('#norm-col-results .col-item').forEach(el => el.classList.toggle('active', el.dataset.col === colName));
+  destroyCharts();
+  const r = normData.results.find(x => x.column === colName);
+  if (!r) return;
+
+  const vc = r.overall_verdict === 'Normal' ? 'vb-normal' : r.overall_verdict === 'Likely Normal' ? 'vb-likely' : 'vb-nonnormal';
+  const vi = r.overall_verdict === 'Normal' ? '✅' : r.overall_verdict === 'Likely Normal' ? '⚠️' : '❌';
+  const cc = r.overall_verdict === 'Normal' ? 'var(--green)' : r.overall_verdict === 'Likely Normal' ? 'var(--amber)' : 'var(--red)';
+  const swB = r.shapiro_wilk.reject_null ? 'tv-fail' : 'tv-pass';
+  const adB = r.anderson_darling.reject_null ? 'tv-fail' : 'tv-pass';
+  const rjB = r.ryan_joiner.reject_null ? 'tv-fail' : 'tv-pass';
+  const tvStyle = (fail) => fail
+    ? 'font-size:11px;font-weight:600;color:var(--red);background:rgba(242,82,90,0.1);padding:3px 9px;border-radius:20px;display:inline-block;margin-top:6px'
+    : 'font-size:11px;font-weight:600;color:var(--green);background:rgba(45,212,160,0.1);padding:3px 9px;border-radius:20px;display:inline-block;margin-top:6px';
+  const hints = r.capability_hint.downstream_notes.map(n => `<div class="hint-item"><div class="hint-dot"></div><div>${n}</div></div>`).join('');
+
+  const tabs = normData.results.map(x => `<div class="col-tab ${x.column===colName?'active':''}" onclick="showNormColumn('${x.column}')">${x.column}</div>`).join('');
+
+  showContent(`
+    <div class="col-tabs">${tabs}</div>
+    <div class="verdict-banner ${vc}">
+      <div class="verdict-icon">${vi}</div>
+      <div>
+        <div class="verdict-label" style="color:${cc}">${r.overall_verdict}</div>
+        <div class="verdict-desc">${r.capability_hint.reason}</div>
+        <div style="margin-top:6px;font-size:12px;color:var(--text2)">Confidence: <strong style="color:${cc}">${r.confidence}</strong> &nbsp;·&nbsp; Recommended: <strong style="color:var(--text)">${r.capability_hint.recommended_approach}</strong></div>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Mean</div><div class="stat-value" style="font-size:18px">${r.mean.toFixed(4)}</div></div>
+      <div class="stat-card"><div class="stat-label">Std Dev</div><div class="stat-value" style="font-size:18px">${r.std.toFixed(4)}</div></div>
+      <div class="stat-card"><div class="stat-label">Skewness</div><div class="stat-value" style="font-size:18px;color:${Math.abs(r.skewness)>1?'var(--amber)':'var(--text)'}">${r.skewness.toFixed(3)}</div></div>
+      <div class="stat-card"><div class="stat-label">Kurtosis</div><div class="stat-value" style="font-size:18px;color:${Math.abs(r.kurtosis-3)>2?'var(--amber)':'var(--text)'}">${r.kurtosis.toFixed(3)}</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">Normality Tests</div><div class="card-sub">α = ${normData.alpha}</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="idx-card"><div class="idx-name">Shapiro-Wilk</div><div class="idx-val" style="font-size:16px">W = ${r.shapiro_wilk.statistic.toFixed(5)}</div><div class="idx-sub">p = ${r.shapiro_wilk.p_value.toFixed(5)}</div><div style="${tvStyle(r.shapiro_wilk.reject_null)}">${r.shapiro_wilk.reject_null ? '✗ Not Normal' : '✓ Normal'}</div></div>
+          <div class="idx-card"><div class="idx-name">Anderson-Darling</div><div class="idx-val" style="font-size:16px">A² = ${r.anderson_darling.statistic.toFixed(5)}</div><div class="idx-sub">p ≈ ${r.anderson_darling.p_value.toFixed(5)}</div><div style="${tvStyle(r.anderson_darling.reject_null)}">${r.anderson_darling.reject_null ? '✗ Not Normal' : '✓ Normal'}</div></div>
+          <div class="idx-card"><div class="idx-name">Ryan-Joiner</div><div class="idx-val" style="font-size:16px">RJ = ${r.ryan_joiner.statistic.toFixed(5)}</div><div class="idx-sub">p ≈ ${r.ryan_joiner.p_value.toFixed(5)}</div><div style="${tvStyle(r.ryan_joiner.reject_null)}">${r.ryan_joiner.reject_null ? '✗ Not Normal' : '✓ Normal'}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      <div class="card"><div class="card-header"><div class="card-title">Histogram</div></div><div class="card-body"><div class="chart-wrap"><canvas id="hist-chart"></canvas></div></div></div>
+      <div class="card"><div class="card-header"><div class="card-title">Normal Probability Plot</div><div class="card-sub">R² = ${r.probability_plot_data.r_squared.toFixed(5)}</div></div><div class="card-body"><div class="chart-wrap"><canvas id="prob-chart"></canvas></div></div></div>
+    </div>
+
+    <div class="card"><div class="card-header"><div class="card-title">Downstream Guidance</div></div><div class="card-body"><div class="hint-list">${hints}</div></div></div>
+  `);
+
+  // Charts
+  const hd = r.histogram_data, pd = r.probability_plot_data;
+  const gridColor = 'rgba(99,117,179,0.1)', tickColor = '#8b92b0';
+  charts.hist = new Chart(document.getElementById('hist-chart').getContext('2d'), {
+    data: { datasets: [
+      { type:'bar', data: hd.bin_centers.map((x,i)=>({x:x.toFixed(4),y:hd.counts[i]})), backgroundColor:'rgba(79,124,255,0.35)', borderColor:'rgba(79,124,255,0.7)', borderWidth:1, barPercentage:0.95, categoryPercentage:1 },
+      { type:'line', data: hd.curve_x.map((x,i)=>({x:x.toFixed(4),y:hd.curve_y[i].toFixed(3)})), borderColor:'#2dd4a0', borderWidth:2, pointRadius:0, tension:0.4 }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, animation:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10},maxTicksLimit:8}}, y:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}}} } }
+  });
+  charts.prob = new Chart(document.getElementById('prob-chart').getContext('2d'), {
+    data: { datasets: [
+      { type:'scatter', data: pd.theoretical_quantiles.map((q,i)=>({x:parseFloat(q.toFixed(4)),y:parseFloat(pd.sample_values[i].toFixed(4))})), backgroundColor:'rgba(79,124,255,0.6)', pointRadius:3 },
+      { type:'line', data: pd.fit_line_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(pd.fit_line_y[i].toFixed(4))})), borderColor:'#f2525a', borderWidth:1.5, pointRadius:0, borderDash:[4,3] }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, animation:false, plugins:{legend:{display:false}}, scales:{ x:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}},title:{display:true,text:'Theoretical quantiles',color:'#5a607a',font:{size:11}}}, y:{grid:{color:gridColor},ticks:{color:tickColor,font:{size:10}},title:{display:true,text:'Sample values',color:'#5a607a',font:{size:11}}} } }
+  });
+}
+
+// ── Session 2: Capability ──────────────────────────────────────────────────
+
+async function loadColStats() {
+  if (!selectedFile || colStats.length > 0) return;
+  const fd = new FormData(); fd.append('file', selectedFile);
+  try {
+    const r = await fetch(`${API}/api/v1/capability/columns`, { method:'POST', body:fd });
+    if (!r.ok) return;
+    const data = await r.json();
+    colStats = data.columns;
+    buildCapColList();
+  } catch {}
+}
+
+function buildCapColList() {
+  const list = document.getElementById('cap-col-list');
+  list.innerHTML = '';
+  colStats.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'col-item'; el.dataset.col = c.name;
+    el.innerHTML = `<div><div style="font-size:13px;font-weight:500">${c.name}</div><div style="font-size:11px;color:var(--text3)">n=${c.n} · x̄=${c.mean}</div></div>`;
+    el.addEventListener('click', () => selectCapCol(c));
+    list.appendChild(el);
+  });
+  document.getElementById('cap-col-section').style.display = 'block';
+}
+
+function selectCapCol(col) {
+  selectedCapCol = col.name;
+  document.querySelectorAll('#cap-col-list .col-item').forEach(el => el.classList.toggle('active', el.dataset.col === col.name));
+  document.getElementById('spec-form').style.display = 'flex';
+  const spread = col.std * 6;
+  document.getElementById('spec-hint').innerHTML = `x̄ = ${col.mean} &nbsp;·&nbsp; σ = ${col.std} &nbsp;·&nbsp; Range: [${col.min}, ${col.max}]`;
+  document.getElementById('usl-input').value = (col.mean + 3*col.std).toFixed(4);
+  document.getElementById('lsl-input').value = (col.mean - 3*col.std).toFixed(4);
+  document.getElementById('target-input').value = '';
+}
+
+document.getElementById('run-cap-btn').addEventListener('click', runCapability);
+
+async function runCapability() {
+  if (!selectedFile || !selectedCapCol) return;
+  const usl = parseFloat(document.getElementById('usl-input').value);
+  const lsl = parseFloat(document.getElementById('lsl-input').value);
+  const targetVal = document.getElementById('target-input').value;
+  const subgroup = parseInt(document.getElementById('subgroup-select').value);
+
+  if (isNaN(usl) || isNaN(lsl)) { showToast('Enter USL and LSL values', true); return; }
+  if (usl <= lsl) { showToast('USL must be greater than LSL', true); return; }
+
+  const btn = document.getElementById('run-cap-btn');
+  btn.disabled = true; btn.textContent = 'Analyzing…';
+  showContent(loadingHtml('Calculating capability indices…'));
+
+  const fd = new FormData(); fd.append('file', selectedFile);
+  let url = `${API}/api/v1/capability/analyze?column=${encodeURIComponent(selectedCapCol)}&usl=${usl}&lsl=${lsl}&subgroup_size=${subgroup}`;
+  if (targetVal) url += `&target=${parseFloat(targetVal)}`;
+
+  try {
+    const r = await fetch(url, { method:'POST', body:fd });
+    if (!r.ok) throw new Error((await r.json()).detail || 'Capability analysis failed');
+    const data = await r.json();
+    capData[selectedCapCol] = data;
+    buildCapResultsNav();
+    renderCapability(data);
+  } catch(e) {
+    showToast(`Error: ${e.message}`, true);
+    showContent(emptyState('❌', e.message, ''));
+  } finally { btn.disabled = false; btn.textContent = 'Run Capability Analysis'; }
+}
+
+function buildCapResultsNav() {
+  const nav = document.getElementById('cap-col-results');
+  nav.innerHTML = '';
+  document.getElementById('cap-results-nav').style.display = 'block';
+  Object.values(capData).forEach(r => {
+    const vc = r.verdict === 'Excellent' || r.verdict === 'Capable' ? 'badge-capable' : r.verdict === 'Marginal' ? 'badge-marginal' : 'badge-not-capable';
+    const el = document.createElement('div');
+    el.className = 'col-item'; el.dataset.col = r.column;
+    el.innerHTML = `<div><div style="font-size:13px;font-weight:500">${r.column}</div><div style="font-size:11px;color:var(--text3)">Cpk=${r.cpk.toFixed(3)}</div></div><span class="verdict-badge ${vc}">${r.verdict}</span>`;
+    el.addEventListener('click', () => renderCapability(capData[r.column]));
+    nav.appendChild(el);
+  });
+}
+
+function renderCapability(r) {
+  document.querySelectorAll('#cap-col-results .col-item').forEach(el => el.classList.toggle('active', el.dataset.col === r.column));
+  destroyCharts();
+
+  const vc = r.verdict === 'Excellent' ? 'vb-excellent' : r.verdict === 'Capable' ? 'vb-capable' : r.verdict === 'Marginal' ? 'vb-marginal' : 'vb-not-capable';
+  const vi = r.verdict === 'Excellent' ? '🏆' : r.verdict === 'Capable' ? '✅' : r.verdict === 'Marginal' ? '⚠️' : '❌';
+  const vc_color = r.verdict === 'Excellent' || r.verdict === 'Capable' ? 'var(--green)' : r.verdict === 'Marginal' ? 'var(--amber)' : 'var(--red)';
+
+  const sigPct = Math.min(100, (r.sigma_level / 6) * 100);
+  const sigColor = r.sigma_level >= 5 ? 'var(--green)' : r.sigma_level >= 4 ? 'var(--accent)' : r.sigma_level >= 3 ? 'var(--amber)' : 'var(--red)';
+
+  const capaNotes = r.capa_notes.map(n => `<div class="capa-note"><div class="capa-dot"></div><div>${n}</div></div>`).join('');
+  const capaSection = r.capa_required ? `<div class="capa-banner"><div class="capa-title">⚠ CAPA Recommended — Cpk = ${r.cpk.toFixed(3)} ${r.cpk < 1.0 ? '< 1.00' : '< 1.33'}</div>${capaNotes}</div>` : '';
+
+  const hintList = r.capa_notes.map(n => `<div class="hint-item"><div class="hint-dot"></div><div>${n}</div></div>`).join('');
+
+  // Within vs overall ratio
+  const swPct = Math.min(100, (r.std_within / Math.max(r.std_within, r.std_overall)) * 100).toFixed(1);
+  const soPct = Math.min(100, (r.std_overall / Math.max(r.std_within, r.std_overall)) * 100).toFixed(1);
+
+  showContent(`
+    ${capaSection}
+
+    <div class="verdict-banner ${vc}">
+      <div class="verdict-icon">${vi}</div>
+      <div>
+        <div class="verdict-label" style="color:${vc_color}">${r.verdict}</div>
+        <div class="verdict-desc">${r.verdict_detail}</div>
+        <div style="margin-top:5px;font-size:12px;color:var(--text2)">
+          n=${r.n} &nbsp;·&nbsp; x̄=${r.mean.toFixed(4)} &nbsp;·&nbsp; σ<sub>within</sub>=${r.std_within.toFixed(4)} &nbsp;·&nbsp; σ<sub>overall</sub>=${r.std_overall.toFixed(4)}
+        </div>
+      </div>
+    </div>
+
+    <!-- Sigma level gauge -->
+    <div class="sigma-gauge">
+      <div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:2px">Sigma Level</div>
+        <div class="sigma-num" style="color:${sigColor}">${r.sigma_level.toFixed(2)}σ</div>
+      </div>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:4px"><span>0σ</span><span>3σ</span><span>4σ</span><span>5σ</span><span>6σ</span></div>
+        <div class="sigma-bar-wrap"><div class="sigma-bar" style="width:${sigPct}%;background:${sigColor}"></div></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">USL=${r.usl} &nbsp; LSL=${r.lsl} &nbsp; Target=${r.target?.toFixed(4) || 'midspec'}</div>
+      </div>
+    </div>
+
+    <!-- Main indices -->
+    <div class="indices-grid">
+      <div class="idx-card">
+        <div class="idx-name">Cp</div>
+        <div class="idx-val" style="color:${r.cp>=1.33?'var(--green)':r.cp>=1?'var(--amber)':'var(--red)'}">${r.cp.toFixed(4)}</div>
+        <div class="idx-sub">Potential (within)</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">Cpk</div>
+        <div class="idx-val" style="color:${r.cpk>=1.33?'var(--green)':r.cpk>=1?'var(--amber)':'var(--red)'}">${r.cpk.toFixed(4)}</div>
+        <div class="idx-sub">Performance (within)</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">Cpm</div>
+        <div class="idx-val" style="color:var(--purple)">${r.cpm.toFixed(4)}</div>
+        <div class="idx-sub">Taguchi index</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">Pp</div>
+        <div class="idx-val" style="color:${r.pp>=1.33?'var(--green)':r.pp>=1?'var(--amber)':'var(--red)'}">${r.pp.toFixed(4)}</div>
+        <div class="idx-sub">Potential (overall)</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">Ppk</div>
+        <div class="idx-val" style="color:${r.ppk>=1.33?'var(--green)':r.ppk>=1?'var(--amber)':'var(--red)'}">${r.ppk.toFixed(4)}</div>
+        <div class="idx-sub">Performance (overall)</div>
+      </div>
+    </div>
+
+    <!-- CPU / CPL + PPM -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Confidence Intervals on Cpk</div><div class="card-sub">Bissell method</div></div>
+        <div class="card-body">
+          <table class="ci-table">
+            <tr><th>Confidence</th><th>Lower</th><th>Cpk</th><th>Upper</th></tr>
+            <tr><td>90%</td><td>${r.cpk_ci_90.lower.toFixed(4)}</td><td style="font-weight:600">${r.cpk.toFixed(4)}</td><td>${r.cpk_ci_90.upper.toFixed(4)}</td></tr>
+            <tr><td>95%</td><td>${r.cpk_ci_95.lower.toFixed(4)}</td><td style="font-weight:600">${r.cpk.toFixed(4)}</td><td>${r.cpk_ci_95.upper.toFixed(4)}</td></tr>
+            <tr><td>99%</td><td>${r.cpk_ci_99.lower.toFixed(4)}</td><td style="font-weight:600">${r.cpk.toFixed(4)}</td><td>${r.cpk_ci_99.upper.toFixed(4)}</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Expected Defects</div></div>
+        <div class="card-body">
+          <div class="ppm-row" style="margin-bottom:10px">
+            <div class="idx-card"><div class="idx-name">PPM (within)</div><div class="idx-val" style="font-size:18px;color:${r.ppm_within<100?'var(--green)':r.ppm_within<1000?'var(--amber)':'var(--red)'}">${r.ppm_within < 1 ? r.ppm_within.toFixed(2) : Math.round(r.ppm_within).toLocaleString()}</div><div class="idx-sub">short-term</div></div>
+            <div class="idx-card"><div class="idx-name">PPM (overall)</div><div class="idx-val" style="font-size:18px;color:${r.ppm_overall<100?'var(--green)':r.ppm_overall<1000?'var(--amber)':'var(--red)'}">${r.ppm_overall < 1 ? r.ppm_overall.toFixed(2) : Math.round(r.ppm_overall).toLocaleString()}</div><div class="idx-sub">long-term</div></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);border-top:1px solid var(--border);padding-top:10px">
+            CPU = ${r.cpu.toFixed(4)} &nbsp;·&nbsp; CPL = ${r.cpl.toFixed(4)}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Capability chart + variation breakdown -->
+    <div class="chart-grid">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Capability Histogram</div><div class="card-sub">with spec limits</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="cap-hist-chart"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Within vs Overall Variation</div></div>
+        <div class="card-body">
+          <div>
+            <div class="var-row">
+              <div class="var-label">σ within (ST)</div>
+              <div class="var-bar-wrap"><div class="var-bar" style="width:${swPct}%;background:var(--accent)"></div></div>
+              <div class="var-val" style="color:var(--accent)">${r.std_within.toFixed(5)}</div>
+            </div>
+            <div class="var-row">
+              <div class="var-label">σ overall (LT)</div>
+              <div class="var-bar-wrap"><div class="var-bar" style="width:${soPct}%;background:var(--purple)"></div></div>
+              <div class="var-val" style="color:var(--purple)">${r.std_overall.toFixed(5)}</div>
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            <div class="chart-wrap" style="height:160px"><canvas id="cap-curve-chart"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analysis notes -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">Process Analysis Notes</div><div class="card-sub">Session 3 preparation</div></div>
+      <div class="card-body"><div class="hint-list">${hintList}</div></div>
+    </div>
+  `);
+
+  renderCapCharts(r);
+}
+
+function renderCapCharts(r) {
+  const hd = r.histogram_data;
+  const cd = r.capability_curve_data;
+  const gc = 'rgba(99,117,179,0.1)', tc = '#8b92b0';
+
+  // Capability histogram with spec lines
+  charts.capHist = new Chart(document.getElementById('cap-hist-chart').getContext('2d'), {
+    data: { datasets: [
+      { type:'bar', data: hd.bin_centers.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:hd.counts[i]})), backgroundColor:'rgba(79,124,255,0.35)', borderColor:'rgba(79,124,255,0.7)', borderWidth:1, barPercentage:0.95, categoryPercentage:1, order:2 },
+      { type:'line', data: hd.curve_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(hd.curve_within[i].toFixed(4))})), borderColor:'#2dd4a0', borderWidth:2, pointRadius:0, tension:0.4, label:'Within', order:1 },
+      { type:'line', data: hd.curve_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(hd.curve_overall[i].toFixed(4))})), borderColor:'#b47aff', borderWidth:1.5, pointRadius:0, tension:0.4, borderDash:[4,3], label:'Overall', order:1 },
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{
+        legend:{display:true, labels:{color:tc, font:{size:10}, boxWidth:12}},
+        annotation: {}
+      },
+      scales:{
+        x:{type:'linear', grid:{color:gc}, ticks:{color:tc,font:{size:10},maxTicksLimit:8},
+           min: Math.min(hd.lsl - Math.abs(hd.lsl)*0.05, hd.bin_centers[0]),
+           max: Math.max(hd.usl + Math.abs(hd.usl)*0.05, hd.bin_centers[hd.bin_centers.length-1])},
+        y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}
+      }
+    }
+  });
+
+  // Draw spec limit lines via plugin
+  const cht = charts.capHist;
+  const origDraw = cht.draw.bind(cht);
+  cht.draw = function() {
+    origDraw();
+    const ctx = cht.ctx;
+    const xUSL = cht.scales.x.getPixelForValue(hd.usl);
+    const xLSL = cht.scales.x.getPixelForValue(hd.lsl);
+    const xMean = cht.scales.x.getPixelForValue(hd.mean);
+    const top = cht.chartArea.top, bottom = cht.chartArea.bottom;
+    ctx.save();
+    [[xLSL,'#f2525a','LSL'],[xUSL,'#f2525a','USL'],[xMean,'#f5a623','x̄']].forEach(([x,color,label]) => {
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(x,top); ctx.lineTo(x,bottom); ctx.stroke();
+      ctx.fillStyle = color; ctx.font = '10px SF Mono,monospace'; ctx.textAlign = 'center';
+      ctx.fillText(label, x, top - 4);
+    });
+    ctx.restore();
+  };
+  cht.draw();
+
+  // Distribution curve overlay (within vs overall)
+  charts.capCurve = new Chart(document.getElementById('cap-curve-chart').getContext('2d'), {
+    data: { datasets: [
+      { type:'line', data: cd.x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(cd.y_within[i].toFixed(6))})), borderColor:'#2dd4a0', borderWidth:2, pointRadius:0, tension:0.4, label:'Within (σ_ST)', fill:false },
+      { type:'line', data: cd.x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(cd.y_overall[i].toFixed(6))})), borderColor:'#b47aff', borderWidth:1.5, pointRadius:0, tension:0.4, borderDash:[4,3], label:'Overall (σ_LT)', fill:false },
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{legend:{display:true, labels:{color:tc, font:{size:10}, boxWidth:12}}},
+      scales:{
+        x:{type:'linear', grid:{color:gc}, ticks:{color:tc,font:{size:10},maxTicksLimit:6}},
+        y:{display:false}
+      }
+    }
+  });
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => { try { c.destroy(); } catch {} });
+  charts = {};
+}
+
+function showContent(html) {
+  document.getElementById('content').innerHTML = html;
+}
+
+function loadingHtml(msg) {
+  return `<div class="loading"><div class="spinner"></div><div style="color:var(--text2);font-size:13px">${msg}</div></div>`;
+}
+
+function emptyState(icon, title, sub) {
+  return `<div class="empty-state"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div><div class="empty-sub">${sub}</div></div>`;
+}
+
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 3500);
+}
+
+// Init
+document.getElementById('sb-capability').style.display = 'none';
+</script>
+</body>
+</html>

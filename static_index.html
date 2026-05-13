@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>StatMind — Process Statistics Engine</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0d0f14;--bg2:#141720;--bg3:#1c2030;
+  --border:rgba(99,117,179,0.18);--border2:rgba(99,117,179,0.35);
+  --text:#e8eaf2;--text2:#8b92b0;--text3:#5a607a;
+  --accent:#4f7cff;--accent2:#7b4fff;
+  --green:#2dd4a0;--amber:#f5a623;--red:#f2525a;--purple:#b47aff;--teal:#22d3ee;--coral:#ff6b8a;
+  --blue-dim:rgba(79,124,255,0.12);
+  --card-r:12px;--font:'SF Pro Display','Segoe UI',system-ui,sans-serif;--mono:'SF Mono','Fira Code',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.6;min-height:100vh;}
+.header{display:flex;align-items:center;justify-content:space-between;padding:14px 26px;border-bottom:1px solid var(--border);background:var(--bg2);}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-mark{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;}
+.logo-name{font-size:16px;font-weight:600;}
+.logo-tag{font-size:11px;color:var(--text2);}
+.api-status{display:flex;align-items:center;gap:6px;font-size:12px;}
+.dot{width:7px;height:7px;border-radius:50%;}
+.dot.ok{background:var(--green);box-shadow:0 0 6px var(--green);}
+.dot.err{background:var(--red);}
+.dot.checking{background:var(--amber);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);background:var(--bg2);padding:0 26px;overflow-x:auto;}
+.tab{padding:10px 18px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.main{display:grid;grid-template-columns:310px 1fr;min-height:calc(100vh - 105px);}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;}
+.content{padding:22px 26px;overflow-y:auto;}
+.sl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:6px;}
+.upload-zone{border:1.5px dashed var(--border2);border-radius:var(--card-r);padding:16px 12px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg3);position:relative;}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:var(--blue-dim);}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+select,input[type=number],input[type=text],textarea{background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:5px 8px;border-radius:6px;font-size:12px;font-family:var(--font);width:100%;}
+textarea{resize:vertical;min-height:52px;}
+.field label{font-size:11px;color:var(--text2);display:block;margin-bottom:3px;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.ctrl-row{display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--bg3);border-radius:7px;}
+.ctrl-row label{font-size:12px;color:var(--text2);flex:1;}
+.ctrl-row select{width:auto;}
+.col-list{display:flex;flex-direction:column;gap:3px;max-height:180px;overflow-y:auto;}
+.col-item{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:7px;cursor:pointer;background:var(--bg3);border:1px solid transparent;transition:all .15s;}
+.col-item:hover{border-color:var(--border2);}
+.col-item.active{background:var(--blue-dim);border-color:var(--accent);}
+.vb{font-size:10px;font-weight:600;padding:2px 6px;border-radius:20px;white-space:nowrap;margin-left:auto;}
+.vb-g{background:rgba(45,212,160,.15);color:var(--green);}
+.vb-a{background:rgba(245,166,35,.15);color:var(--amber);}
+.vb-r{background:rgba(242,82,90,.15);color:var(--red);}
+.run-btn{width:100%;padding:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .2s;}
+.run-btn:hover{opacity:.9;}
+.run-btn:disabled{opacity:.4;cursor:not-allowed;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);margin-bottom:14px;overflow:hidden;}
+.ch{padding:12px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.ct{font-size:13px;font-weight:600;}
+.cs{font-size:11px;color:var(--text2);margin-left:auto;}
+.cb{padding:13px 15px;}
+.verdict-banner{border-radius:var(--card-r);padding:13px 16px;display:flex;align-items:flex-start;gap:11px;margin-bottom:14px;border:1px solid;}
+.vb-ok{background:rgba(45,212,160,.05);border-color:rgba(45,212,160,.25);}
+.vb-warn{background:rgba(245,166,35,.05);border-color:rgba(245,166,35,.25);}
+.vb-bad{background:rgba(242,82,90,.05);border-color:rgba(242,82,90,.25);}
+.vi{font-size:20px;}.vl{font-size:14px;font-weight:600;}.vd{font-size:12px;color:var(--text2);margin-top:2px;}
+.hint-list{display:flex;flex-direction:column;gap:6px;}
+.hint-item{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--text2);}
+.hd{width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0;}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:440px;text-align:center;gap:12px;}
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;gap:12px;}
+.spinner{width:30px;height:30px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--accent);animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:10px 15px;border-radius:9px;font-size:12px;z-index:1000;opacity:0;transition:opacity .3s;max-width:340px;}
+.toast.show{opacity:1;}.toast.error{border-color:var(--red);}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* CAPA specific */
+.capa-hero{background:linear-gradient(135deg,rgba(79,124,255,0.07),rgba(123,79,255,0.07));border:1px solid var(--border2);border-radius:var(--card-r);padding:18px 20px;margin-bottom:14px;}
+.severity-badge{display:inline-flex;align-items:center;padding:3px 11px;border-radius:20px;font-size:11px;font-weight:700;}
+.sev-c{background:rgba(242,82,90,.18);color:var(--red);border:1px solid rgba(242,82,90,.35);}
+.sev-m{background:rgba(245,166,35,.18);color:var(--amber);border:1px solid rgba(245,166,35,.35);}
+.sev-n{background:rgba(45,212,160,.18);color:var(--green);border:1px solid rgba(45,212,160,.35);}
+.conf-badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+.conf-h{background:rgba(45,212,160,.1);color:var(--green);}
+.conf-m{background:rgba(245,166,35,.1);color:var(--amber);}
+.conf-l{background:rgba(242,82,90,.1);color:var(--red);}
+
+.matches-bar{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+.match-item{display:flex;align-items:center;gap:9px;padding:9px 12px;background:var(--bg3);border-radius:8px;border:1px solid var(--border);cursor:pointer;transition:all .15s;}
+.match-item:hover{border-color:var(--border2);}
+.match-item.active{border-color:var(--accent);background:var(--blue-dim);}
+.match-rule-id{font-size:10px;font-weight:600;color:var(--teal);font-family:var(--mono);min-width:70px;}
+.match-pattern{font-size:12px;flex:1;}
+.match-score{font-size:11px;color:var(--text3);font-family:var(--mono);}
+.score-bar-wrap{width:60px;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;}
+.score-bar{height:100%;border-radius:3px;background:var(--accent);}
+
+.process-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.process-chip{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);transition:all .15s;}
+.process-chip.active{color:#fff;border-color:transparent;}
+.pc-etch{background:rgba(79,124,255,.15);color:var(--accent);border-color:rgba(79,124,255,.3);}
+.pc-etch.active{background:var(--accent);}
+.pc-cmp{background:rgba(34,211,238,.12);color:var(--teal);border-color:rgba(34,211,238,.3);}
+.pc-cmp.active{background:var(--teal);color:#0d0f14;}
+.pc-litho{background:rgba(180,122,255,.12);color:var(--purple);border-color:rgba(180,122,255,.3);}
+.pc-litho.active{background:var(--purple);}
+.pc-diff{background:rgba(245,166,35,.12);color:var(--amber);border-color:rgba(245,166,35,.3);}
+.pc-diff.active{background:var(--amber);color:#0d0f14;}
+.pc-gen{background:rgba(242,82,90,.12);color:var(--coral);border-color:rgba(242,82,90,.3);}
+
+.override-list{display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;}
+.override-item{padding:8px 10px;border-radius:7px;background:var(--bg3);border:1px solid transparent;cursor:pointer;transition:all .15s;}
+.override-item:hover{border-color:var(--border2);}
+.override-item.active{border-color:var(--accent);background:var(--blue-dim);}
+.oi-id{font-size:10px;font-weight:600;color:var(--teal);font-family:var(--mono);}
+.oi-name{font-size:11px;margin-top:1px;}
+
+.action-card{background:var(--bg3);border-radius:8px;padding:12px 14px;border:1px solid var(--border);margin-bottom:8px;}
+.priority-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;}
+.p1{background:rgba(242,82,90,.2);color:var(--red);}
+.p2{background:rgba(245,166,35,.2);color:var(--amber);}
+.p3{background:rgba(79,124,255,.2);color:var(--accent);}
+.timeline-badge{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--bg2);color:var(--text2);border:1px solid var(--border);}
+.sys-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:rgba(180,122,255,.12);color:var(--purple);border:1px solid rgba(180,122,255,.25);}
+
+.section-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.ev-dot{width:6px;height:6px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+
+.metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:14px;}
+.mc{background:var(--bg3);border-radius:8px;padding:10px 12px;text-align:center;border:1px solid var(--border);}
+.ml{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.mv{font-size:18px;font-weight:600;font-family:var(--mono);margin-top:2px;}
+
+.disp-card{border-radius:var(--card-r);padding:13px 16px;border:1px solid;margin-bottom:14px;}
+.disp-hold{background:rgba(242,82,90,.05);border-color:rgba(242,82,90,.25);}
+.disp-rel{background:rgba(45,212,160,.05);border-color:rgba(45,212,160,.25);}
+.disp-cond{background:rgba(245,166,35,.05);border-color:rgba(245,166,35,.25);}
+
+/* prev sessions compact */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px;}
+.sc2{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:12px 14px;}
+.sl2{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.sv{font-size:18px;font-weight:600;margin-top:3px;font-family:var(--mono);}
+.ic{background:var(--bg3);border-radius:9px;padding:11px 12px;border:1px solid var(--border);text-align:center;}
+.in{font-size:11px;color:var(--text2);margin-bottom:3px;}
+.iv{font-size:20px;font-weight:600;font-family:var(--mono);}
+.is{font-size:10px;color:var(--text3);margin-top:1px;}
+.indices-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:14px;}
+.chart-half{position:relative;height:200px;}
+.chart-full{position:relative;height:220px;}
+.col-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px;}
+.col-tab{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);transition:all .15s;}
+.col-tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.alarm-table{width:100%;border-collapse:collapse;font-size:12px;}
+.alarm-table th{font-size:10px;color:var(--text3);text-align:left;padding:5px 10px;border-bottom:1px solid var(--border);}
+.alarm-table td{padding:7px 10px;border-bottom:1px solid var(--border);font-family:var(--mono);}
+.rule-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;}
+.rb-we1{background:rgba(242,82,90,.15);color:var(--red);}
+.rb-we2{background:rgba(245,166,35,.15);color:var(--amber);}
+.rb-we3{background:rgba(79,124,255,.15);color:var(--accent);}
+.rb-we4{background:rgba(45,212,160,.15);color:var(--green);}
+.rb-ne{background:rgba(180,122,255,.15);color:var(--purple);}
+.spc-limits{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.lim-card{background:var(--bg3);border-radius:8px;padding:10px 12px;text-align:center;}
+.lim-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.lim-val{font-size:16px;font-weight:600;font-family:var(--mono);margin-top:2px;}
+.grr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px;}
+.gc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:12px 14px;}
+.gl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.gv{font-size:22px;font-weight:700;margin-top:3px;font-family:var(--mono);}
+.gs{font-size:10px;color:var(--text2);margin-top:1px;}
+.vc-table{width:100%;border-collapse:collapse;}
+.vc-table th{font-size:10px;color:var(--text3);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.vc-table td{font-size:12px;padding:8px 10px;border-bottom:1px solid var(--border);font-family:var(--mono);}
+.bar-cell{display:flex;align-items:center;gap:6px;}
+.bar-bg{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;min-width:60px;}
+.bar-fill{height:100%;border-radius:4px;}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-mark">S</div>
+    <div><div class="logo-name">StatMind</div><div class="logo-tag">Process Statistics Engine — Sessions 1-6</div></div>
+  </div>
+  <div class="api-status"><div class="dot checking" id="status-dot"></div><span id="status-text">Checking…</span></div>
+</header>
+
+<div class="tab-bar">
+  <div class="tab" data-tab="report">Session 6 — PDF Report</div>
+  <div class="tab active" data-tab="capa">Session 5 — CAPA Engine</div>
+  <div class="tab" data-tab="grr">Session 4 — Gauge R&R</div>
+  <div class="tab" data-tab="spc">Session 3 — Control Charts</div>
+  <div class="tab" data-tab="capability">Session 2 — Capability</div>
+  <div class="tab" data-tab="normality">Session 1 — Normality</div>
+</div>
+
+<div class="main">
+  <aside class="sidebar" id="sidebar">
+
+    <!-- CAPA sidebar -->
+    <div id="sb-capa">
+      <div class="sl">Process Context</div>
+
+      <div class="field"><label>Parameter Name</label>
+        <input type="text" id="capa-col-name" placeholder="e.g. CD_nm, Etch_Rate"/>
+      </div>
+
+      <div>
+        <div class="sl" style="margin-bottom:6px">Process Type</div>
+        <div class="process-chips">
+          <div class="process-chip pc-etch" data-proc="Etch" onclick="selectProcess(this)">Etch</div>
+          <div class="process-chip pc-cmp" data-proc="CMP" onclick="selectProcess(this)">CMP</div>
+          <div class="process-chip pc-litho" data-proc="Lithography" onclick="selectProcess(this)">Litho</div>
+          <div class="process-chip pc-diff" data-proc="Diffusion" onclick="selectProcess(this)">Diffusion</div>
+          <div class="process-chip pc-gen" data-proc="" onclick="selectProcess(this)">Auto</div>
+        </div>
+      </div>
+
+      <div class="field"><label>Additional Context</label>
+        <textarea id="capa-context" placeholder="e.g. Chamber A, 28nm CMOS, post-CMP oxide…"></textarea>
+      </div>
+
+      <div class="sl">Attach Results from Sessions 1–4</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div id="attach-norm" class="ctrl-row" style="cursor:default">
+          <label style="font-size:11px">Normality</label>
+          <span id="norm-attach-status" style="font-size:10px;color:var(--text3)">—</span>
+        </div>
+        <div id="attach-cap" class="ctrl-row" style="cursor:default">
+          <label style="font-size:11px">Capability</label>
+          <span id="cap-attach-status" style="font-size:10px;color:var(--text3)">—</span>
+        </div>
+        <div id="attach-spc" class="ctrl-row" style="cursor:default">
+          <label style="font-size:11px">SPC</label>
+          <span id="spc-attach-status" style="font-size:10px;color:var(--text3)">—</span>
+        </div>
+        <div id="attach-grr" class="ctrl-row" style="cursor:default">
+          <label style="font-size:11px">GRR</label>
+          <span id="grr-attach-status" style="font-size:10px;color:var(--text3)">—</span>
+        </div>
+      </div>
+
+      <button class="run-btn" id="run-capa-btn">Generate CAPA Report</button>
+
+      <!-- Manual override -->
+      <div id="override-section" style="display:none">
+        <div class="sl" style="margin-top:4px">Manual Override</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Select a different fault pattern:</div>
+        <div class="override-list" id="override-list"></div>
+      </div>
+
+      <div id="capa-results-nav" style="display:none">
+        <div class="sl">Previous Reports</div>
+        <div class="col-list" id="capa-col-results"></div>
+      </div>
+    </div>
+
+
+    <!-- Report sidebar -->
+    <div id="sb-report" style="display:none">
+      <div class="sl">Report Configuration</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text2)">
+          The report includes all sessions you have run.<br>
+          Sections without data are automatically skipped.
+        </div>
+        <div id="report-sections" style="display:flex;flex-direction:column;gap:5px">
+          <div class="ctrl-row"><label style="font-size:11px">Normality</label><span id="rpt-norm-status" style="font-size:10px;color:var(--text3)">—</span></div>
+          <div class="ctrl-row"><label style="font-size:11px">Capability</label><span id="rpt-cap-status" style="font-size:10px;color:var(--text3)">—</span></div>
+          <div class="ctrl-row"><label style="font-size:11px">SPC Charts</label><span id="rpt-spc-status" style="font-size:10px;color:var(--text3)">—</span></div>
+          <div class="ctrl-row"><label style="font-size:11px">Gauge R&R</label><span id="rpt-grr-status" style="font-size:10px;color:var(--text3)">—</span></div>
+          <div class="ctrl-row"><label style="font-size:11px">CAPA</label><span id="rpt-capa-status" style="font-size:10px;color:var(--text3)">—</span></div>
+        </div>
+        <div class="field"><label>Parameter name</label><input type="text" id="rpt-param" placeholder="e.g. Etch_Rate_nm_min"/></div>
+        <div class="field"><label>Process</label><input type="text" id="rpt-process" placeholder="e.g. RIE Etch Chamber A"/></div>
+        <button class="run-btn" id="run-report-btn">Generate PDF Report</button>
+        <div id="report-download-area" style="display:none;flex-direction:column;gap:8px">
+          <div style="background:rgba(45,212,160,0.08);border:1px solid rgba(45,212,160,0.25);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--green)" id="report-success-msg"></div>
+          <a id="report-download-link" href="#" style="display:block;width:100%;padding:10px;background:var(--green);color:#0d0f14;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none">⬇ Download PDF</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRR, SPC, CAP, NORM sidebars (same compact pattern as S4) -->
+    <div id="sb-grr" style="display:none">
+      <div class="upload-zone" id="grr-upload"><input type="file" id="grr-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">🔬</div><div style="font-size:12px;font-weight:600" id="grr-upload-title">Drop GRR file</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Part, Operator, Measurement</div></div>
+      <div id="grr-preview-box" style="display:none;background:var(--bg3);border-radius:7px;padding:8px 10px;font-size:11px;color:var(--text2)"></div>
+      <div id="grr-options" style="display:none;flex-direction:column;gap:8px">
+        <div class="ctrl-row"><label>Method</label><select id="grr-method" style="width:auto"><option value="ANOVA">ANOVA</option><option value="XbarR">Xbar/R</option></select></div>
+        <div class="field"><label>Tolerance (optional)</label><input type="number" id="grr-tol" step="any"/></div>
+        <button class="run-btn" id="run-grr-btn">Run GRR</button>
+      </div>
+      <div id="grr-results-nav" style="display:none"><div class="sl">Results</div><div class="col-list" id="grr-col-results"></div></div>
+    </div>
+
+    <div id="sb-spc" style="display:none">
+      <div class="upload-zone" id="spc-upload"><input type="file" id="spc-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">📈</div><div style="font-size:12px;font-weight:600" id="spc-upload-title">Drop process file</div></div>
+      <div id="spc-col-section" style="display:none"><div class="sl">Column</div><div class="col-list" id="spc-col-list"></div></div>
+      <div id="spc-options" style="display:none"><div class="ctrl-row"><label>Subgroup</label><select id="spc-subgroup" style="width:auto"><option value="1" selected>1 — I-MR</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div><button class="run-btn" id="run-spc-btn">Run SPC</button></div>
+      <div id="spc-results-nav" style="display:none"><div class="sl">Results</div><div class="col-list" id="spc-col-results"></div></div>
+    </div>
+
+    <div id="sb-cap" style="display:none">
+      <div class="upload-zone" id="cap-upload"><input type="file" id="cap-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">📐</div><div style="font-size:12px;font-weight:600" id="cap-upload-title">Drop process file</div></div>
+      <div id="cap-col-section" style="display:none"><div class="sl">Column</div><div class="col-list" id="cap-col-list"></div></div>
+      <div id="spec-form" style="display:none;flex-direction:column;gap:8px">
+        <div style="font-size:11px;color:var(--text3);background:var(--bg3);border-radius:6px;padding:6px 9px" id="spec-hint"></div>
+        <div class="field-row"><div class="field"><label>USL</label><input type="number" id="usl-input" step="any"/></div><div class="field"><label>LSL</label><input type="number" id="lsl-input" step="any"/></div></div>
+        <button class="run-btn" id="run-cap-btn">Run Capability</button>
+      </div>
+      <div id="cap-results-nav" style="display:none"><div class="sl">Results</div><div class="col-list" id="cap-col-results"></div></div>
+    </div>
+
+    <div id="sb-norm" style="display:none">
+      <div class="upload-zone" id="norm-upload"><input type="file" id="norm-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">⚗️</div><div style="font-size:12px;font-weight:600" id="norm-upload-title">Drop process file</div></div>
+      <div class="ctrl-row"><label>α</label><select id="alpha-select" style="width:auto"><option value="0.05" selected>0.05</option><option value="0.01">0.01</option><option value="0.10">0.10</option></select></div>
+      <button class="run-btn" id="run-norm-btn" disabled>Run Normality</button>
+      <div id="norm-results-nav" style="display:none"><div class="sl">Results</div><div class="col-list" id="norm-col-results"></div></div>
+    </div>
+
+  </aside>
+
+  <main class="content" id="content">
+    <div class="empty-state">
+      <div style="font-size:44px;opacity:.12">🗄️</div>
+      <div style="font-size:16px;font-weight:500;color:var(--text2)">Rule-Based CAPA Engine</div>
+      <div style="font-size:12px;color:var(--text3);max-width:440px;line-height:1.8">
+        Run Sessions 1–4 on your data, then switch here.<br>
+        StatMind auto-detects your fault pattern from the statistical results and looks it up in the CAPA database — covering <strong style="color:var(--text2)">Etch, CMP, Lithography, and Diffusion</strong> processes.<br><br>
+        No API key. No internet. Fully offline.
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API=window.location.origin.includes('localhost')?'http://localhost:8010':'';
+let capaReports={}, spcData={}, capData={}, normData=null, grrData={};
+let spcFile=null, capFile=null, normFile=null;
+let colStatsSpc=[], colStatsCap=[];
+let selectedSpcCol=null, selectedCapCol=null;
+let selectedProcess='', ruleCatalog=[];
+let charts={};
+
+// Attached results for CAPA
+let attachedNorm=null, attachedCap=null, attachedSpc=null, attachedGrr=null;
+
+async function checkHealth(){
+  try{const r=await fetch(`${API}/health`);setStatus(r.ok?'ok':'err',r.ok?`API v${(await r.json()).version} connected`:'API offline');}
+  catch{setStatus('err','API offline — run: uvicorn api5:app --port 8010');}
+}
+function setStatus(s,t){document.getElementById('status-dot').className=`dot ${s}`;document.getElementById('status-text').textContent=t;}
+checkHealth();setInterval(checkHealth,15000);
+
+// Tabs
+const tabMap={report:'sb-report',capa:'sb-capa',grr:'sb-grr',spc:'sb-spc',capability:'sb-cap',normality:'sb-norm'};
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');const tab=t.dataset.tab;
+    Object.values(tabMap).forEach(id=>document.getElementById(id).style.display='none');
+    document.getElementById(tabMap[tab]).style.display='contents';
+    if(tab==='report'){
+      autoPopulateCAPA();updateReportStatus();
+      showEmpty('📄','Generate PDF Report','All sessions run so far will be included. Click Generate PDF Report in the sidebar.');
+    }
+    if(tab==='capa'){
+      const k=Object.keys(capaReports)[0];
+      if(k)renderCAPA(capaReports[k]);
+      else showEmpty('🗄️','Rule-Based CAPA Engine','Run Sessions 1–4 first, then generate a CAPA report here. No API key needed.');
+    }
+    if(tab==='grr'){const k=Object.keys(grrData)[0];if(k)renderGRR(grrData[k]);else showEmpty('🔬','Upload a GRR study','Columns: Part, Operator, Measurement');}
+    if(tab==='spc'){const k=Object.keys(spcData)[0];if(k)renderSPC(spcData[k]);else showEmpty('📈','Upload process data','I-MR, Xbar-R, or Xbar-S auto-selection');}
+    if(tab==='capability'){const k=Object.keys(capData)[0];if(k)renderCap(capData[k]);else showEmpty('📐','Upload process data','Cp, Cpk, Pp, Ppk with confidence intervals');}
+    if(tab==='normality'){if(normData&&normData.results[0])showNorm(normData.results[0].column);else showEmpty('⚗️','Upload process data','SW, AD, RJ normality tests');}
+  });
+});
+
+function selectProcess(el){
+  document.querySelectorAll('.process-chip').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  selectedProcess=el.dataset.proc;
+}
+
+function updateAttachStatus(){updateReportStatus();
+
+  const setStatus=(id,val,col)=>{
+    const el=document.getElementById(id);
+    if(el){el.textContent=val;el.style.color=col;}
+  };
+  setStatus('norm-attach-status', attachedNorm?'✓ attached':'—', attachedNorm?'var(--green)':'var(--text3)');
+  setStatus('cap-attach-status',  attachedCap ?'✓ attached':'—', attachedCap ?'var(--green)':'var(--text3)');
+  setStatus('spc-attach-status',  attachedSpc ?'✓ attached':'—', attachedSpc ?'var(--green)':'var(--text3)');
+  setStatus('grr-attach-status',  attachedGrr ?'✓ attached':'—', attachedGrr ?'var(--green)':'var(--text3)');
+}
+
+// Load rule catalog for override
+async function loadCatalog(){
+  try{
+    const r=await fetch(`${API}/api/v1/capa/catalog`);
+    if(!r.ok)return;
+    ruleCatalog=(await r.json()).rules;
+    buildOverrideList(ruleCatalog);
+  }catch{}
+}
+
+function buildOverrideList(rules, filterProc=''){
+  const list=document.getElementById('override-list');list.innerHTML='';
+  const filtered=filterProc?rules.filter(r=>r.process===filterProc||r.process==='General'):rules;
+  filtered.forEach(r=>{
+    const el=document.createElement('div');el.className='override-item';el.dataset.ruleId=r.rule_id;
+    const sev=r.severity==='Critical'?'var(--red)':r.severity==='Major'?'var(--amber)':'var(--green)';
+    el.innerHTML=`<div class="oi-id">${r.rule_id}</div><div class="oi-name">${r.fault_pattern}</div><div style="font-size:10px;color:${sev};margin-top:2px">${r.severity} · ${r.process}</div>`;
+    el.addEventListener('click',()=>applyOverride(r.rule_id,el));
+    list.appendChild(el);
+  });
+}
+
+async function applyOverride(ruleId, el){
+  document.querySelectorAll('.override-item').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  showContent(loadHtml('Applying rule override…'));
+  try{
+    const r=await fetch(`${API}/api/v1/capa/override`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({rule_id:ruleId,normality_result:attachedNorm,capability_result:attachedCap,spc_result:attachedSpc,grr_result:attachedGrr,
+        process_context:document.getElementById('capa-context').value,parameter_name:document.getElementById('capa-col-name').value})});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const data=await r.json();
+    const key=`${ruleId}_${Date.now()}`;
+    capaReports[key]={...data.primary_capa,_timestamp:new Date().toLocaleTimeString()};
+    buildCAPANav();renderCAPA(capaReports[key]);
+  }catch(e){showToast(e.message,true);}
+}
+
+// ── SESSION 5: CAPA ───────────────────────────────────────────────────────────
+
+document.getElementById('run-capa-btn').addEventListener('click',runCAPA);
+
+async function runCAPA(){
+  if(!attachedNorm&&!attachedCap&&!attachedSpc&&!attachedGrr){
+    showToast('Run at least one session (1–4) first, then come back here',true);return;
+  }
+  const btn=document.getElementById('run-capa-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Matching fault patterns in CAPA database…'));
+  try{
+    const r=await fetch(`${API}/api/v1/capa/generate`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        normality_result:attachedNorm, capability_result:attachedCap,
+        spc_result:attachedSpc, grr_result:attachedGrr,
+        process_context:document.getElementById('capa-context').value,
+        parameter_name:document.getElementById('capa-col-name').value,
+        process_type:selectedProcess,
+      })});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const data=await r.json();
+    if(!data.success)throw new Error('CAPA generation failed');
+    const key=`${document.getElementById('capa-col-name').value||'param'}_${Date.now()}`;
+    capaReports[key]={...data.primary_capa,_matched:data.matched_rules,_timestamp:new Date().toLocaleTimeString()};
+    buildCAPANav();renderCAPA(capaReports[key]);
+    // Show override panel
+    document.getElementById('override-section').style.display='block';
+    loadCatalog();
+    showToast(`✅ Matched ${data.matched_rules.length} rule(s)`);
+  }catch(e){showToast(`Error: ${e.message}`,true);showEmpty('❌',e.message,'Make sure Sessions 1–4 have been run and results are attached.');}
+  finally{btn.disabled=false;btn.textContent='Generate CAPA Report';}
+}
+
+function buildCAPANav(){
+  const nav=document.getElementById('capa-col-results');nav.innerHTML='';
+  document.getElementById('capa-results-nav').style.display='block';
+  Object.entries(capaReports).forEach(([key,r])=>{
+    const sev=r.problem_statement?.severity;
+    const vc=sev==='Critical'?'vb-r':sev==='Major'?'vb-a':'vb-g';
+    const el=document.createElement('div');el.className='col-item';el.dataset.key=key;
+    el.innerHTML=`<div><div style="font-size:11px;font-weight:500">${r.fault_pattern||r.rule_id||'Report'}</div><div style="font-size:10px;color:var(--text3)">${r._timestamp||''}</div></div><span class="vb ${vc}">${sev||'?'}</span>`;
+    el.addEventListener('click',()=>renderCAPA(r));nav.appendChild(el);
+  });
+}
+
+function renderCAPA(r){
+  destroyCharts();
+  const sev=r.problem_statement?.severity||'N/A';
+  const sevCls=sev==='Critical'?'sev-c':sev==='Major'?'sev-m':'sev-n';
+  const conf=r.confidence_level||'Medium';
+  const confCls=conf==='High'?'conf-h':conf==='Medium'?'conf-m':'conf-l';
+  const disp=r.disposition||{};
+  const dispCls=disp.recommendation==='Hold'||disp.recommendation==='Scrap'?'disp-hold':disp.recommendation==='Release'?'disp-rel':'disp-cond';
+  const dispIcon=disp.recommendation==='Hold'?'🚫':disp.recommendation==='Scrap'?'🗑':disp.recommendation==='Release'?'✅':'⚠️';
+
+  // Matched rules bar (if available)
+  const matchedRules=r._matched||[];
+  const maxScore=matchedRules[0]?.score||1;
+  const matchedHtml=matchedRules.length?`
+    <div class="card" style="margin-bottom:14px">
+      <div class="ch"><div class="ct">Auto-Detected Matches</div><div class="cs">sorted by confidence</div></div>
+      <div class="cb" style="padding:10px 14px">
+        <div class="matches-bar">
+          ${matchedRules.map((m,i)=>{
+            const sev=m.severity==='Critical'?'var(--red)':m.severity==='Major'?'var(--amber)':'var(--green)';
+            const pct=Math.round((m.score/maxScore)*100);
+            return `<div class="match-item ${i===0?'active':''}" onclick="loadMatchedRule('${m.rule_id}',this)">
+              <span class="match-rule-id">${m.rule_id}</span>
+              <div style="flex:1">
+                <div class="match-pattern">${m.fault_pattern}</div>
+                <div class="score-bar-wrap" style="margin-top:3px"><div class="score-bar" style="width:${pct}%"></div></div>
+              </div>
+              <span style="font-size:10px;font-weight:600;color:${sev}">${m.severity}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`:'';
+
+  // Evidence
+  const evHtml=(r.problem_statement?.statistical_evidence||[]).map(e=>`<div class="hint-item"><div class="ev-dot" style="background:var(--red)"></div><div style="font-size:12px">${e}</div></div>`).join('');
+  // Alt hypotheses
+  const altHtml=(r.root_cause_analysis?.alternative_hypotheses||[]).map(e=>`<div class="hint-item"><div class="ev-dot" style="background:var(--green)"></div><div style="font-size:12px">${e}</div></div>`).join('');
+  // Corrective actions
+  const corrHtml=(r.corrective_actions||[]).map(a=>`
+    <div class="action-card">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+        <span class="priority-badge ${(a.priority||'P3').toLowerCase()}">${a.priority}</span>
+        <span class="timeline-badge">${a.timeline}</span>
+        <span style="font-size:11px;color:var(--text2);margin-left:auto">${a.owner}</span>
+      </div>
+      <div style="font-size:12px;margin-bottom:3px">${a.action}</div>
+      <div style="font-size:11px;color:var(--text3)">${a.expected_impact}</div>
+    </div>`).join('');
+  // Preventive actions
+  const prevHtml=(r.preventive_actions||[]).map(a=>`
+    <div class="action-card">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+        <span class="sys-badge">${a.system_change}</span>
+        <span style="font-size:10px;color:var(--text3)">${a.timeline} · ${a.owner}</span>
+      </div>
+      <div style="font-size:12px">${a.action}</div>
+    </div>`).join('');
+
+  // Metrics
+  const m=r.metrics||{};
+  const mHtml=[
+    m.current_cpk!=null?`<div class="mc"><div class="ml">Cpk Now</div><div class="mv" style="color:${m.current_cpk>=1.33?'var(--green)':m.current_cpk>=1?'var(--amber)':'var(--red)'}">${m.current_cpk?.toFixed(3)}</div></div>`:'',
+    m.target_cpk!=null?`<div class="mc"><div class="ml">Cpk Target</div><div class="mv" style="color:var(--green)">${m.target_cpk}</div></div>`:'',
+    m.current_ppm!=null?`<div class="mc"><div class="ml">PPM</div><div class="mv" style="font-size:14px;color:${m.current_ppm>1000?'var(--red)':m.current_ppm>100?'var(--amber)':'var(--green)'}">${m.current_ppm!=null?Math.round(m.current_ppm).toLocaleString():'—'}</div></div>`:'',
+    m.sigma_level!=null?`<div class="mc"><div class="ml">Sigma</div><div class="mv">${m.sigma_level}σ</div></div>`:'',
+    m.grr_pct!=null?`<div class="mc"><div class="ml">%GRR</div><div class="mv" style="color:${m.grr_pct<10?'var(--green)':m.grr_pct<30?'var(--amber)':'var(--red)'}">${m.grr_pct?.toFixed(1)}%</div></div>`:'',
+    m.total_alarms!=null?`<div class="mc"><div class="ml">Alarms</div><div class="mv" style="color:${m.total_alarms===0?'var(--green)':m.total_alarms<5?'var(--amber)':'var(--red)'}">${m.total_alarms}</div></div>`:'',
+  ].filter(Boolean).join('');
+
+  showContent(`
+    ${matchedHtml}
+
+    <!-- Hero -->
+    <div class="capa-hero">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:17px;font-weight:700;margin-bottom:4px">${r.fault_pattern||r.rule_id}</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:8px">${r.process} · ${r.parameter||''} ${r.process_context?'· '+r.process_context:''} · ${r._timestamp||''}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="severity-badge ${sevCls}">${sev}</span>
+            <span class="conf-badge ${confCls}">${conf} Confidence</span>
+            <span style="font-size:11px;color:var(--teal);font-family:var(--mono);background:rgba(34,211,238,.08);padding:2px 9px;border-radius:20px">${r.rule_id||''}</span>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;font-size:13px;line-height:1.7;border-top:1px solid var(--border2);padding-top:10px;color:var(--text)">${r.executive_summary||r.problem_statement?.description||''}</div>
+    </div>
+
+    <!-- Metrics -->
+    ${mHtml?`<div class="metrics-grid">${mHtml}</div>`:''}
+
+    <!-- Disposition -->
+    <div class="disp-card ${dispCls}">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px">${dispIcon} Disposition: ${disp.recommendation||'TBD'}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px">${disp.rationale||''}</div>
+      ${disp.containment?`<div style="font-size:11px;color:var(--text3)"><strong style="color:var(--text2)">Containment:</strong> ${disp.containment}</div>`:''}
+    </div>
+
+    <!-- Problem + Root Cause -->
+    <div class="section-2col">
+      <div class="card">
+        <div class="ch"><div class="ct">Problem Statement</div></div>
+        <div class="cb">
+          <div style="font-size:12px;margin-bottom:9px">${r.problem_statement?.description||''}</div>
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Statistical Evidence</div>
+          <div class="hint-list">${evHtml}</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><div class="ct">Root Cause Analysis</div><div class="cs"><span class="conf-badge ${r.root_cause_analysis?.confidence==='High'?'conf-h':'conf-m'}">${r.root_cause_analysis?.confidence||'Medium'}</span></div></div>
+        <div class="cb">
+          <div style="font-size:12px;font-weight:500;margin-bottom:8px">${r.root_cause_analysis?.primary_hypothesis||''}</div>
+          ${r.root_cause_analysis?.detail?`<div style="font-size:11px;color:var(--text2);margin-bottom:9px;line-height:1.6">${r.root_cause_analysis.detail}</div>`:''}
+          ${altHtml?`<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Alternative Causes</div><div class="hint-list">${altHtml}</div>`:''}
+        </div>
+      </div>
+    </div>
+
+    <!-- Corrective Actions -->
+    <div class="card">
+      <div class="ch"><div class="ct">Corrective Actions</div><div class="cs">${(r.corrective_actions||[]).length} actions</div></div>
+      <div class="cb">${corrHtml||'<div style="color:var(--text3);font-size:12px">No corrective actions.</div>'}</div>
+    </div>
+
+    <!-- Preventive Actions -->
+    <div class="card">
+      <div class="ch"><div class="ct">Preventive Actions</div><div class="cs">${(r.preventive_actions||[]).length} actions</div></div>
+      <div class="cb">${prevHtml||'<div style="color:var(--text3);font-size:12px">No preventive actions.</div>'}</div>
+    </div>
+  `);
+}
+
+async function loadMatchedRule(ruleId, el){
+  document.querySelectorAll('.match-item').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  try{
+    const r=await fetch(`${API}/api/v1/capa/override`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({rule_id:ruleId,normality_result:attachedNorm,capability_result:attachedCap,
+        spc_result:attachedSpc,grr_result:attachedGrr,
+        process_context:document.getElementById('capa-context').value,
+        parameter_name:document.getElementById('capa-col-name').value})});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const data=await r.json();
+    // Merge matched rules back in
+    const current=Object.values(capaReports).slice(-1)[0];
+    const merged={...data.primary_capa,_matched:current?._matched,_timestamp:new Date().toLocaleTimeString()};
+    const k=`${ruleId}_${Date.now()}`;capaReports[k]=merged;buildCAPANav();renderCAPA(merged);
+  }catch(e){showToast(e.message,true);}
+}
+
+// ── AUTO-POPULATE when switching to CAPA tab ──────────────────────────────────
+function autoPopulateCAPA(){
+  if(normData&&normData.results[0]){
+    attachedNorm=normData.results[0];
+    if(!document.getElementById('capa-col-name').value)
+      document.getElementById('capa-col-name').value=normData.results[0].column;
+  }
+  const capKey=Object.keys(capData)[0];
+  if(capKey){
+    attachedCap=capData[capKey];
+    document.getElementById('capa-col-name').value=capKey;
+  }
+  const spcKey=Object.keys(spcData)[0];
+  if(spcKey) attachedSpc=spcData[spcKey];
+  const grrKey=Object.keys(grrData)[0];
+  if(grrKey) attachedGrr=grrData[grrKey];
+  updateAttachStatus();
+}
+
+// Override tab click to auto-populate
+document.querySelector('[data-tab="capa"]').addEventListener('click',()=>{
+  setTimeout(()=>{autoPopulateCAPA();},100);
+});
+
+// ══ SESSION 4: GRR ═══════════════════════════════════════════════════════════
+setupUpload('grr-upload','grr-file-input','grr-upload-title',async f=>{
+  document.getElementById('grr-upload-title').textContent=f.name;showToast(`📂 ${f.name}`);
+  const fd=new FormData();fd.append('file',f);
+  try{
+    const r=await fetch(`${API}/api/v1/grr/preview`,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const p=await r.json();
+    const box=document.getElementById('grr-preview-box');box.style.display='block';
+    box.innerHTML=`<strong>${p.column}</strong> · ${p.n_parts}p × ${p.n_operators}op × ${p.n_replicates}r<br>x̄=${p.mean} · σ=${p.std}`;
+    document.getElementById('grr-options').style.display='flex';
+    document.getElementById('grr-options')._file=f;
+  }catch(e){showToast(e.message,true);}
+});
+document.getElementById('run-grr-btn').addEventListener('click',async()=>{
+  const f=document.getElementById('grr-options')._file;if(!f)return;
+  const method=document.getElementById('grr-method').value;
+  const tol=document.getElementById('grr-tol').value;
+  const btn=document.getElementById('run-grr-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Running Gauge R&R…'));
+  const fd=new FormData();fd.append('file',f);
+  let url=`${API}/api/v1/grr/analyze?method=${method}`;if(tol)url+=`&tolerance=${parseFloat(tol)}`;
+  try{
+    const r=await fetch(url,{method:'POST',body:fd});if(!r.ok)throw new Error((await r.json()).detail);
+    const data=await r.json();grrData[data.column]=data;attachedGrr=data;updateAttachStatus();
+    buildNav('grr-col-results',grrData,renderGRR,r=>r.verdict,r=>`%GRR=${r.gauge_rr.pct_study_var.toFixed(1)}%`);renderGRR(data);
+    showToast('✅ GRR complete — attached to CAPA');
+  }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Run GRR';}
+});
+function renderGRR(r){
+  document.querySelectorAll('#grr-col-results .col-item').forEach(el=>el.classList.toggle('active',el.dataset.col===r.column));
+  destroyCharts();
+  const vc=r.verdict==='Acceptable'?'vb-ok':r.verdict==='Marginal'?'vb-warn':'vb-bad';
+  const vi=r.verdict==='Acceptable'?'✅':r.verdict==='Marginal'?'⚠️':'❌';
+  const vcc=r.verdict==='Acceptable'?'var(--green)':r.verdict==='Marginal'?'var(--amber)':'var(--red)';
+  const vcRows=[r.repeatability,r.reproducibility,r.gauge_rr,r.part_to_part,r.total_variation].map(vc=>{
+    const col=vc.source.includes('EV')?'var(--accent)':vc.source.includes('AV')?'var(--coral)':vc.source.includes('GRR')?'var(--red)':vc.source.includes('PV')?'var(--green)':'var(--text2)';
+    return `<tr><td style="font-family:var(--font);color:${col}">${vc.source}</td><td>${vc.std_dev.toFixed(6)}</td><td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${Math.min(100,vc.pct_study_var)}%;background:${col}"></div></div><span style="color:${col}">${vc.pct_study_var.toFixed(1)}%</span></div></td></tr>`;
+  }).join('');
+  const hints=r.capa_notes.map(n=>`<div class="hint-item"><div class="hd"></div><div>${n}</div></div>`).join('');
+  showContent(`
+    <div class="verdict-banner ${vc}"><div class="vi">${vi}</div>
+      <div><div class="vl" style="color:${vcc}">${r.verdict}</div><div class="vd">${r.verdict_detail}</div><div style="margin-top:3px;font-size:11px;color:var(--text2)">${r.n_parts}p×${r.n_operators}op×${r.n_replicates}r · ndc=${r.ndc}</div></div>
+    </div>
+    <div class="grr-grid"><div class="gc"><div class="gl">%GRR</div><div class="gv" style="color:${vcc}">${r.gauge_rr.pct_study_var.toFixed(1)}%</div></div><div class="gc"><div class="gl">Repeatability</div><div class="gv" style="color:var(--accent)">${r.repeatability.pct_study_var.toFixed(1)}%</div><div class="gs">EV</div></div><div class="gc"><div class="gl">Reproducibility</div><div class="gv" style="color:var(--coral)">${r.reproducibility.pct_study_var.toFixed(1)}%</div><div class="gs">AV</div></div><div class="gc"><div class="gl">Part-to-Part</div><div class="gv" style="color:var(--green)">${r.part_to_part.pct_study_var.toFixed(1)}%</div><div class="gs">PV</div></div></div>
+    <div class="card"><div class="ch"><div class="ct">Variance Components</div></div><div class="cb" style="overflow-x:auto"><table class="vc-table"><tr><th>Source</th><th>Std Dev</th><th>% Study Var</th></tr>${vcRows}</table></div></div>
+    <div class="card"><div class="ch"><div class="ct">Analysis Notes</div><div class="cs"><button onclick="switchTab('capa')" style="background:var(--accent);color:#fff;border:none;padding:3px 9px;border-radius:6px;font-size:11px;cursor:pointer">→ CAPA</button></div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
+  `);
+}
+
+// ══ SESSION 3: SPC ════════════════════════════════════════════════════════════
+setupUpload('spc-upload','spc-file-input','spc-upload-title',f=>{
+  spcFile=f;document.getElementById('spc-upload-title').textContent=f.name;showToast(`📂 ${f.name}`);
+  loadCols(f,cols=>{colStatsSpc=cols;buildColList('spc-col-list',cols,c=>{selectedSpcCol=c.name;hlt('spc-col-list',c.name);document.getElementById('spc-options').style.display='block';});document.getElementById('spc-col-section').style.display='block';});
+});
+document.getElementById('run-spc-btn').addEventListener('click',async()=>{
+  if(!spcFile||!selectedSpcCol)return;
+  const sg=parseInt(document.getElementById('spc-subgroup').value);
+  const btn=document.getElementById('run-spc-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Building control charts…'));
+  const fd=new FormData();fd.append('file',spcFile);
+  try{
+    const r=await fetch(`${API}/api/v1/spc/analyze?column=${encodeURIComponent(selectedSpcCol)}&subgroup_size=${sg}`,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const data=await r.json();spcData[selectedSpcCol]=data;attachedSpc=data;updateAttachStatus();
+    buildNav('spc-col-results',spcData,renderSPC,r=>r.in_control?'In Control':r.total_alarms<=2?'Minor':'Unstable',r=>`${r.chart_type}·${r.total_alarms} alarms`);
+    renderSPC(data);showToast('✅ SPC complete — attached to CAPA');
+  }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Run SPC';}
+});
+function renderSPC(r){
+  destroyCharts();
+  const vc=r.in_control?'vb-ok':r.total_alarms<=2?'vb-warn':'vb-bad';
+  const vi=r.in_control?'✅':r.total_alarms<=2?'⚠️':'🚨';
+  const vcc=r.in_control?'var(--green)':r.total_alarms<=2?'var(--amber)':'var(--red)';
+  const allAlarms=[...r.western_electric_alarms,...r.nelson_alarms].sort((a,b)=>a.index-b.index);
+  const alarmIdx=new Set(allAlarms.map(a=>a.index));
+  const alarmRows=allAlarms.slice(0,12).map(a=>{const rc=a.rule==='WE1'?'rb-we1':a.rule==='WE2'?'rb-we2':a.rule==='WE3'?'rb-we3':a.rule==='WE4'?'rb-we4':'rb-ne';return `<tr><td>${a.index+1}</td><td><span class="rule-badge ${rc}">${a.rule}</span></td><td>${a.value.toFixed(4)}</td><td style="font-family:var(--font);color:var(--text2);font-size:11px">${a.description}</td></tr>`;}).join('');
+  const tabs=Object.keys(spcData).map(k=>`<div class="col-tab ${k===r.column?'active':''}" onclick="renderSPC(spcData['${k}'])">${k}</div>`).join('');
+  showContent(`
+    <div class="col-tabs">${tabs}</div>
+    <div class="verdict-banner ${vc}"><div class="vi">${vi}</div>
+      <div><div class="vl" style="color:${vcc}">${r.chart_type} — ${r.stability_verdict}</div>
+      <div class="vd">CL=${r.primary_cl.toFixed(4)} · σ=${r.process_sigma.toFixed(4)} · ${r.n_points} pts</div></div>
+    </div>
+    <div class="spc-limits"><div class="lim-card"><div class="lim-label">UCL</div><div class="lim-val" style="color:var(--red)">${r.primary_ucl.toFixed(4)}</div></div><div class="lim-card"><div class="lim-label">CL</div><div class="lim-val" style="color:var(--amber)">${r.primary_cl.toFixed(4)}</div></div><div class="lim-card"><div class="lim-label">LCL</div><div class="lim-val" style="color:var(--red)">${r.primary_lcl.toFixed(4)}</div></div></div>
+    <div class="card"><div class="ch"><div class="ct">${r.primary_label}</div><div class="cs"><button onclick="switchTab('capa')" style="background:var(--accent);color:#fff;border:none;padding:3px 9px;border-radius:6px;font-size:11px;cursor:pointer">→ CAPA</button></div></div><div class="cb"><div class="chart-full"><canvas id="primary-chart"></canvas></div></div></div>
+    <div class="card"><div class="ch"><div class="ct">${r.secondary_label}</div></div><div class="cb"><div style="position:relative;height:160px"><canvas id="secondary-chart"></canvas></div></div></div>
+    ${allAlarms.length?`<div class="card"><div class="ch"><div class="ct">Violations (${allAlarms.length})</div></div><div class="cb"><table class="alarm-table"><tr><th>Pt</th><th>Rule</th><th>Value</th><th>Description</th></tr>${alarmRows}${allAlarms.length>12?`<tr><td colspan="4" style="color:var(--text3);font-size:10px">…${allAlarms.length-12} more</td></tr>`:''}</table></div></div>`:''}
+  `);
+  const gc='rgba(99,117,179,0.1)',tc='#8b92b0';
+  const ptC=r.primary_values.map((_,i)=>alarmIdx.has(i)?'#f2525a':'rgba(79,124,255,0.8)');
+  const ptR=r.primary_values.map((_,i)=>alarmIdx.has(i)?5:3);
+  charts.primary=new Chart(document.getElementById('primary-chart').getContext('2d'),{
+    data:{datasets:[
+      {type:'line',data:r.primary_values.map((v,i)=>({x:i+1,y:v})),borderColor:'rgba(79,124,255,0.8)',borderWidth:1.5,pointRadius:ptR,pointBackgroundColor:ptC,pointBorderColor:ptC,tension:0.1,fill:false,label:r.primary_label},
+      {type:'line',data:r.primary_values.map((_,i)=>({x:i+1,y:r.primary_ucl})),borderColor:'rgba(242,82,90,0.7)',borderWidth:1,pointRadius:0,borderDash:[6,3],label:'UCL'},
+      {type:'line',data:r.primary_values.map((_,i)=>({x:i+1,y:r.primary_cl})),borderColor:'rgba(245,166,35,0.8)',borderWidth:1.5,pointRadius:0,borderDash:[4,2],label:'CL'},
+      {type:'line',data:r.primary_values.map((_,i)=>({x:i+1,y:r.primary_lcl})),borderColor:'rgba(242,82,90,0.7)',borderWidth:1,pointRadius:0,borderDash:[6,3],label:'LCL'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:true,labels:{color:tc,font:{size:10},boxWidth:10}}},scales:{x:{type:'linear',grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}}
+  });
+  charts.secondary=new Chart(document.getElementById('secondary-chart').getContext('2d'),{
+    data:{datasets:[
+      {type:'bar',data:r.secondary_values.map((v,i)=>({x:i+1,y:v})),backgroundColor:'rgba(34,211,238,0.35)',borderColor:'rgba(34,211,238,0.6)',borderWidth:1,barPercentage:0.7},
+      {type:'line',data:r.secondary_values.map((_,i)=>({x:i+1,y:r.secondary_ucl})),borderColor:'rgba(242,82,90,0.7)',borderWidth:1,pointRadius:0,borderDash:[6,3]},
+      {type:'line',data:r.secondary_values.map((_,i)=>({x:i+1,y:r.secondary_cl})),borderColor:'rgba(245,166,35,0.8)',borderWidth:1.5,pointRadius:0,borderDash:[4,2]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{type:'linear',grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}},min:0}}}
+  });
+}
+
+// ══ SESSION 2: CAPABILITY ════════════════════════════════════════════════════
+setupUpload('cap-upload','cap-file-input','cap-upload-title',f=>{
+  capFile=f;document.getElementById('cap-upload-title').textContent=f.name;showToast(`📂 ${f.name}`);
+  loadCols(f,cols=>{colStatsCap=cols;buildColList('cap-col-list',cols,c=>{selectedCapCol=c.name;hlt('cap-col-list',c.name);document.getElementById('spec-form').style.display='flex';document.getElementById('spec-hint').innerHTML=`x̄=${c.mean} · σ=${c.std} · [${c.min},${c.max}]`;document.getElementById('usl-input').value=(c.mean+3*c.std).toFixed(4);document.getElementById('lsl-input').value=(c.mean-3*c.std).toFixed(4);});document.getElementById('cap-col-section').style.display='block';});
+});
+document.getElementById('run-cap-btn').addEventListener('click',async()=>{
+  if(!capFile||!selectedCapCol)return;
+  const usl=parseFloat(document.getElementById('usl-input').value),lsl=parseFloat(document.getElementById('lsl-input').value);
+  if(isNaN(usl)||isNaN(lsl)||usl<=lsl){showToast('Check USL/LSL',true);return;}
+  const btn=document.getElementById('run-cap-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Calculating capability…'));
+  const fd=new FormData();fd.append('file',capFile);
+  try{
+    const r=await fetch(`${API}/api/v1/capability/analyze?column=${encodeURIComponent(selectedCapCol)}&usl=${usl}&lsl=${lsl}`,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const data=await r.json();capData[selectedCapCol]=data;attachedCap=data;updateAttachStatus();
+    buildNav('cap-col-results',capData,renderCap,r=>r.verdict,r=>`Cpk=${r.cpk.toFixed(3)}`);renderCap(data);
+    showToast('✅ Capability complete — attached to CAPA');
+  }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Run Capability';}
+});
+function renderCap(r){
+  destroyCharts();
+  const vc=r.verdict==='Excellent'||r.verdict==='Capable'?'vb-ok':r.verdict==='Marginal'?'vb-warn':'vb-bad';
+  const vi=r.verdict==='Excellent'?'🏆':r.verdict==='Capable'?'✅':r.verdict==='Marginal'?'⚠️':'❌';
+  const vcc=r.verdict==='Excellent'||r.verdict==='Capable'?'var(--green)':r.verdict==='Marginal'?'var(--amber)':'var(--red)';
+  const hints=r.capa_notes.map(n=>`<div class="hint-item"><div class="hd"></div><div>${n}</div></div>`).join('');
+  const tabs=Object.keys(capData).map(k=>`<div class="col-tab ${k===r.column?'active':''}" onclick="renderCap(capData['${k}'])">${k}</div>`).join('');
+  showContent(`
+    <div class="col-tabs">${tabs}</div>
+    <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${vcc}">${r.verdict}</div><div class="vd">${r.verdict_detail}</div></div></div>
+    <div class="indices-grid">
+      <div class="ic"><div class="in">Cp</div><div class="iv" style="color:${r.cp>=1.33?'var(--green)':r.cp>=1?'var(--amber)':'var(--red)'}">${r.cp.toFixed(3)}</div></div>
+      <div class="ic"><div class="in">Cpk</div><div class="iv" style="color:${r.cpk>=1.33?'var(--green)':r.cpk>=1?'var(--amber)':'var(--red)'}">${r.cpk.toFixed(3)}</div></div>
+      <div class="ic"><div class="in">Pp</div><div class="iv" style="color:${r.pp>=1.33?'var(--green)':r.pp>=1?'var(--amber)':'var(--red)'}">${r.pp.toFixed(3)}</div></div>
+      <div class="ic"><div class="in">Ppk</div><div class="iv" style="color:${r.ppk>=1.33?'var(--green)':r.ppk>=1?'var(--amber)':'var(--red)'}">${r.ppk.toFixed(3)}</div></div>
+      <div class="ic"><div class="in">σ</div><div class="iv">${r.sigma_level.toFixed(2)}σ</div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Capability Histogram</div><div class="cs"><button onclick="switchTab('capa')" style="background:var(--accent);color:#fff;border:none;padding:3px 9px;border-radius:6px;font-size:11px;cursor:pointer">→ CAPA</button></div></div><div class="cb"><div class="chart-half"><canvas id="cap-hist"></canvas></div></div></div>
+    <div class="card"><div class="ch"><div class="ct">Analysis Notes</div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
+  `);
+  const hd=r.histogram_data,gc='rgba(99,117,179,0.1)',tc='#8b92b0';
+  charts.ch=new Chart(document.getElementById('cap-hist').getContext('2d'),{
+    data:{datasets:[
+      {type:'bar',data:hd.bin_centers.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:hd.counts[i]})),backgroundColor:'rgba(79,124,255,0.35)',borderColor:'rgba(79,124,255,0.7)',borderWidth:1,barPercentage:.95,categoryPercentage:1,order:2},
+      {type:'line',data:hd.curve_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(hd.curve_within[i].toFixed(4))})),borderColor:'#2dd4a0',borderWidth:2,pointRadius:0,tension:.4,order:1},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{type:'linear',grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:8}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}}
+  });
+  const cht=charts.ch;const orig=cht.draw.bind(cht);
+  cht.draw=function(){orig();const ctx=cht.ctx;const top=cht.chartArea?.top,bot=cht.chartArea?.bottom;if(!top)return;
+    [[hd.lsl,'#f2525a','LSL'],[hd.usl,'#f2525a','USL'],[hd.mean,'#f5a623','x̄']].forEach(([v,c,l])=>{
+      const x=cht.scales.x.getPixelForValue(v);ctx.save();ctx.strokeStyle=c;ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bot);ctx.stroke();ctx.fillStyle=c;ctx.font='10px SF Mono,monospace';ctx.textAlign='center';ctx.fillText(l,x,top-4);ctx.restore();
+    });
+  };cht.draw();
+}
+
+// ══ SESSION 1: NORMALITY ════════════════════════════════════════════════════
+setupUpload('norm-upload','norm-file-input','norm-upload-title',f=>{
+  normFile=f;document.getElementById('norm-upload-title').textContent=f.name;
+  document.getElementById('run-norm-btn').disabled=false;showToast(`📂 ${f.name}`);
+});
+document.getElementById('run-norm-btn').addEventListener('click',async()=>{
+  if(!normFile)return;
+  const alpha=parseFloat(document.getElementById('alpha-select').value);
+  const btn=document.getElementById('run-norm-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Running normality tests…'));
+  const fd=new FormData();fd.append('file',normFile);
+  try{
+    const r=await fetch(`${API}/api/v1/normality/analyze?alpha=${alpha}`,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    normData=await r.json();attachedNorm=normData.results[0];updateAttachStatus();
+    const nav=document.getElementById('norm-col-results');nav.innerHTML='';document.getElementById('norm-results-nav').style.display='block';
+    normData.results.forEach(rr=>{const bc=rr.overall_verdict==='Normal'?'vb-g':rr.overall_verdict==='Likely Normal'?'vb-a':'vb-r';const el=document.createElement('div');el.className='col-item';el.dataset.col=rr.column;el.innerHTML=`<div><div style="font-size:11px;font-weight:500">${rr.column}</div><div style="font-size:10px;color:var(--text3)">n=${rr.n}</div></div><span class="vb ${bc}">${rr.overall_verdict}</span>`;el.addEventListener('click',()=>{attachedNorm=rr;updateAttachStatus();showNorm(rr.column);});nav.appendChild(el);});
+    showNorm(normData.results[0]?.column);showToast('✅ Normality complete — attached to CAPA');
+  }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Run Normality';}
+});
+function showNorm(colName){
+  if(!normData)return;destroyCharts();
+  const r=normData.results.find(x=>x.column===colName);if(!r)return;
+  const vc=r.overall_verdict==='Normal'?'vb-ok':r.overall_verdict==='Likely Normal'?'vb-warn':'vb-bad';
+  const vi=r.overall_verdict==='Normal'?'✅':r.overall_verdict==='Likely Normal'?'⚠️':'❌';
+  const cc=r.overall_verdict==='Normal'?'var(--green)':r.overall_verdict==='Likely Normal'?'var(--amber)':'var(--red)';
+  const tvS=f=>f?'color:var(--red);font-weight:600':'color:var(--green);font-weight:600';
+  const hints=r.capability_hint.downstream_notes.map(n=>`<div class="hint-item"><div class="hd"></div><div>${n}</div></div>`).join('');
+  const tabs=normData.results.map(x=>`<div class="col-tab ${x.column===colName?'active':''}" onclick="showNorm('${x.column}')">${x.column}</div>`).join('');
+  showContent(`
+    <div class="col-tabs">${tabs}</div>
+    <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${cc}">${r.overall_verdict}</div><div class="vd">${r.capability_hint.reason}</div></div></div>
+    <div class="stat-grid"><div class="sc2"><div class="sl2">Mean</div><div class="sv" style="font-size:16px">${r.mean.toFixed(4)}</div></div><div class="sc2"><div class="sl2">Std Dev</div><div class="sv" style="font-size:16px">${r.std.toFixed(4)}</div></div><div class="sc2"><div class="sl2">Skewness</div><div class="sv" style="font-size:16px">${r.skewness.toFixed(3)}</div></div><div class="sc2"><div class="sl2">Kurtosis</div><div class="sv" style="font-size:16px">${r.kurtosis.toFixed(3)}</div></div></div>
+    <div class="card"><div class="ch"><div class="ct">Tests</div><div class="cs"><button onclick="switchTab('capa')" style="background:var(--accent);color:#fff;border:none;padding:3px 9px;border-radius:6px;font-size:11px;cursor:pointer">→ CAPA</button></div></div>
+      <div class="cb"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">
+        <div class="ic"><div class="in">Shapiro-Wilk</div><div class="iv" style="font-size:12px">W=${r.shapiro_wilk.statistic.toFixed(5)}</div><div class="is" style="${tvS(r.shapiro_wilk.reject_null)}">${r.shapiro_wilk.reject_null?'✗ Not Normal':'✓ Normal'}</div></div>
+        <div class="ic"><div class="in">Anderson-Darling</div><div class="iv" style="font-size:12px">A²=${r.anderson_darling.statistic.toFixed(5)}</div><div class="is" style="${tvS(r.anderson_darling.reject_null)}">${r.anderson_darling.reject_null?'✗':'✓'}</div></div>
+        <div class="ic"><div class="in">Ryan-Joiner</div><div class="iv" style="font-size:12px">RJ=${r.ryan_joiner.statistic.toFixed(5)}</div><div class="is" style="${tvS(r.ryan_joiner.reject_null)}">${r.ryan_joiner.reject_null?'✗':'✓'}</div></div>
+      </div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="card"><div class="ch"><div class="ct">Histogram</div></div><div class="cb"><div class="chart-half"><canvas id="hist-chart"></canvas></div></div></div>
+      <div class="card"><div class="ch"><div class="ct">Probability Plot</div></div><div class="cb"><div class="chart-half"><canvas id="prob-chart"></canvas></div></div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Downstream Guidance</div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
+  `);
+  const hd=r.histogram_data,pd=r.probability_plot_data,gc='rgba(99,117,179,0.1)',tc='#8b92b0';
+  charts.hist=new Chart(document.getElementById('hist-chart').getContext('2d'),{data:{datasets:[{type:'bar',data:hd.bin_centers.map((x,i)=>({x:x.toFixed(4),y:hd.counts[i]})),backgroundColor:'rgba(79,124,255,0.35)',borderColor:'rgba(79,124,255,0.7)',borderWidth:1,barPercentage:.95,categoryPercentage:1},{type:'line',data:hd.curve_x.map((x,i)=>({x:x.toFixed(4),y:hd.curve_y[i].toFixed(3)})),borderColor:'#2dd4a0',borderWidth:2,pointRadius:0,tension:.4}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:8}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}}});
+  charts.prob=new Chart(document.getElementById('prob-chart').getContext('2d'),{data:{datasets:[{type:'scatter',data:pd.theoretical_quantiles.map((q,i)=>({x:parseFloat(q.toFixed(4)),y:parseFloat(pd.sample_values[i].toFixed(4))})),backgroundColor:'rgba(79,124,255,0.6)',pointRadius:3},{type:'line',data:pd.fit_line_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(pd.fit_line_y[i].toFixed(4))})),borderColor:'#f2525a',borderWidth:1.5,pointRadius:0,borderDash:[4,3]}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}}});
+}
+
+// ══ Shared Utilities ══════════════════════════════════════════════════════════
+function setupUpload(zoneId,inputId,titleId,handler){
+  const input=document.getElementById(inputId),zone=document.getElementById(zoneId);
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+  zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');if(e.dataTransfer.files[0])handler(e.dataTransfer.files[0]);});
+  input.addEventListener('change',e=>{if(e.target.files[0])handler(e.target.files[0]);});
+}
+async function loadCols(file,cb){
+  const fd=new FormData();fd.append('file',file);
+  try{const r=await fetch(`${API}/api/v1/columns`,{method:'POST',body:fd});if(r.ok)cb((await r.json()).columns);}catch{}
+}
+function buildColList(listId,cols,selectFn){
+  const list=document.getElementById(listId);list.innerHTML='';
+  cols.forEach(c=>{const el=document.createElement('div');el.className='col-item';el.dataset.col=c.name;el.innerHTML=`<div><div style="font-size:11px;font-weight:500">${c.name}</div><div style="font-size:10px;color:var(--text3)">n=${c.n}·x̄=${c.mean}</div></div>`;el.addEventListener('click',()=>selectFn(c));list.appendChild(el);});
+}
+function buildNav(navId,dataObj,renderFn,verdictFn,metaFn){
+  const nav=document.getElementById(navId);if(!nav)return;nav.innerHTML='';
+  const parent=nav.parentElement;if(parent)parent.style.display='block';
+  Object.values(dataObj).forEach(r=>{
+    const v=verdictFn(r);const vc=v==='In Control'||v==='Acceptable'||v==='Capable'||v==='Excellent'?'vb-g':v==='Minor'||v==='Marginal'?'vb-a':'vb-r';
+    const el=document.createElement('div');el.className='col-item';el.dataset.col=r.column;
+    el.innerHTML=`<div><div style="font-size:11px;font-weight:500">${r.column}</div><div style="font-size:10px;color:var(--text3)">${metaFn(r)}</div></div><span class="vb ${vc}">${v}</span>`;
+    el.addEventListener('click',()=>renderFn(r));nav.appendChild(el);
+  });
+}
+function hlt(id,name){document.querySelectorAll(`#${id} .col-item`).forEach(el=>el.classList.toggle('active',el.dataset.col===name));}
+function switchTab(name){document.querySelectorAll('.tab').forEach(t=>{if(t.dataset.tab===name)t.click();});}
+function destroyCharts(){Object.values(charts).forEach(c=>{try{c.destroy();}catch{}});charts={};}
+function showContent(html){document.getElementById('content').innerHTML=html;}
+function loadHtml(msg){return `<div class="loading"><div class="spinner"></div><div style="color:var(--text2);font-size:12px">${msg}</div></div>`;}
+function showEmpty(icon,title,sub){showContent(`<div class="empty-state"><div style="font-size:44px;opacity:.12">${icon}</div><div style="font-size:16px;font-weight:500;color:var(--text2)">${title}</div><div style="font-size:12px;color:var(--text3);max-width:380px;line-height:1.7">${sub}</div></div>`);}
+function showToast(msg,isError=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(isError?' error':'');setTimeout(()=>t.className='toast',3500);}
+
+
+// ══ SESSION 6: PDF REPORT ════════════════════════════════════════════════════
+function updateReportStatus(){
+  const set=(id,val,ok)=>{const el=document.getElementById(id);if(el){el.textContent=val;el.style.color=ok?'var(--green)':'var(--text3)';}};
+  set('rpt-norm-status',attachedNorm?'✓ ready':'—',!!attachedNorm);
+  set('rpt-cap-status',attachedCap?'✓ ready':'—',!!attachedCap);
+  set('rpt-spc-status',attachedSpc?'✓ ready':'—',!!attachedSpc);
+  set('rpt-grr-status',attachedGrr?'✓ ready':'—',!!attachedGrr);
+  const hasCapa=Object.keys(capaReports).length>0;
+  set('rpt-capa-status',hasCapa?'✓ ready':'—',hasCapa);
+  // Pre-fill fields
+  const colEl=document.getElementById('capa-col-name');
+  const paramEl=document.getElementById('rpt-param');
+  if(colEl&&paramEl&&!paramEl.value) paramEl.value=colEl.value;
+  const procEl=document.getElementById('rpt-process');
+  const ctxEl=document.getElementById('capa-context');
+  if(ctxEl&&procEl&&!procEl.value) procEl.value=ctxEl.value;
+}
+
+document.getElementById('run-report-btn').addEventListener('click',async()=>{
+  const capaKey=Object.keys(capaReports)[0];
+  const capaResult=capaKey?capaReports[capaKey]:null;
+  if(!attachedNorm&&!attachedCap&&!attachedSpc&&!attachedGrr&&!capaResult){
+    showToast('Run at least one analysis session first',true);return;
+  }
+  const btn=document.getElementById('run-report-btn');btn.disabled=true;btn.textContent='Generating PDF…';
+  showContent(loadHtml('Building PDF report — rendering charts…'));
+  try{
+    const r=await fetch(`${API}/api/v1/report/generate`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        normality_result:attachedNorm, capability_result:attachedCap,
+        spc_result:attachedSpc, grr_result:attachedGrr,
+        capa_result:capaResult,
+        parameter_name:document.getElementById('rpt-param').value||'Process Parameter',
+        process_type:document.getElementById('rpt-process').value||'N/A',
+        meta:{
+          parameter:document.getElementById('rpt-param').value||'Process Parameter',
+          process:document.getElementById('rpt-process').value||'N/A',
+          n:attachedCap?.n||attachedNorm?.n||'N/A',
+        }
+      })
+    });
+    if(!r.ok)throw new Error((await r.json()).detail||'PDF generation failed');
+    const data=await r.json();
+    document.getElementById('report-download-area').style.display='flex';
+    document.getElementById('report-success-msg').textContent=
+      `✓ Report ready — ${data.sections_included} sections, ${data.size_kb} KB`;
+    const link=document.getElementById('report-download-link');
+    link.href=`${API}${data.download_url}`;
+    link.download=`statmind_report_${data.report_id}.pdf`;
+    showContent(`
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;gap:16px">
+        <div style="font-size:48px">📄</div>
+        <div style="font-size:18px;font-weight:600;color:var(--green)">Report Generated</div>
+        <div style="font-size:13px;color:var(--text2)">${data.sections_included} sections · ${data.size_kb} KB</div>
+        <a href="${API}${data.download_url}" download="statmind_report_${data.report_id}.pdf"
+           style="padding:14px 32px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-radius:10px;font-size:14px;font-weight:700;text-decoration:none;margin-top:8px">
+          ⬇ Download PDF Report
+        </a>
+        <div style="font-size:11px;color:var(--text3)">File: statmind_report_${data.report_id}.pdf</div>
+      </div>
+    `);
+    showToast('✅ PDF ready for download');
+  }catch(e){showToast(`Error: ${e.message}`,true);showEmpty('❌',e.message,'Check the API is running on port 8010');}
+  finally{btn.disabled=false;btn.textContent='Generate PDF Report';}
+});
+
+// Init
+['sb-report','sb-grr','sb-spc','sb-cap','sb-norm'].forEach(id=>document.getElementById(id).style.display='none');
+</script>
+</body>
+</html>

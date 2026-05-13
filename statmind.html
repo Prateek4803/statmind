@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StatMind — Process Statistics Engine</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --bg2: #141720;
+    --bg3: #1c2030;
+    --border: rgba(99,117,179,0.18);
+    --border2: rgba(99,117,179,0.35);
+    --text: #e8eaf2;
+    --text2: #8b92b0;
+    --text3: #5a607a;
+    --accent: #4f7cff;
+    --accent2: #7b4fff;
+    --green: #2dd4a0;
+    --amber: #f5a623;
+    --red: #f2525a;
+    --blue-dim: rgba(79,124,255,0.12);
+    --card-r: 12px;
+    --font: 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    --mono: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-mark {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; color: #fff;
+  }
+  .logo-name { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo-tag { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .header-meta { font-size: 12px; color: var(--text3); text-align: right; }
+  .api-status { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot.ok { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .dot.err { background: var(--red); }
+  .dot.checking { background: var(--amber); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* Main Layout */
+  .main { display: grid; grid-template-columns: 340px 1fr; min-height: calc(100vh - 65px); }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 24px 20px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  .upload-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--card-r);
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg3);
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--blue-dim);
+  }
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon { font-size: 32px; margin-bottom: 10px; }
+  .upload-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .upload-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  .section-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text3); margin-bottom: 8px;
+  }
+
+  .col-list { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
+  .col-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 8px; cursor: pointer;
+    background: var(--bg3); border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+  .col-item:hover { border-color: var(--border2); }
+  .col-item.active {
+    background: var(--blue-dim);
+    border-color: var(--accent);
+  }
+  .col-item.active .col-name { color: var(--accent); }
+  .verdict-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 7px;
+    border-radius: 20px; white-space: nowrap; margin-left: auto;
+  }
+  .badge-normal { background: rgba(45,212,160,0.15); color: var(--green); }
+  .badge-likely { background: rgba(245,166,35,0.15); color: var(--amber); }
+  .badge-nonnormal { background: rgba(242,82,90,0.15); color: var(--red); }
+  .col-n { font-size: 11px; color: var(--text3); }
+
+  .alpha-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; background: var(--bg3); border-radius: 8px;
+  }
+  .alpha-row label { font-size: 12px; color: var(--text2); flex: 1; }
+  .alpha-row select {
+    background: var(--bg2); border: 1px solid var(--border2); color: var(--text);
+    padding: 4px 8px; border-radius: 6px; font-size: 12px; font-family: var(--font);
+  }
+
+  .run-btn {
+    width: 100%; padding: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; border: none; border-radius: 9px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .run-btn:hover { opacity: 0.9; }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Content Area */
+  .content { padding: 28px 32px; overflow-y: auto; }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 500px; text-align: center; gap: 14px;
+  }
+  .empty-icon { font-size: 52px; opacity: 0.15; }
+  .empty-title { font-size: 18px; font-weight: 500; color: var(--text2); }
+  .empty-sub { font-size: 13px; color: var(--text3); max-width: 380px; line-height: 1.7; }
+
+  /* Stats Summary */
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--card-r); padding: 16px 18px;
+  }
+  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; }
+  .stat-value { font-size: 22px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .stat-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  /* Test Results Table */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--card-r); margin-bottom: 20px; overflow: hidden;
+  }
+  .card-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card-title { font-size: 13px; font-weight: 600; }
+  .card-sub { font-size: 12px; color: var(--text2); margin-left: auto; }
+  .card-body { padding: 16px 18px; }
+
+  .test-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .test-card {
+    background: var(--bg3); border-radius: 10px; padding: 14px 16px;
+    border: 1px solid var(--border);
+  }
+  .test-name { font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  .test-stat { font-size: 20px; font-weight: 600; font-family: var(--mono); }
+  .test-p { font-size: 12px; color: var(--text2); margin-top: 3px; font-family: var(--mono); }
+  .test-verdict {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 600; margin-top: 8px;
+    padding: 3px 9px; border-radius: 20px;
+  }
+  .tv-pass { background: rgba(45,212,160,0.12); color: var(--green); }
+  .tv-fail { background: rgba(242,82,90,0.12); color: var(--red); }
+
+  /* Verdict Banner */
+  .verdict-banner {
+    border-radius: var(--card-r); padding: 16px 20px;
+    display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px;
+    border: 1px solid;
+  }
+  .vb-normal { background: rgba(45,212,160,0.06); border-color: rgba(45,212,160,0.3); }
+  .vb-likely { background: rgba(245,166,35,0.06); border-color: rgba(245,166,35,0.3); }
+  .vb-nonnormal { background: rgba(242,82,90,0.06); border-color: rgba(242,82,90,0.3); }
+  .verdict-icon { font-size: 24px; margin-top: 1px; }
+  .verdict-label { font-size: 16px; font-weight: 600; }
+  .verdict-desc { font-size: 13px; color: var(--text2); margin-top: 3px; }
+
+  /* Charts */
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .chart-wrap { position: relative; height: 260px; }
+
+  /* CAPA / Hints */
+  .hint-list { display: flex; flex-direction: column; gap: 8px; }
+  .hint-item {
+    display: flex; align-items: flex-start; gap: 10px; font-size: 13px;
+  }
+  .hint-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-top: 6px; flex-shrink: 0; }
+
+  /* Descriptive stats */
+  .desc-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+  .desc-item { background: var(--bg3); border-radius: 8px; padding: 10px 14px; }
+  .desc-lbl { font-size: 11px; color: var(--text3); }
+  .desc-val { font-size: 15px; font-weight: 500; font-family: var(--mono); margin-top: 2px; }
+
+  /* Loading */
+  .loading {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 400px; gap: 16px;
+  }
+  .spinner {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--bg2); border: 1px solid var(--border2);
+    color: var(--text); padding: 12px 18px; border-radius: 10px;
+    font-size: 13px; z-index: 1000; opacity: 0;
+    transition: opacity 0.3s; max-width: 360px;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { border-color: var(--red); }
+
+  /* Col nav tabs */
+  .col-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+  .col-tab {
+    padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border2); background: var(--bg2);
+    color: var(--text2); transition: all 0.15s;
+  }
+  .col-tab.active {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-mark">S</div>
+    <div>
+      <div class="logo-name">StatMind</div>
+      <div class="logo-tag">Process Statistics Engine — Session 1: Normality Analysis</div>
+    </div>
+  </div>
+  <div>
+    <div class="api-status" id="api-status">
+      <div class="dot checking" id="status-dot"></div>
+      <span id="status-text">Checking API…</span>
+    </div>
+    <div class="header-meta" style="margin-top:4px">Port 8010</div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <!-- Upload -->
+    <div>
+      <div class="section-label">Data Source</div>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls" />
+        <div class="upload-icon">📊</div>
+        <div class="upload-title" id="upload-title">Drop file or click to browse</div>
+        <div class="upload-sub">Excel (.xlsx) or CSV — auto-detected</div>
+      </div>
+    </div>
+
+    <!-- Alpha -->
+    <div class="alpha-row">
+      <label>Significance level (α)</label>
+      <select id="alpha-select">
+        <option value="0.10">0.10</option>
+        <option value="0.05" selected>0.05</option>
+        <option value="0.01">0.01</option>
+      </select>
+    </div>
+
+    <!-- Columns -->
+    <div id="col-section" style="display:none">
+      <div class="section-label">Numeric Columns Detected</div>
+      <div class="col-list" id="col-list"></div>
+    </div>
+
+    <button class="run-btn" id="run-btn" disabled>
+      Run Normality Analysis
+    </button>
+
+    <!-- After analysis: column results list -->
+    <div id="results-nav" style="display:none">
+      <div class="section-label">Column Results</div>
+      <div class="col-list" id="col-results-list"></div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="content" id="content">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">⚗️</div>
+      <div class="empty-title">Upload process data to begin</div>
+      <div class="empty-sub">
+        StatMind will run Anderson-Darling, Shapiro-Wilk, and Ryan-Joiner normality tests,
+        then recommend the appropriate capability approach for your data.
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://localhost:8010';
+let analysisData = null;
+let currentCol = null;
+let charts = {};
+let selectedFile = null;
+
+// API health check
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    if (r.ok) {
+      document.getElementById('status-dot').className = 'dot ok';
+      document.getElementById('status-text').textContent = 'API connected';
+    } else throw new Error();
+  } catch {
+    document.getElementById('status-dot').className = 'dot err';
+    document.getElementById('status-text').textContent = 'API offline — start uvicorn';
+  }
+}
+
+checkHealth();
+setInterval(checkHealth, 15000);
+
+// File upload
+const fileInput = document.getElementById('file-input');
+const uploadZone = document.getElementById('upload-zone');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  selectedFile = file;
+  document.getElementById('upload-title').textContent = file.name;
+  document.getElementById('run-btn').disabled = false;
+  // Peek at columns via a quick parse preview (just show filename + enable button)
+  showToast(`📂 Loaded: ${file.name}`, false);
+}
+
+// Run analysis
+document.getElementById('run-btn').addEventListener('click', runAnalysis);
+
+async function runAnalysis() {
+  if (!selectedFile) return;
+  const alpha = parseFloat(document.getElementById('alpha-select').value);
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = 'Analyzing…';
+
+  showContent(`<div class="loading"><div class="spinner"></div><div style="color:var(--text2);font-size:13px">Running normality tests…</div></div>`);
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+  fd.append('alpha', alpha);
+
+  try {
+    const r = await fetch(`${API}/api/v1/normality/analyze?alpha=${alpha}`, { method:'POST', body: fd });
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.detail || 'Analysis failed');
+    }
+    analysisData = await r.json();
+    renderResults();
+  } catch(e) {
+    showToast(`Error: ${e.message}`, true);
+    showContent(`<div class="empty-state"><div class="empty-icon">❌</div><div class="empty-title">${e.message}</div><div class="empty-sub">Make sure the StatMind API is running on port 8010 and your file has numeric columns.</div></div>`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run Normality Analysis';
+  }
+}
+
+function showContent(html) {
+  document.getElementById('content').innerHTML = html;
+}
+
+function renderResults() {
+  const data = analysisData;
+  // Build results nav in sidebar
+  const nav = document.getElementById('col-results-list');
+  nav.innerHTML = '';
+  document.getElementById('results-nav').style.display = 'block';
+  document.getElementById('col-section').style.display = 'none';
+
+  data.results.forEach((r, i) => {
+    const item = document.createElement('div');
+    item.className = 'col-item';
+    item.dataset.col = r.column;
+    const badgeCls = r.overall_verdict === 'Normal' ? 'badge-normal' : r.overall_verdict === 'Likely Normal' ? 'badge-likely' : 'badge-nonnormal';
+    item.innerHTML = `
+      <div>
+        <div class="col-name" style="font-size:13px;font-weight:500">${r.column}</div>
+        <div class="col-n">n=${r.n}</div>
+      </div>
+      <span class="verdict-badge ${badgeCls}">${r.overall_verdict}</span>
+    `;
+    item.addEventListener('click', () => showColumn(r.column));
+    nav.appendChild(item);
+  });
+
+  // Show first column
+  if (data.results.length > 0) showColumn(data.results[0].column);
+}
+
+function showColumn(colName) {
+  // Highlight nav item
+  document.querySelectorAll('#col-results-list .col-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.col === colName);
+  });
+
+  currentCol = colName;
+  const r = analysisData.results.find(x => x.column === colName);
+  if (!r) return;
+
+  // Destroy old charts
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+
+  const verdictClass = r.overall_verdict === 'Normal' ? 'vb-normal' : r.overall_verdict === 'Likely Normal' ? 'vb-likely' : 'vb-nonnormal';
+  const verdictIcon = r.overall_verdict === 'Normal' ? '✅' : r.overall_verdict === 'Likely Normal' ? '⚠️' : '❌';
+  const confColor = r.confidence === 'High' ? 'var(--green)' : r.confidence === 'Medium' ? 'var(--amber)' : 'var(--red)';
+
+  const swBadge = r.shapiro_wilk.reject_null ? 'tv-fail' : 'tv-pass';
+  const adBadge = r.anderson_darling.reject_null ? 'tv-fail' : 'tv-pass';
+  const rjBadge = r.ryan_joiner.reject_null ? 'tv-fail' : 'tv-pass';
+
+  const hints = r.capability_hint.downstream_notes.map(n =>
+    `<div class="hint-item"><div class="hint-dot"></div><div>${n}</div></div>`
+  ).join('');
+
+  const html = `
+    <!-- Column tabs -->
+    <div class="col-tabs" id="col-tabs">
+      ${analysisData.results.map(x => {
+        const tc = x.overall_verdict === 'Normal' ? 'var(--green)' : x.overall_verdict === 'Likely Normal' ? 'var(--amber)' : 'var(--red)';
+        return `<div class="col-tab ${x.column===colName?'active':''}" onclick="showColumn('${x.column}')">${x.column}</div>`;
+      }).join('')}
+    </div>
+
+    <!-- Verdict Banner -->
+    <div class="verdict-banner ${verdictClass}">
+      <div class="verdict-icon">${verdictIcon}</div>
+      <div>
+        <div class="verdict-label" style="color:${confColor}">${r.overall_verdict}</div>
+        <div class="verdict-desc">${r.capability_hint.reason}</div>
+        <div style="margin-top:8px;font-size:12px;color:var(--text2)">
+          Confidence: <span style="font-weight:600;color:${confColor}">${r.confidence}</span>
+          &nbsp;·&nbsp; Recommended: <span style="font-weight:600;color:var(--text)">${r.capability_hint.recommended_approach}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Descriptive Stats -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">Descriptive Statistics</div>
+        <div class="card-sub">${r.column} · n = ${r.n}</div>
+      </div>
+      <div class="card-body">
+        <div class="desc-grid">
+          <div class="desc-item"><div class="desc-lbl">Mean</div><div class="desc-val">${r.mean.toFixed(4)}</div></div>
+          <div class="desc-item"><div class="desc-lbl">Std Dev</div><div class="desc-val">${r.std.toFixed(4)}</div></div>
+          <div class="desc-item"><div class="desc-lbl">Min</div><div class="desc-val">${r.min_val.toFixed(4)}</div></div>
+          <div class="desc-item"><div class="desc-lbl">Max</div><div class="desc-val">${r.max_val.toFixed(4)}</div></div>
+          <div class="desc-item"><div class="desc-lbl">Skewness</div><div class="desc-val" style="color:${Math.abs(r.skewness)>1?'var(--amber)':'var(--text)'}">${r.skewness.toFixed(4)}</div></div>
+          <div class="desc-item"><div class="desc-lbl">Kurtosis</div><div class="desc-val" style="color:${Math.abs(r.kurtosis-3)>2?'var(--amber)':'var(--text)'}">${r.kurtosis.toFixed(4)}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test Results -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">Normality Test Results</div>
+        <div class="card-sub">α = ${analysisData.alpha}</div>
+      </div>
+      <div class="card-body">
+        <div class="test-grid">
+          <div class="test-card">
+            <div class="test-name">Shapiro-Wilk</div>
+            <div class="test-stat">W = ${r.shapiro_wilk.statistic.toFixed(5)}</div>
+            <div class="test-p">p = ${r.shapiro_wilk.p_value.toFixed(5)}</div>
+            <div class="test-verdict ${swBadge}">${r.shapiro_wilk.reject_null ? '✗ Reject H₀' : '✓ Fail to reject H₀'}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px">Best for n < 50</div>
+          </div>
+          <div class="test-card">
+            <div class="test-name">Anderson-Darling</div>
+            <div class="test-stat">A² = ${r.anderson_darling.statistic.toFixed(5)}</div>
+            <div class="test-p">p ≈ ${r.anderson_darling.p_value.toFixed(5)}</div>
+            <div class="test-verdict ${adBadge}">${r.anderson_darling.reject_null ? '✗ Reject H₀' : '✓ Fail to reject H₀'}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px">CV = ${r.anderson_darling.critical_value?.toFixed(4)}</div>
+          </div>
+          <div class="test-card">
+            <div class="test-name">Ryan-Joiner</div>
+            <div class="test-stat">RJ = ${r.ryan_joiner.statistic.toFixed(5)}</div>
+            <div class="test-p">p ≈ ${r.ryan_joiner.p_value.toFixed(5)}</div>
+            <div class="test-verdict ${rjBadge}">${r.ryan_joiner.reject_null ? '✗ Reject H₀' : '✓ Fail to reject H₀'}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:6px">CV = ${r.ryan_joiner.critical_value?.toFixed(5)}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-grid">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Histogram with Normal Fit</div></div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="hist-chart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Normal Probability Plot</div>
+          <div class="card-sub">R² = ${r.probability_plot_data.r_squared.toFixed(5)}</div>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="prob-chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAPA Hints -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Downstream Analysis Guidance</div>
+        <div class="card-sub">Session 2 preparation</div>
+      </div>
+      <div class="card-body">
+        <div class="hint-list">${hints}</div>
+      </div>
+    </div>
+  `;
+
+  showContent(html);
+  renderCharts(r);
+}
+
+function renderCharts(r) {
+  const hd = r.histogram_data;
+  const pd = r.probability_plot_data;
+  const chartDefaults = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: 'rgba(99,117,179,0.1)' }, ticks: { color: '#8b92b0', font: { size: 11 } } },
+      y: { grid: { color: 'rgba(99,117,179,0.1)' }, ticks: { color: '#8b92b0', font: { size: 11 } } }
+    }
+  };
+
+  // Histogram
+  const histCtx = document.getElementById('hist-chart').getContext('2d');
+  charts.hist = new Chart(histCtx, {
+    data: {
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Frequency',
+          data: hd.bin_centers.map((x, i) => ({ x: x.toFixed(4), y: hd.counts[i] })),
+          backgroundColor: 'rgba(79,124,255,0.35)',
+          borderColor: 'rgba(79,124,255,0.7)',
+          borderWidth: 1,
+          barPercentage: 0.95,
+          categoryPercentage: 1.0,
+        },
+        {
+          type: 'line',
+          label: 'Normal fit',
+          data: hd.curve_x.map((x, i) => ({ x: x.toFixed(4), y: hd.curve_y[i].toFixed(3) })),
+          borderColor: '#2dd4a0',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.4,
+        }
+      ]
+    },
+    options: { ...chartDefaults, animation: false }
+  });
+
+  // Probability plot
+  const ppCtx = document.getElementById('prob-chart').getContext('2d');
+  const ppPoints = pd.theoretical_quantiles.map((q, i) => ({ x: parseFloat(q.toFixed(4)), y: parseFloat(pd.sample_values[i].toFixed(4)) }));
+  const fitLine = pd.fit_line_x.map((x, i) => ({ x: parseFloat(x.toFixed(4)), y: parseFloat(pd.fit_line_y[i].toFixed(4)) }));
+  charts.prob = new Chart(ppCtx, {
+    data: {
+      datasets: [
+        {
+          type: 'scatter',
+          label: 'Data',
+          data: ppPoints,
+          backgroundColor: 'rgba(79,124,255,0.6)',
+          pointRadius: 4,
+        },
+        {
+          type: 'line',
+          label: 'Fit line',
+          data: fitLine,
+          borderColor: '#f2525a',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          borderDash: [4, 3],
+        }
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      scales: {
+        x: { ...chartDefaults.scales.x, title: { display: true, text: 'Theoretical quantiles', color: '#5a607a', font: { size: 11 } } },
+        y: { ...chartDefaults.scales.y, title: { display: true, text: 'Sample values', color: '#5a607a', font: { size: 11 } } }
+      },
+      animation: false
+    }
+  });
+}
+
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 3500);
+}
+</script>
+</body>
+</html>

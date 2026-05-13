@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StatMind — Process Statistics Engine</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0d0f14;--bg2:#141720;--bg3:#1c2030;
+  --border:rgba(99,117,179,0.18);--border2:rgba(99,117,179,0.35);
+  --text:#e8eaf2;--text2:#8b92b0;--text3:#5a607a;
+  --accent:#4f7cff;--accent2:#7b4fff;
+  --green:#2dd4a0;--amber:#f5a623;--red:#f2525a;--purple:#b47aff;--teal:#22d3ee;--coral:#ff6b8a;
+  --blue-dim:rgba(79,124,255,0.12);
+  --card-r:12px;--font:'SF Pro Display','Segoe UI',system-ui,sans-serif;--mono:'SF Mono','Fira Code',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.6;min-height:100vh;}
+.header{display:flex;align-items:center;justify-content:space-between;padding:14px 26px;border-bottom:1px solid var(--border);background:var(--bg2);}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-mark{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff;}
+.logo-name{font-size:16px;font-weight:600;letter-spacing:-0.3px;}
+.logo-tag{font-size:11px;color:var(--text2);}
+.api-status{display:flex;align-items:center;gap:6px;font-size:12px;}
+.dot{width:7px;height:7px;border-radius:50%;}
+.dot.ok{background:var(--green);box-shadow:0 0 6px var(--green);}
+.dot.err{background:var(--red);}
+.dot.checking{background:var(--amber);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);background:var(--bg2);padding:0 26px;overflow-x:auto;}
+.tab{padding:10px 18px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.main{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 105px);}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+.content{padding:22px 26px;overflow-y:auto;}
+.section-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:7px;}
+.upload-zone{border:1.5px dashed var(--border2);border-radius:var(--card-r);padding:20px 14px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg3);position:relative;}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:var(--blue-dim);}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+select,input[type=number]{background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:5px 8px;border-radius:6px;font-size:12px;font-family:var(--font);width:100%;}
+.field label{font-size:11px;color:var(--text2);display:block;margin-bottom:3px;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.ctrl-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;}
+.ctrl-row label{font-size:12px;color:var(--text2);flex:1;}
+.ctrl-row select{width:auto;}
+.col-list{display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto;}
+.col-item{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:7px;cursor:pointer;background:var(--bg3);border:1px solid transparent;transition:all .15s;}
+.col-item:hover{border-color:var(--border2);}
+.col-item.active{background:var(--blue-dim);border-color:var(--accent);}
+.col-item.active .ci-name{color:var(--accent);}
+.ci-name{font-size:12px;font-weight:500;}
+.ci-meta{font-size:10px;color:var(--text3);}
+.vb{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;white-space:nowrap;margin-left:auto;}
+.vb-g{background:rgba(45,212,160,.15);color:var(--green);}
+.vb-a{background:rgba(245,166,35,.15);color:var(--amber);}
+.vb-r{background:rgba(242,82,90,.15);color:var(--red);}
+.run-btn{width:100%;padding:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .2s;}
+.run-btn:hover{opacity:.9;}
+.run-btn:disabled{opacity:.4;cursor:not-allowed;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);margin-bottom:14px;overflow:hidden;}
+.ch{padding:12px 15px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.ct{font-size:13px;font-weight:600;}
+.cs{font-size:11px;color:var(--text2);margin-left:auto;}
+.cb{padding:13px 15px;}
+.verdict-banner{border-radius:var(--card-r);padding:13px 16px;display:flex;align-items:flex-start;gap:11px;margin-bottom:14px;border:1px solid;}
+.vb-ok{background:rgba(45,212,160,.05);border-color:rgba(45,212,160,.25);}
+.vb-warn{background:rgba(245,166,35,.05);border-color:rgba(245,166,35,.25);}
+.vb-bad{background:rgba(242,82,90,.05);border-color:rgba(242,82,90,.25);}
+.vi{font-size:20px;}
+.vl{font-size:14px;font-weight:600;}
+.vd{font-size:12px;color:var(--text2);margin-top:2px;}
+
+/* GRR specific */
+.grr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px;}
+.gc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:12px 14px;}
+.gl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.gv{font-size:22px;font-weight:700;margin-top:3px;font-family:var(--mono);}
+.gs{font-size:10px;color:var(--text2);margin-top:1px;}
+
+.vc-table{width:100%;border-collapse:collapse;}
+.vc-table th{font-size:10px;color:var(--text3);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.vc-table td{font-size:12px;padding:8px 10px;border-bottom:1px solid var(--border);font-family:var(--mono);}
+.vc-table tr:last-child td{border-bottom:none;}
+.vc-table .src-cell{font-family:var(--font);font-size:12px;}
+
+.bar-cell{display:flex;align-items:center;gap:6px;}
+.bar-bg{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;min-width:60px;}
+.bar-fill{height:100%;border-radius:4px;}
+
+.anova-table{width:100%;border-collapse:collapse;}
+.anova-table th{font-size:10px;color:var(--text3);text-align:left;padding:5px 10px;border-bottom:1px solid var(--border);}
+.anova-table td{font-size:11px;padding:7px 10px;border-bottom:1px solid var(--border);font-family:var(--mono);}
+.anova-table .src{font-family:var(--font);}
+.sig-badge{font-size:10px;font-weight:600;padding:1px 6px;border-radius:20px;}
+.sig-y{background:rgba(242,82,90,.12);color:var(--red);}
+.sig-n{background:rgba(45,212,160,.12);color:var(--green);}
+
+.chart-half{position:relative;height:200px;}
+.chart-tall{position:relative;height:260px;}
+.chart-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+
+.ndc-display{display:flex;align-items:center;gap:16px;padding:14px 16px;background:var(--bg3);border-radius:10px;margin-bottom:14px;}
+.ndc-num{font-size:42px;font-weight:700;font-family:var(--mono);}
+.ndc-cats{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+.ndc-cat{width:20px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;}
+
+.hint-list{display:flex;flex-direction:column;gap:6px;}
+.hint-item{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--text2);}
+.hd{width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:6px;flex-shrink:0;}
+
+.grr-format-hint{background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text2);line-height:1.7;border:1px solid var(--border);}
+.grr-format-hint code{background:var(--bg2);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:10px;color:var(--teal);}
+
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:440px;text-align:center;gap:12px;}
+.ei{font-size:44px;opacity:.12;}
+.et{font-size:16px;font-weight:500;color:var(--text2);}
+.es{font-size:12px;color:var(--text3);max-width:380px;line-height:1.7;}
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;gap:12px;}
+.spinner{width:30px;height:30px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--accent);animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:10px 15px;border-radius:9px;font-size:12px;z-index:1000;opacity:0;transition:opacity .3s;max-width:340px;}
+.toast.show{opacity:1;}
+.toast.error{border-color:var(--red);}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* prev sessions compact */
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);padding:12px 14px;}
+.sl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.sv{font-size:19px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;font-family:var(--mono);}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px;}
+.ic{background:var(--bg3);border-radius:9px;padding:11px 12px;border:1px solid var(--border);text-align:center;}
+.in{font-size:11px;color:var(--text2);margin-bottom:3px;}
+.iv{font-size:20px;font-weight:600;font-family:var(--mono);}
+.is{font-size:10px;color:var(--text3);margin-top:1px;}
+.indices-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:14px;}
+.chart-full{position:relative;height:220px;margin-bottom:4px;}
+.col-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px;}
+.col-tab{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);transition:all .15s;}
+.col-tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.alarm-table{width:100%;border-collapse:collapse;font-size:12px;}
+.alarm-table th{font-size:10px;color:var(--text3);text-align:left;padding:5px 10px;border-bottom:1px solid var(--border);}
+.alarm-table td{padding:7px 10px;border-bottom:1px solid var(--border);font-family:var(--mono);}
+.alarm-table tr:last-child td{border-bottom:none;}
+.rule-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;}
+.rb-we1{background:rgba(242,82,90,.15);color:var(--red);}
+.rb-we2{background:rgba(245,166,35,.15);color:var(--amber);}
+.rb-we3{background:rgba(79,124,255,.15);color:var(--accent);}
+.rb-we4{background:rgba(45,212,160,.15);color:var(--green);}
+.rb-ne{background:rgba(180,122,255,.15);color:var(--purple);}
+.spc-limits{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.lim-card{background:var(--bg3);border-radius:8px;padding:10px 12px;text-align:center;}
+.lim-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.lim-val{font-size:16px;font-weight:600;font-family:var(--mono);margin-top:2px;}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-mark">S</div>
+    <div><div class="logo-name">StatMind</div><div class="logo-tag">Process Statistics Engine</div></div>
+  </div>
+  <div class="api-status"><div class="dot checking" id="status-dot"></div><span id="status-text">Checking…</span></div>
+</header>
+
+<div class="tab-bar">
+  <div class="tab active" data-tab="grr">Session 4 — Gauge R&R</div>
+  <div class="tab" data-tab="spc">Session 3 — Control Charts</div>
+  <div class="tab" data-tab="capability">Session 2 — Capability</div>
+  <div class="tab" data-tab="normality">Session 1 — Normality</div>
+</div>
+
+<div class="main">
+  <aside class="sidebar" id="sidebar">
+
+    <!-- GRR sidebar -->
+    <div id="sb-grr">
+      <div>
+        <div class="section-label">GRR Study File</div>
+        <div class="upload-zone" id="grr-upload">
+          <input type="file" id="grr-file-input" accept=".csv,.xlsx,.xls"/>
+          <div style="font-size:22px;margin-bottom:6px">🔬</div>
+          <div style="font-size:12px;font-weight:600" id="grr-upload-title">Drop GRR file or click</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Columns: Part, Operator, Measurement</div>
+        </div>
+      </div>
+      <div class="grr-format-hint">
+        Required CSV format:<br>
+        <code>Part</code>, <code>Operator</code>, <code>Measurement</code><br>
+        One row per reading. Balanced design (equal reps per cell).
+      </div>
+      <div id="grr-preview-box" style="display:none;background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text2);border:1px solid var(--border);"></div>
+      <div id="grr-options" style="display:none;flex-direction:column;gap:10px;">
+        <div class="ctrl-row"><label>Method</label>
+          <select id="grr-method" style="width:auto">
+            <option value="ANOVA" selected>ANOVA (preferred)</option>
+            <option value="XbarR">Xbar/R method</option>
+          </select>
+        </div>
+        <div class="field"><label>Tolerance (USL−LSL) — optional</label>
+          <input type="number" id="grr-tol" step="any" placeholder="e.g. 0.10"/>
+        </div>
+        <button class="run-btn" id="run-grr-btn">Run Gauge R&R</button>
+      </div>
+      <div id="grr-results-nav" style="display:none">
+        <div class="section-label">Results</div>
+        <div class="col-list" id="grr-col-results"></div>
+      </div>
+    </div>
+
+    <!-- SPC sidebar -->
+    <div id="sb-spc" style="display:none">
+      <div>
+        <div class="section-label">Process Data File</div>
+        <div class="upload-zone" id="spc-upload">
+          <input type="file" id="spc-file-input" accept=".csv,.xlsx,.xls"/>
+          <div style="font-size:22px;margin-bottom:6px">📊</div>
+          <div style="font-size:12px;font-weight:600" id="spc-upload-title">Drop file or click</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">Excel or CSV</div>
+        </div>
+      </div>
+      <div id="spc-col-section" style="display:none">
+        <div class="section-label">Select Column</div>
+        <div class="col-list" id="spc-col-list"></div>
+      </div>
+      <div id="spc-options" style="display:none">
+        <div class="ctrl-row"><label>Subgroup size</label>
+          <select id="spc-subgroup" style="width:auto">
+            <option value="1" selected>1 — I-MR</option><option value="2">2 — Xbar-R</option>
+            <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+            <option value="9">9 — Xbar-S</option><option value="10">10</option>
+          </select>
+        </div>
+        <button class="run-btn" id="run-spc-btn">Run Control Charts</button>
+      </div>
+      <div id="spc-results-nav" style="display:none">
+        <div class="section-label">Results</div>
+        <div class="col-list" id="spc-col-results"></div>
+      </div>
+    </div>
+
+    <!-- Capability sidebar -->
+    <div id="sb-cap" style="display:none">
+      <div>
+        <div class="section-label">Process Data File</div>
+        <div class="upload-zone" id="cap-upload">
+          <input type="file" id="cap-file-input" accept=".csv,.xlsx,.xls"/>
+          <div style="font-size:22px;margin-bottom:6px">📊</div>
+          <div style="font-size:12px;font-weight:600" id="cap-upload-title">Drop file or click</div>
+        </div>
+      </div>
+      <div id="cap-col-section" style="display:none">
+        <div class="section-label">Select Column</div>
+        <div class="col-list" id="cap-col-list"></div>
+      </div>
+      <div id="spec-form" style="display:none;flex-direction:column;gap:9px">
+        <div style="font-size:11px;color:var(--text3);background:var(--bg3);border-radius:6px;padding:7px 9px" id="spec-hint"></div>
+        <div class="field-row">
+          <div class="field"><label>USL</label><input type="number" id="usl-input" step="any"/></div>
+          <div class="field"><label>LSL</label><input type="number" id="lsl-input" step="any"/></div>
+        </div>
+        <div class="field"><label>Target</label><input type="number" id="target-input" step="any" placeholder="midspec"/></div>
+        <button class="run-btn" id="run-cap-btn">Run Capability</button>
+      </div>
+      <div id="cap-results-nav" style="display:none">
+        <div class="section-label">Results</div>
+        <div class="col-list" id="cap-col-results"></div>
+      </div>
+    </div>
+
+    <!-- Normality sidebar -->
+    <div id="sb-norm" style="display:none">
+      <div>
+        <div class="section-label">Process Data File</div>
+        <div class="upload-zone" id="norm-upload">
+          <input type="file" id="norm-file-input" accept=".csv,.xlsx,.xls"/>
+          <div style="font-size:22px;margin-bottom:6px">📊</div>
+          <div style="font-size:12px;font-weight:600" id="norm-upload-title">Drop file or click</div>
+        </div>
+      </div>
+      <div class="ctrl-row"><label>Significance (α)</label>
+        <select id="alpha-select" style="width:auto"><option value="0.10">0.10</option><option value="0.05" selected>0.05</option><option value="0.01">0.01</option></select>
+      </div>
+      <button class="run-btn" id="run-norm-btn" disabled>Run Normality</button>
+      <div id="norm-results-nav" style="display:none">
+        <div class="section-label">Results</div>
+        <div class="col-list" id="norm-col-results"></div>
+      </div>
+    </div>
+
+  </aside>
+
+  <main class="content" id="content">
+    <div class="empty-state">
+      <div class="ei">🔬</div>
+      <div class="et">Upload a Gauge R&R study file</div>
+      <div class="es">File must have columns: <strong>Part</strong>, <strong>Operator</strong>, <strong>Measurement</strong>.<br><br>StatMind will run a full two-way ANOVA, decompose variance into Repeatability, Reproducibility, and Part-to-Part, and calculate ndc and %GRR.</div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API='http://localhost:8010';
+let grrData={},spcData={},capData={},normData=null;
+let spcFile=null,capFile=null,normFile=null;
+let colStatsSpc=[],colStatsCap=[],colStatsNorm=[];
+let selectedSpcCol=null,selectedCapCol=null;
+let charts={};
+
+async function checkHealth(){
+  try{const r=await fetch(`${API}/health`);setStatus(r.ok?'ok':'err',r.ok?'API connected':'API offline');}
+  catch{setStatus('err','API offline — run uvicorn api4:app --port 8010');}
+}
+function setStatus(s,t){document.getElementById('status-dot').className=`dot ${s}`;document.getElementById('status-text').textContent=t;}
+checkHealth();setInterval(checkHealth,15000);
+
+// Tabs
+const tabIds={grr:'sb-grr',spc:'sb-spc',capability:'sb-cap',normality:'sb-norm'};
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    const tab=t.dataset.tab;
+    Object.values(tabIds).forEach(id=>document.getElementById(id).style.display='none');
+    document.getElementById(tabIds[tab]).style.display='contents';
+    // Restore last view
+    if(tab==='grr'){
+      const k=Object.keys(grrData)[0];
+      if(k)renderGRR(grrData[k]);
+      else showEmpty('🔬','Upload a Gauge R&R study file','Columns: Part, Operator, Measurement');
+    }
+    if(tab==='spc'){
+      const k=Object.keys(spcData)[0];
+      if(k)renderSPC(spcData[k]);
+      else showEmpty('📈','Upload process data for control charts','Auto-selects I-MR, Xbar-R, or Xbar-S');
+    }
+    if(tab==='capability'){
+      const k=Object.keys(capData)[0];
+      if(k)renderCap(capData[k]);
+      else showEmpty('📐','Upload process data for capability','Enter USL/LSL to calculate Cp, Cpk, Pp, Ppk');
+    }
+    if(tab==='normality'){
+      if(normData&&normData.results[0])showNorm(normData.results[0].column);
+      else showEmpty('⚗️','Upload process data for normality tests','SW, AD, RJ tests');
+    }
+  });
+});
+
+// ══ SESSION 4: GAUGE R&R ══════════════════════════════════════════════════════
+
+const grrFileInput=document.getElementById('grr-file-input');
+const grrUpload=document.getElementById('grr-upload');
+grrUpload.addEventListener('dragover',e=>{e.preventDefault();grrUpload.classList.add('drag-over');});
+grrUpload.addEventListener('dragleave',()=>grrUpload.classList.remove('drag-over'));
+grrUpload.addEventListener('drop',e=>{e.preventDefault();grrUpload.classList.remove('drag-over');if(e.dataTransfer.files[0])handleGRRFile(e.dataTransfer.files[0]);});
+grrFileInput.addEventListener('change',e=>{if(e.target.files[0])handleGRRFile(e.target.files[0]);});
+
+let grrFile=null;
+async function handleGRRFile(file){
+  grrFile=file;
+  document.getElementById('grr-upload-title').textContent=file.name;
+  showToast(`📂 ${file.name}`);
+  // Preview
+  const fd=new FormData();fd.append('file',file);
+  try{
+    const r=await fetch(`${API}/api/v1/grr/preview`,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const p=await r.json();
+    document.getElementById('grr-preview-box').style.display='block';
+    document.getElementById('grr-preview-box').innerHTML=
+      `<strong style="color:var(--text)">${p.column}</strong> · ${p.n_parts} parts × ${p.n_operators} operators × ${p.n_replicates} replicates = ${p.n_total} readings<br>`+
+      `x̄ = ${p.mean} · σ = ${p.std}<br>`+
+      `Operators: ${p.operators.join(', ')}`;
+    document.getElementById('grr-options').style.display='flex';
+  }catch(e){showToast(`Preview error: ${e.message}`,true);}
+}
+
+document.getElementById('run-grr-btn').addEventListener('click',runGRR);
+async function runGRR(){
+  if(!grrFile)return;
+  const method=document.getElementById('grr-method').value;
+  const tolVal=document.getElementById('grr-tol').value;
+  const btn=document.getElementById('run-grr-btn');
+  btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Running Gauge R&R analysis…'));
+  const fd=new FormData();fd.append('file',grrFile);
+  let url=`${API}/api/v1/grr/analyze?method=${method}`;
+  if(tolVal)url+=`&tolerance=${parseFloat(tolVal)}`;
+  try{
+    const r=await fetch(url,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail||'GRR failed');
+    const data=await r.json();
+    grrData[data.column]=data;
+    buildGRRNav();renderGRR(data);
+  }catch(e){showToast(`Error: ${e.message}`,true);showEmpty('❌',e.message,'Check file format: Part, Operator, Measurement columns required.');}
+  finally{btn.disabled=false;btn.textContent='Run Gauge R&R';}
+}
+
+function buildGRRNav(){
+  const nav=document.getElementById('grr-col-results');nav.innerHTML='';
+  document.getElementById('grr-results-nav').style.display='block';
+  Object.values(grrData).forEach(r=>{
+    const vc=r.verdict==='Acceptable'?'vb-g':r.verdict==='Marginal'?'vb-a':'vb-r';
+    const el=document.createElement('div');el.className='col-item';el.dataset.col=r.column;
+    el.innerHTML=`<div><div class="ci-name">${r.column}</div><div class="ci-meta">%GRR=${r.gauge_rr.pct_study_var.toFixed(1)}%</div></div><span class="vb ${vc}">${r.verdict}</span>`;
+    el.addEventListener('click',()=>renderGRR(grrData[r.column]));
+    nav.appendChild(el);
+  });
+}
+
+function renderGRR(r){
+  document.querySelectorAll('#grr-col-results .col-item').forEach(el=>el.classList.toggle('active',el.dataset.col===r.column));
+  destroyCharts();
+
+  const pctGRR=r.gauge_rr.pct_study_var;
+  const vc=r.verdict==='Acceptable'?'vb-ok':r.verdict==='Marginal'?'vb-warn':'vb-bad';
+  const vi=r.verdict==='Acceptable'?'✅':r.verdict==='Marginal'?'⚠️':'❌';
+  const vc_col=r.verdict==='Acceptable'?'var(--green)':r.verdict==='Marginal'?'var(--amber)':'var(--red)';
+
+  // ndc visualization
+  const ndcCats=Array.from({length:Math.min(r.ndc,20)},(_,i)=>{
+    const c=`hsl(${200+i*12},70%,${45+i*1}%)`;
+    return `<div class="ndc-cat" style="background:${c};color:#fff">${i+1}</div>`;
+  }).join('')+(r.ndc>20?`<span style="font-size:10px;color:var(--text3)">+${r.ndc-20}</span>`:'');
+
+  // Variance component table rows
+  const vcSources=[r.repeatability,r.reproducibility,r.operator_by_part,r.gauge_rr,r.part_to_part,r.total_variation];
+  const vcColors={'Repeatability (EV)':'var(--accent)','Reproducibility (AV)':'var(--coral)','Operator × Part':'var(--purple)','Gauge R&R (GRR)':'var(--red)','Part-to-Part (PV)':'var(--green)','Total Variation (TV)':'var(--text2)'};
+  const vcRows=vcSources.map(vc=>{
+    const col=vcColors[vc.source]||'var(--text2)';
+    const pct=Math.min(100,vc.pct_study_var);
+    const isBold=vc.source.includes('GRR')||vc.source.includes('Total');
+    const style=isBold?'font-weight:600;border-top:1px solid var(--border2)':'';
+    return `<tr style="${style}">
+      <td class="src-cell" style="color:${col}">${vc.source}</td>
+      <td>${vc.variance.toExponential(3)}</td>
+      <td>${vc.std_dev.toFixed(6)}</td>
+      <td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${vc.pct_contribution}%;background:${col}"></div></div><span style="color:${col};min-width:42px">${vc.pct_contribution.toFixed(1)}%</span></div></td>
+      <td>${vc.study_var.toFixed(5)}</td>
+      <td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div><span style="color:${col};min-width:42px">${vc.pct_study_var.toFixed(1)}%</span></div></td>
+    </tr>`;
+  }).join('');
+
+  // ANOVA table
+  const anovaRows=r.anova_table.filter(a=>a.source!=='Total').map(a=>{
+    const sig=a.p_value<0.05&&a.f_stat>0;
+    return `<tr><td class="src">${a.source}</td><td>${a.ss.toFixed(6)}</td><td>${a.df}</td><td>${a.ms.toFixed(6)}</td><td>${a.f_stat>0?a.f_stat.toFixed(3):'—'}</td><td>${a.p_value<1?`<span class="sig-badge ${sig?'sig-y':'sig-n'}">${a.p_value.toFixed(4)}</span>`:'—'}</td></tr>`;
+  }).join('');
+
+  const tolRow=r.pct_tolerance!=null?`<div class="gc"><div class="gl">% Tolerance</div><div class="gv" style="color:${r.pct_tolerance<10?'var(--green)':r.pct_tolerance<30?'var(--amber)':'var(--red)'}">${r.pct_tolerance.toFixed(1)}%</div><div class="gs">GRR / Tol</div></div>`:'';
+
+  const hints=r.capa_notes.map(n=>`<div class="hint-item"><div class="hd" style="background:${r.verdict==='Acceptable'?'var(--green)':r.verdict==='Marginal'?'var(--amber)':'var(--red)'}"></div><div>${n}</div></div>`).join('');
+
+  showContent(`
+    <div class="verdict-banner ${vc}">
+      <div class="vi">${vi}</div>
+      <div>
+        <div class="vl" style="color:${vc_col}">${r.verdict} — ${r.verdict_detail}</div>
+        <div class="vd">${r.method} method · ${r.n_parts} parts × ${r.n_operators} operators × ${r.n_replicates} reps = ${r.n_total} total measurements</div>
+      </div>
+    </div>
+
+    <!-- Key metrics -->
+    <div class="grr-grid">
+      <div class="gc">
+        <div class="gl">% GRR</div>
+        <div class="gv" style="color:${vc_col}">${pctGRR.toFixed(1)}%</div>
+        <div class="gs">of study variation</div>
+      </div>
+      <div class="gc">
+        <div class="gl">Repeatability</div>
+        <div class="gv" style="color:var(--accent)">${r.repeatability.pct_study_var.toFixed(1)}%</div>
+        <div class="gs">Equipment (EV)</div>
+      </div>
+      <div class="gc">
+        <div class="gl">Reproducibility</div>
+        <div class="gv" style="color:var(--coral)">${r.reproducibility.pct_study_var.toFixed(1)}%</div>
+        <div class="gs">Operator (AV)</div>
+      </div>
+      ${tolRow}
+      <div class="gc">
+        <div class="gl">Part-to-Part</div>
+        <div class="gv" style="color:var(--green)">${r.part_to_part.pct_study_var.toFixed(1)}%</div>
+        <div class="gs">Process variation</div>
+      </div>
+    </div>
+
+    <!-- ndc -->
+    <div class="ndc-display">
+      <div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px">ndc</div>
+        <div class="ndc-num" style="color:${r.ndc>=5?'var(--green)':r.ndc>=2?'var(--amber)':'var(--red)'}">${r.ndc}</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Number of Distinct Categories — ${r.ndc>=5?'✓ Adequate (≥5 required)':r.ndc>=2?'⚠ Marginal':'✗ Inadequate'}</div>
+        <div class="ndc-cats">${ndcCats}</div>
+      </div>
+    </div>
+
+    <!-- Variance components table -->
+    <div class="card">
+      <div class="ch"><div class="ct">Variance Components</div><div class="cs">${r.method} method</div></div>
+      <div class="cb" style="overflow-x:auto">
+        <table class="vc-table">
+          <tr><th>Source</th><th>Variance</th><th>Std Dev</th><th>% Contribution</th><th>Study Var (6σ)</th><th>% Study Var</th></tr>
+          ${vcRows}
+        </table>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="chart-grid2">
+      <div class="card">
+        <div class="ch"><div class="ct">By Operator</div><div class="cs">measurement spread</div></div>
+        <div class="cb"><div class="chart-half"><canvas id="op-chart"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="ch"><div class="ct">Part Variation</div><div class="cs">part means</div></div>
+        <div class="cb"><div class="chart-half"><canvas id="part-chart"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- Interaction plot -->
+    <div class="card">
+      <div class="ch"><div class="ct">Operator × Part Interaction</div><div class="cs">${r.operator_by_part.pct_study_var.toFixed(1)}% of study var</div></div>
+      <div class="cb"><div class="chart-tall"><canvas id="interaction-chart"></canvas></div></div>
+    </div>
+
+    <!-- ANOVA table (if ANOVA method) -->
+    ${r.method==='ANOVA'?`
+    <div class="card">
+      <div class="ch"><div class="ct">Two-Way ANOVA Table</div><div class="cs">α = 0.05</div></div>
+      <div class="cb" style="overflow-x:auto">
+        <table class="anova-table">
+          <tr><th>Source</th><th>SS</th><th>df</th><th>MS</th><th>F</th><th>p-value</th></tr>
+          ${anovaRows}
+        </table>
+      </div>
+    </div>`:''}
+
+    <!-- CAPA notes -->
+    <div class="card">
+      <div class="ch">
+        <div class="ct">${r.capa_required?'⚠ CAPA Required':'Analysis Notes'}</div>
+        <div class="cs">Session 5 preparation</div>
+      </div>
+      <div class="cb"><div class="hint-list">${hints}</div></div>
+    </div>
+  `);
+
+  renderGRRCharts(r);
+}
+
+function renderGRRCharts(r){
+  const gc='rgba(99,117,179,0.1)',tc='#8b92b0';
+  const opColors=['var(--accent)','var(--coral)','var(--green)','var(--amber)','var(--purple)'];
+
+  // By operator box-style scatter
+  const opLabels=Object.keys(r.by_operator_data);
+  const opDatasets=opLabels.map((op,i)=>{
+    const vals=r.by_operator_data[op].values;
+    const mean=r.by_operator_data[op].mean;
+    return {
+      type:'scatter',label:op,
+      data:vals.map((v,j)=>({x:i+1+(Math.random()-.5)*0.2,y:v})),
+      backgroundColor:opColors[i%opColors.length].replace('var(','').replace(')',''),
+      pointRadius:4,
+    };
+  });
+  // Add mean markers
+  opLabels.forEach((op,i)=>{
+    opDatasets.push({type:'scatter',label:`${op} mean`,
+      data:[{x:i+1,y:r.by_operator_data[op].mean}],
+      backgroundColor:'#fff',pointRadius:7,pointStyle:'crossRot',
+      borderColor:opColors[i%opColors.length].replace('var(','').replace(')',''),borderWidth:2,showLine:false});
+  });
+
+  charts.op=new Chart(document.getElementById('op-chart').getContext('2d'),{
+    data:{datasets:opDatasets},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{type:'linear',min:0.3,max:opLabels.length+0.7,ticks:{color:tc,font:{size:10},stepSize:1,callback:(v)=>opLabels[v-1]||''},grid:{color:gc}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}
+      }}
+  });
+
+  // Part variation chart
+  const pd=r.part_variation_data;
+  const partDatasets=[{
+    type:'scatter',label:'All measurements',
+    data:pd.parts.flatMap((p,i)=>pd.all_values[p].map(v=>({x:i+1,y:v}))),
+    backgroundColor:'rgba(79,124,255,0.4)',pointRadius:3,
+  },{
+    type:'line',label:'Part mean',
+    data:pd.means.map((m,i)=>({x:i+1,y:m})),
+    borderColor:'var(--amber)',borderWidth:2,pointRadius:5,
+    pointBackgroundColor:'var(--amber)',tension:0.2,
+  }];
+  charts.part=new Chart(document.getElementById('part-chart').getContext('2d'),{
+    data:{datasets:partDatasets},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{type:'linear',min:0.3,max:pd.parts.length+0.7,ticks:{color:tc,font:{size:10},stepSize:1,callback:(v)=>pd.parts[v-1]||''},grid:{color:gc}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}
+      }}
+  });
+
+  // Interaction plot: one line per operator, x = part, y = cell mean
+  const id=r.interaction_data;
+  const interactionDatasets=id.operators.map((op,oi)=>({
+    type:'line',label:op,
+    data:id.parts.map((p,pi)=>({x:pi+1,y:id.cell_means[pi][oi]})),
+    borderColor:opColors[oi%opColors.length].replace('var(','').replace(')',''),
+    borderWidth:2,pointRadius:4,tension:0.2,fill:false,
+  }));
+  charts.interaction=new Chart(document.getElementById('interaction-chart').getContext('2d'),{
+    data:{datasets:interactionDatasets},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:true,labels:{color:tc,font:{size:10},boxWidth:10}}},
+      scales:{
+        x:{type:'linear',min:0.5,max:id.parts.length+0.5,ticks:{color:tc,font:{size:10},stepSize:1,callback:(v)=>id.parts[v-1]||''},grid:{color:gc},title:{display:true,text:'Part',color:'#5a607a',font:{size:10}}},
+        y:{grid:{color:gc},ticks:{color:tc,font:{size:10}},title:{display:true,text:'Mean measurement',color:'#5a607a',font:{size:10}}}
+      }}
+  });
+}
+
+// ══ SESSION 3: SPC (compact) ══════════════════════════════════════════════════
+
+setupFileUpload('spc-upload','spc-file-input','spc-upload-title',handleSPCFile);
+function handleSPCFile(file){
+  spcFile=file;
+  document.getElementById('spc-upload-title').textContent=file.name;
+  showToast(`📂 ${file.name}`);
+  loadColsFor(file,'spc-col-list',colStatsSpc,(cols)=>{
+    colStatsSpc=cols;buildColList('spc-col-list',colStatsSpc,selectSPCCol);
+    document.getElementById('spc-col-section').style.display='block';
+  });
+}
+function selectSPCCol(c){
+  selectedSpcCol=c.name;
+  document.querySelectorAll('#spc-col-list .col-item').forEach(x=>x.classList.toggle('active',x.dataset.col===c.name));
+  document.getElementById('spc-options').style.display='block';
+}
+document.getElementById('run-spc-btn').addEventListener('click',runSPC);
+async function runSPC(){
+  if(!spcFile||!selectedSpcCol)return;
+  const sg=parseInt(document.getElementById('spc-subgroup').value);
+  const btn=document.getElementById('run-spc-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Building control charts…'));
+  const fd=new FormData();fd.append('file',spcFile);
+  try{
+    const r=await fetch(`${API}/api/v1/spc/analyze?column=${encodeURIComponent(selectedSpcCol)}&subgroup_size=${sg}`,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const data=await r.json();spcData[selectedSpcCol]=data;buildSPCNav();renderSPC(data);
+  }catch(e){showToast(`Error: ${e.message}`,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Run Control Charts';}
+}
+function buildSPCNav(){
+  const nav=document.getElementById('spc-col-results');nav.innerHTML='';
+  document.getElementById('spc-results-nav').style.display='block';
+  Object.values(spcData).forEach(r=>{
+    const vc=r.in_control?'vb-g':r.total_alarms<=2?'vb-a':'vb-r';
+    const el=document.createElement('div');el.className='col-item';el.dataset.col=r.column;
+    el.innerHTML=`<div><div class="ci-name">${r.column}</div><div class="ci-meta">${r.chart_type} · ${r.total_alarms} alarms</div></div><span class="vb ${vc}">${r.in_control?'In Control':r.total_alarms<=2?'Minor':'Unstable'}</span>`;
+    el.addEventListener('click',()=>renderSPC(spcData[r.column]));nav.appendChild(el);
+  });
+}
+function renderSPC(r){
+  document.querySelectorAll('#spc-col-results .col-item').forEach(el=>el.classList.toggle('active',el.dataset.col===r.column));
+  destroyCharts();
+  const vc=r.in_control?'vb-ok':r.total_alarms<=2?'vb-warn':'vb-bad';
+  const vi=r.in_control?'✅':r.total_alarms<=2?'⚠️':'🚨';
+  const vcc=r.in_control?'var(--green)':r.total_alarms<=2?'var(--amber)':'var(--red)';
+  const allAlarms=[...r.western_electric_alarms,...r.nelson_alarms].sort((a,b)=>a.index-b.index);
+  const alarmIdx=new Set(allAlarms.map(a=>a.index));
+  const tabs=Object.keys(spcData).map(k=>`<div class="col-tab ${k===r.column?'active':''}" onclick="renderSPC(spcData['${k}'])">${k}</div>`).join('');
+  const alarmRows=allAlarms.slice(0,15).map(a=>{const rc=a.rule==='WE1'?'rb-we1':a.rule==='WE2'?'rb-we2':a.rule==='WE3'?'rb-we3':a.rule==='WE4'?'rb-we4':'rb-ne';return `<tr><td>${a.index+1}</td><td><span class="rule-badge ${rc}">${a.rule}</span></td><td>${a.value.toFixed(4)}</td><td style="font-family:var(--font);color:var(--text2)">${a.description}</td></tr>`;}).join('');
+  showContent(`
+    <div class="col-tabs">${tabs}</div>
+    <div class="verdict-banner ${vc}"><div class="vi">${vi}</div>
+      <div><div class="vl" style="color:${vcc}">${r.chart_type} — ${r.stability_verdict}</div>
+      <div class="vd">CL=${r.primary_cl.toFixed(4)} · σ=${r.process_sigma.toFixed(4)} · ${r.n_points} points</div></div>
+    </div>
+    <div class="spc-limits">
+      <div class="lim-card"><div class="lim-label">UCL</div><div class="lim-val" style="color:var(--red)">${r.primary_ucl.toFixed(4)}</div></div>
+      <div class="lim-card"><div class="lim-label">Center Line</div><div class="lim-val" style="color:var(--amber)">${r.primary_cl.toFixed(4)}</div></div>
+      <div class="lim-card"><div class="lim-label">LCL</div><div class="lim-val" style="color:var(--red)">${r.primary_lcl.toFixed(4)}</div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">${r.primary_label}</div><div class="cs">${r.chart_type}</div></div>
+      <div class="cb"><div class="chart-full"><canvas id="primary-chart"></canvas></div></div></div>
+    <div class="card"><div class="ch"><div class="ct">${r.secondary_label}</div></div>
+      <div class="cb"><div style="position:relative;height:170px"><canvas id="secondary-chart"></canvas></div></div></div>
+    ${allAlarms.length?`<div class="card"><div class="ch"><div class="ct">Violations</div><div class="cs">${allAlarms.length} alarms</div></div><div class="cb"><div style="overflow-x:auto"><table class="alarm-table"><tr><th>Pt</th><th>Rule</th><th>Value</th><th>Description</th></tr>${alarmRows}${allAlarms.length>15?`<tr><td colspan="4" style="color:var(--text3);font-size:11px">…${allAlarms.length-15} more</td></tr>`:''}</table></div></div></div>`:''}
+  `);
+  const gc='rgba(99,117,179,0.1)',tc='#8b92b0';
+  const ptC=r.primary_values.map((_,i)=>alarmIdx.has(i)?'#f2525a':'rgba(79,124,255,0.8)');
+  const ptR=r.primary_values.map((_,i)=>alarmIdx.has(i)?5:3);
+  charts.primary=new Chart(document.getElementById('primary-chart').getContext('2d'),{
+    data:{datasets:[
+      {type:'line',data:r.primary_values.map((v,i)=>({x:i+1,y:v})),borderColor:'rgba(79,124,255,0.8)',borderWidth:1.5,pointRadius:ptR,pointBackgroundColor:ptC,pointBorderColor:ptC,tension:0.1,fill:false,label:r.primary_label},
+      {type:'line',data:r.primary_values.map((_,i)=>({x:i+1,y:r.primary_ucl})),borderColor:'rgba(242,82,90,0.7)',borderWidth:1,pointRadius:0,borderDash:[6,3],label:'UCL'},
+      {type:'line',data:r.primary_values.map((_,i)=>({x:i+1,y:r.primary_cl})),borderColor:'rgba(245,166,35,0.8)',borderWidth:1.5,pointRadius:0,borderDash:[4,2],label:'CL'},
+      {type:'line',data:r.primary_values.map((_,i)=>({x:i+1,y:r.primary_lcl})),borderColor:'rgba(242,82,90,0.7)',borderWidth:1,pointRadius:0,borderDash:[6,3],label:'LCL'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:true,labels:{color:tc,font:{size:10},boxWidth:10}}},scales:{x:{type:'linear',grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}}
+  });
+  charts.secondary=new Chart(document.getElementById('secondary-chart').getContext('2d'),{
+    data:{datasets:[
+      {type:'bar',data:r.secondary_values.map((v,i)=>({x:i+1,y:v})),backgroundColor:'rgba(34,211,238,0.35)',borderColor:'rgba(34,211,238,0.6)',borderWidth:1,barPercentage:0.7,label:r.secondary_label},
+      {type:'line',data:r.secondary_values.map((_,i)=>({x:i+1,y:r.secondary_ucl})),borderColor:'rgba(242,82,90,0.7)',borderWidth:1,pointRadius:0,borderDash:[6,3],label:'UCL'},
+      {type:'line',data:r.secondary_values.map((_,i)=>({x:i+1,y:r.secondary_cl})),borderColor:'rgba(245,166,35,0.8)',borderWidth:1.5,pointRadius:0,borderDash:[4,2],label:'CL'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{type:'linear',grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}},min:0}}}
+  });
+}
+
+// ══ SESSION 2: CAPABILITY (compact) ══════════════════════════════════════════
+
+setupFileUpload('cap-upload','cap-file-input','cap-upload-title',handleCapFile);
+function handleCapFile(file){
+  capFile=file;document.getElementById('cap-upload-title').textContent=file.name;showToast(`📂 ${file.name}`);
+  loadColsFor(file,'cap-col-list',colStatsCap,(cols)=>{
+    colStatsCap=cols;buildColList('cap-col-list',colStatsCap,selectCapCol);
+    document.getElementById('cap-col-section').style.display='block';
+  });
+}
+function selectCapCol(c){
+  selectedCapCol=c.name;
+  document.querySelectorAll('#cap-col-list .col-item').forEach(x=>x.classList.toggle('active',x.dataset.col===c.name));
+  document.getElementById('spec-form').style.display='flex';
+  document.getElementById('spec-hint').innerHTML=`x̄=${c.mean} · σ=${c.std} · [${c.min}, ${c.max}]`;
+  document.getElementById('usl-input').value=(c.mean+3*c.std).toFixed(4);
+  document.getElementById('lsl-input').value=(c.mean-3*c.std).toFixed(4);
+}
+document.getElementById('run-cap-btn').addEventListener('click',runCap);
+async function runCap(){
+  if(!capFile||!selectedCapCol)return;
+  const usl=parseFloat(document.getElementById('usl-input').value);
+  const lsl=parseFloat(document.getElementById('lsl-input').value);
+  const tv=document.getElementById('target-input').value;
+  if(isNaN(usl)||isNaN(lsl)||usl<=lsl){showToast('Check USL/LSL values',true);return;}
+  const btn=document.getElementById('run-cap-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Calculating capability indices…'));
+  const fd=new FormData();fd.append('file',capFile);
+  let url=`${API}/api/v1/capability/analyze?column=${encodeURIComponent(selectedCapCol)}&usl=${usl}&lsl=${lsl}`;
+  if(tv)url+=`&target=${parseFloat(tv)}`;
+  try{
+    const r=await fetch(url,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const data=await r.json();capData[selectedCapCol]=data;buildCapNav();renderCap(data);
+  }catch(e){showToast(`Error: ${e.message}`,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Run Capability';}
+}
+function buildCapNav(){
+  const nav=document.getElementById('cap-col-results');nav.innerHTML='';
+  document.getElementById('cap-results-nav').style.display='block';
+  Object.values(capData).forEach(r=>{
+    const vc=r.verdict==='Excellent'||r.verdict==='Capable'?'vb-g':r.verdict==='Marginal'?'vb-a':'vb-r';
+    const el=document.createElement('div');el.className='col-item';el.dataset.col=r.column;
+    el.innerHTML=`<div><div class="ci-name">${r.column}</div><div class="ci-meta">Cpk=${r.cpk.toFixed(3)}</div></div><span class="vb ${vc}">${r.verdict}</span>`;
+    el.addEventListener('click',()=>renderCap(capData[r.column]));nav.appendChild(el);
+  });
+}
+function renderCap(r){
+  destroyCharts();
+  const vc=r.verdict==='Excellent'||r.verdict==='Capable'?'vb-ok':r.verdict==='Marginal'?'vb-warn':'vb-bad';
+  const vi=r.verdict==='Excellent'?'🏆':r.verdict==='Capable'?'✅':r.verdict==='Marginal'?'⚠️':'❌';
+  const vcc=r.verdict==='Excellent'||r.verdict==='Capable'?'var(--green)':r.verdict==='Marginal'?'var(--amber)':'var(--red)';
+  const sigPct=Math.min(100,(r.sigma_level/6)*100);
+  const sigC=r.sigma_level>=5?'var(--green)':r.sigma_level>=4?'var(--accent)':r.sigma_level>=3?'var(--amber)':'var(--red)';
+  const hints=r.capa_notes.map(n=>`<div class="hint-item"><div class="hd"></div><div>${n}</div></div>`).join('');
+  const tabs=Object.keys(capData).map(k=>`<div class="col-tab ${k===r.column?'active':''}" onclick="renderCap(capData['${k}'])">${k}</div>`).join('');
+  showContent(`
+    <div class="col-tabs">${tabs}</div>
+    <div class="verdict-banner ${vc}"><div class="vi">${vi}</div>
+      <div><div class="vl" style="color:${vcc}">${r.verdict}</div><div class="vd">${r.verdict_detail}</div></div>
+    </div>
+    <div class="indices-grid">
+      <div class="ic"><div class="in">Cp</div><div class="iv" style="color:${r.cp>=1.33?'var(--green)':r.cp>=1?'var(--amber)':'var(--red)'}">${r.cp.toFixed(3)}</div></div>
+      <div class="ic"><div class="in">Cpk</div><div class="iv" style="color:${r.cpk>=1.33?'var(--green)':r.cpk>=1?'var(--amber)':'var(--red)'}">${r.cpk.toFixed(3)}</div></div>
+      <div class="ic"><div class="in">Pp</div><div class="iv" style="color:${r.pp>=1.33?'var(--green)':r.pp>=1?'var(--amber)':'var(--red)'}">${r.pp.toFixed(3)}</div></div>
+      <div class="ic"><div class="in">Ppk</div><div class="iv" style="color:${r.ppk>=1.33?'var(--green)':r.ppk>=1?'var(--amber)':'var(--red)'}">${r.ppk.toFixed(3)}</div></div>
+      <div class="ic"><div class="in">Sigma</div><div class="iv" style="color:${sigC}">${r.sigma_level.toFixed(2)}σ</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="card"><div class="ch"><div class="ct">Cpk CI (95%)</div></div>
+        <div class="cb"><table class="vc-table" style="font-size:11px"><tr><th>Lower</th><th>Cpk</th><th>Upper</th></tr>
+          <tr><td>${r.cpk_ci_95.lower.toFixed(4)}</td><td style="font-weight:600">${r.cpk.toFixed(4)}</td><td>${r.cpk_ci_95.upper.toFixed(4)}</td></tr></table></div>
+      </div>
+      <div class="card"><div class="ch"><div class="ct">PPM</div></div>
+        <div class="cb" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="ic"><div class="in">Within</div><div class="iv" style="font-size:14px;color:${r.ppm_within<100?'var(--green)':r.ppm_within<1000?'var(--amber)':'var(--red)'}">${r.ppm_within<1?r.ppm_within.toFixed(2):Math.round(r.ppm_within).toLocaleString()}</div></div>
+          <div class="ic"><div class="in">Overall</div><div class="iv" style="font-size:14px;color:${r.ppm_overall<100?'var(--green)':r.ppm_overall<1000?'var(--amber)':'var(--red)'}">${r.ppm_overall<1?r.ppm_overall.toFixed(2):Math.round(r.ppm_overall).toLocaleString()}</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Capability Histogram</div></div>
+      <div class="cb"><div class="chart-half"><canvas id="cap-hist"></canvas></div></div></div>
+    <div class="card"><div class="ch"><div class="ct">Analysis Notes</div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
+  `);
+  const hd=r.histogram_data,gc='rgba(99,117,179,0.1)',tc='#8b92b0';
+  charts.capHist=new Chart(document.getElementById('cap-hist').getContext('2d'),{
+    data:{datasets:[
+      {type:'bar',data:hd.bin_centers.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:hd.counts[i]})),backgroundColor:'rgba(79,124,255,0.35)',borderColor:'rgba(79,124,255,0.7)',borderWidth:1,barPercentage:.95,categoryPercentage:1,order:2},
+      {type:'line',data:hd.curve_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(hd.curve_within[i].toFixed(4))})),borderColor:'#2dd4a0',borderWidth:2,pointRadius:0,tension:.4,label:'Within',order:1},
+      {type:'line',data:hd.curve_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(hd.curve_overall[i].toFixed(4))})),borderColor:'#b47aff',borderWidth:1.5,pointRadius:0,tension:.4,borderDash:[4,3],label:'Overall',order:1},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:true,labels:{color:tc,font:{size:10},boxWidth:10}}},
+      scales:{x:{type:'linear',grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:8}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}}
+  });
+  const cht=charts.capHist;const orig=cht.draw.bind(cht);
+  cht.draw=function(){orig();const ctx=cht.ctx;const top=cht.chartArea?.top,bot=cht.chartArea?.bottom;
+    if(!top)return;
+    [[hd.lsl,'#f2525a','LSL'],[hd.usl,'#f2525a','USL'],[hd.mean,'#f5a623','x̄']].forEach(([v,c,l])=>{
+      const x=cht.scales.x.getPixelForValue(v);ctx.save();ctx.strokeStyle=c;ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
+      ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bot);ctx.stroke();
+      ctx.fillStyle=c;ctx.font='10px SF Mono,monospace';ctx.textAlign='center';ctx.fillText(l,x,top-4);ctx.restore();
+    });
+  };cht.draw();
+}
+
+// ══ SESSION 1: NORMALITY (compact) ═══════════════════════════════════════════
+
+setupFileUpload('norm-upload','norm-file-input','norm-upload-title',handleNormFile);
+function handleNormFile(file){
+  normFile=file;document.getElementById('norm-upload-title').textContent=file.name;
+  document.getElementById('run-norm-btn').disabled=false;showToast(`📂 ${file.name}`);
+}
+document.getElementById('run-norm-btn').addEventListener('click',runNorm);
+async function runNorm(){
+  if(!normFile)return;
+  const alpha=parseFloat(document.getElementById('alpha-select').value);
+  const btn=document.getElementById('run-norm-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Running normality tests…'));
+  const fd=new FormData();fd.append('file',normFile);
+  try{
+    const r=await fetch(`${API}/api/v1/normality/analyze?alpha=${alpha}`,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    normData=await r.json();buildNormNav();showNorm(normData.results[0]?.column);
+  }catch(e){showToast(`Error: ${e.message}`,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Run Normality';}
+}
+function buildNormNav(){
+  const nav=document.getElementById('norm-col-results');nav.innerHTML='';
+  document.getElementById('norm-results-nav').style.display='block';
+  normData.results.forEach(r=>{
+    const bc=r.overall_verdict==='Normal'?'vb-g':r.overall_verdict==='Likely Normal'?'vb-a':'vb-r';
+    const el=document.createElement('div');el.className='col-item';el.dataset.col=r.column;
+    el.innerHTML=`<div><div class="ci-name">${r.column}</div><div class="ci-meta">n=${r.n}</div></div><span class="vb ${bc}">${r.overall_verdict}</span>`;
+    el.addEventListener('click',()=>showNorm(r.column));nav.appendChild(el);
+  });
+}
+function showNorm(colName){
+  if(!normData)return;
+  destroyCharts();
+  const r=normData.results.find(x=>x.column===colName);if(!r)return;
+  const vc=r.overall_verdict==='Normal'?'vb-ok':r.overall_verdict==='Likely Normal'?'vb-warn':'vb-bad';
+  const vi=r.overall_verdict==='Normal'?'✅':r.overall_verdict==='Likely Normal'?'⚠️':'❌';
+  const cc=r.overall_verdict==='Normal'?'var(--green)':r.overall_verdict==='Likely Normal'?'var(--amber)':'var(--red)';
+  const tvS=f=>f?'font-size:10px;font-weight:600;color:var(--red);background:rgba(242,82,90,.1);padding:2px 8px;border-radius:20px;display:inline-block;margin-top:5px':'font-size:10px;font-weight:600;color:var(--green);background:rgba(45,212,160,.1);padding:2px 8px;border-radius:20px;display:inline-block;margin-top:5px';
+  const hints=r.capability_hint.downstream_notes.map(n=>`<div class="hint-item"><div class="hd"></div><div>${n}</div></div>`).join('');
+  const tabs=normData.results.map(x=>`<div class="col-tab ${x.column===colName?'active':''}" onclick="showNorm('${x.column}')">${x.column}</div>`).join('');
+  showContent(`
+    <div class="col-tabs">${tabs}</div>
+    <div class="verdict-banner ${vc}"><div class="vi">${vi}</div>
+      <div><div class="vl" style="color:${cc}">${r.overall_verdict}</div><div class="vd">${r.capability_hint.reason}</div></div>
+    </div>
+    <div class="stat-grid">
+      <div class="sc"><div class="sl">Mean</div><div class="sv" style="font-size:16px">${r.mean.toFixed(4)}</div></div>
+      <div class="sc"><div class="sl">Std Dev</div><div class="sv" style="font-size:16px">${r.std.toFixed(4)}</div></div>
+      <div class="sc"><div class="sl">Skewness</div><div class="sv" style="font-size:16px;color:${Math.abs(r.skewness)>1?'var(--amber)':'var(--text)'}">${r.skewness.toFixed(3)}</div></div>
+      <div class="sc"><div class="sl">Kurtosis</div><div class="sv" style="font-size:16px">${r.kurtosis.toFixed(3)}</div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Normality Tests</div><div class="cs">α=${normData.alpha}</div></div>
+      <div class="cb"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">
+        <div class="ic"><div class="in">Shapiro-Wilk</div><div class="iv" style="font-size:13px">W=${r.shapiro_wilk.statistic.toFixed(5)}</div><div class="is">p=${r.shapiro_wilk.p_value.toFixed(5)}</div><div style="${tvS(r.shapiro_wilk.reject_null)}">${r.shapiro_wilk.reject_null?'✗ Not Normal':'✓ Normal'}</div></div>
+        <div class="ic"><div class="in">Anderson-Darling</div><div class="iv" style="font-size:13px">A²=${r.anderson_darling.statistic.toFixed(5)}</div><div class="is">p≈${r.anderson_darling.p_value.toFixed(5)}</div><div style="${tvS(r.anderson_darling.reject_null)}">${r.anderson_darling.reject_null?'✗ Not Normal':'✓ Normal'}</div></div>
+        <div class="ic"><div class="in">Ryan-Joiner</div><div class="iv" style="font-size:13px">RJ=${r.ryan_joiner.statistic.toFixed(5)}</div><div class="is">p≈${r.ryan_joiner.p_value.toFixed(5)}</div><div style="${tvS(r.ryan_joiner.reject_null)}">${r.ryan_joiner.reject_null?'✗ Not Normal':'✓ Normal'}</div></div>
+      </div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="card"><div class="ch"><div class="ct">Histogram</div></div><div class="cb"><div class="chart-half"><canvas id="hist-chart"></canvas></div></div></div>
+      <div class="card"><div class="ch"><div class="ct">Probability Plot</div><div class="cs">R²=${r.probability_plot_data.r_squared.toFixed(5)}</div></div><div class="cb"><div class="chart-half"><canvas id="prob-chart"></canvas></div></div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Guidance</div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
+  `);
+  const hd=r.histogram_data,pd=r.probability_plot_data,gc='rgba(99,117,179,0.1)',tc='#8b92b0';
+  charts.hist=new Chart(document.getElementById('hist-chart').getContext('2d'),{
+    data:{datasets:[
+      {type:'bar',data:hd.bin_centers.map((x,i)=>({x:x.toFixed(4),y:hd.counts[i]})),backgroundColor:'rgba(79,124,255,0.35)',borderColor:'rgba(79,124,255,0.7)',borderWidth:1,barPercentage:.95,categoryPercentage:1},
+      {type:'line',data:hd.curve_x.map((x,i)=>({x:x.toFixed(4),y:hd.curve_y[i].toFixed(3)})),borderColor:'#2dd4a0',borderWidth:2,pointRadius:0,tension:.4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:8}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}}
+  });
+  charts.prob=new Chart(document.getElementById('prob-chart').getContext('2d'),{
+    data:{datasets:[
+      {type:'scatter',data:pd.theoretical_quantiles.map((q,i)=>({x:parseFloat(q.toFixed(4)),y:parseFloat(pd.sample_values[i].toFixed(4))})),backgroundColor:'rgba(79,124,255,0.6)',pointRadius:3},
+      {type:'line',data:pd.fit_line_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(pd.fit_line_y[i].toFixed(4))})),borderColor:'#f2525a',borderWidth:1.5,pointRadius:0,borderDash:[4,3]}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}},title:{display:true,text:'Theoretical quantiles',color:'#5a607a',font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}},title:{display:true,text:'Sample values',color:'#5a607a',font:{size:10}}}}}
+  });
+}
+
+// ══ Shared Utilities ══════════════════════════════════════════════════════════
+
+function setupFileUpload(zoneId,inputId,titleId,handler){
+  const input=document.getElementById(inputId),zone=document.getElementById(zoneId);
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+  zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');if(e.dataTransfer.files[0])handler(e.dataTransfer.files[0]);});
+  input.addEventListener('change',e=>{if(e.target.files[0])handler(e.target.files[0]);});
+}
+
+async function loadColsFor(file,listId,arr,cb){
+  const fd=new FormData();fd.append('file',file);
+  try{
+    const r=await fetch(`${API}/api/v1/columns`,{method:'POST',body:fd});
+    if(!r.ok)return;
+    cb((await r.json()).columns);
+  }catch{}
+}
+
+function buildColList(listId,cols,selectFn){
+  const list=document.getElementById(listId);list.innerHTML='';
+  cols.forEach(c=>{
+    const el=document.createElement('div');el.className='col-item';el.dataset.col=c.name;
+    el.innerHTML=`<div><div class="ci-name">${c.name}</div><div class="ci-meta">n=${c.n} · x̄=${c.mean}</div></div>`;
+    el.addEventListener('click',()=>selectFn(c));list.appendChild(el);
+  });
+}
+
+function destroyCharts(){Object.values(charts).forEach(c=>{try{c.destroy();}catch{}});charts={};}
+function showContent(html){document.getElementById('content').innerHTML=html;}
+function loadHtml(msg){return `<div class="loading"><div class="spinner"></div><div style="color:var(--text2);font-size:12px">${msg}</div></div>`;}
+function showEmpty(icon,title,sub){showContent(`<div class="empty-state"><div class="ei">${icon}</div><div class="et">${title}</div><div class="es">${sub}</div></div>`);}
+function showToast(msg,isError=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(isError?' error':'');setTimeout(()=>t.className='toast',3500);}
+
+// Init — hide all except GRR
+['sb-spc','sb-cap','sb-norm'].forEach(id=>document.getElementById(id).style.display='none');
+</script>
+</body>
+</html>

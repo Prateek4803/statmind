@@ -347,3 +347,87 @@ def get_all_rules_catalog() -> list:
         }
         for r in CAPA_RULES
     ]
+
+
+# ── R2: Load expanded database if available ───────────────────────────────────
+def _get_rules():
+    """Load expanded R2 database if available, fallback to original."""
+    try:
+        from capa_database_r2 import CAPA_RULES as R2_RULES
+        return R2_RULES
+    except ImportError:
+        from capa_database import CAPA_RULES as R1_RULES
+        return R1_RULES
+
+
+def run_capa_engine_v2(
+    normality_result=None, capability_result=None,
+    spc_result=None, grr_result=None,
+    process_context: str = "", parameter_name: str = "", process_type: str = "",
+) -> dict:
+    """V2 engine — uses expanded R2 database with process-boosted scoring."""
+    from capa_database_r2 import CAPA_RULES
+
+    stats = _extract_stats(normality_result, capability_result, spc_result, grr_result)
+    stats["process"] = (process_type + " " + parameter_name + " " + process_context).lower()
+    stats["parameter"] = parameter_name.lower()
+
+    # Score with process boost
+    scored = []
+    for rule in CAPA_RULES:
+        s = score_rule(rule, stats)
+        if s == 0:
+            continue
+        # Boost rules whose process matches user-selected process_type
+        if process_type and rule.process.lower() in process_type.lower():
+            s *= 1.8
+        # Boost general rules if no specific process selected
+        elif not process_type and rule.process == "General":
+            s *= 1.2
+        # Penalise if process clearly doesn't match (e.g. Automotive for semiconductor data)
+        if process_type and rule.process not in ("General", process_type):
+            s *= 0.5
+        scored.append((s, rule))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    if not scored:
+        return {
+            "matched_rules": [], "primary_capa": None,
+            "stats_summary": stats, "auto_severity": "Minor",
+            "message": "No rule violations detected.",
+        }
+
+    matched = []
+    for score, rule in scored[:8]:
+        matched.append({
+            "rule_id": rule.rule_id, "process": rule.process,
+            "fault_pattern": rule.fault_pattern, "severity": rule.severity,
+            "score": round(score, 2), "description": rule.description,
+        })
+
+    top_score, top_rule = scored[0]
+    primary = _build_capa_report(top_rule, stats, process_context, parameter_name)
+
+    sev_order = {"Critical": 3, "Major": 2, "Minor": 1}
+    max_sev = max((sev_order.get(r.severity, 0) for _, r in scored), default=0)
+    auto_sev = {3:"Critical",2:"Major",1:"Minor"}.get(max_sev,"Minor")
+
+    return {
+        "matched_rules": matched, "primary_capa": primary,
+        "stats_summary": stats, "auto_severity": auto_sev,
+        "top_rule_id": top_rule.rule_id,
+        "message": f"Matched {len(scored)} rule(s). Primary: {top_rule.fault_pattern}",
+    }
+
+
+def get_all_rules_catalog_v2() -> list:
+    """Return expanded R2 catalog."""
+    try:
+        from capa_database_r2 import CAPA_RULES
+        return [{"rule_id": r.rule_id, "process": r.process, "parameter": r.parameter,
+                 "fault_pattern": r.fault_pattern, "severity": r.severity,
+                 "description": r.description, "standard_reference": r.standard_reference}
+                for r in CAPA_RULES]
+    except ImportError:
+        return get_all_rules_catalog()

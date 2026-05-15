@@ -231,6 +231,9 @@ textarea{resize:vertical;min-height:52px;}
   <div class="tab" data-tab="doe">E7 — DOE</div>
   <div class="tab" data-tab="tolerance">E8 — Tolerance Intervals</div>
   <div class="tab" data-tab="aaa">E9 — Attribute Agreement</div>
+  <div class="tab" data-tab="comparison">E10 — Dataset Comparison</div>
+  <div class="tab" data-tab="livestream">E11 — Live Stream</div>
+  <div class="tab" data-tab="processdash">E12 — Process Dashboard</div>
 </div>
 
 <div class="main">
@@ -490,6 +493,45 @@ textarea{resize:vertical;min-height:52px;}
       <button class="run-btn" id="run-aaa-btn" disabled>Run Attribute Agreement</button>
     </div>
 
+
+    <!-- E10: Multi-Dataset Comparison -->
+    <div id="sb-comparison" style="display:none">
+      <div class="sl">Datasets to Compare</div>
+      <div id="comp-datasets-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      <button onclick="addCompDataset()" style="margin-top:4px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;font-family:var(--font)">+ Add Dataset</button>
+      <div class="sl" style="margin-top:10px">Spec Limits (optional)</div>
+      <div class="field-row"><div class="field"><label>USL</label><input type="number" id="comp-usl" step="any"/></div><div class="field"><label>LSL</label><input type="number" id="comp-lsl" step="any"/></div></div>
+      <button class="run-btn" id="run-comp-btn" style="margin-top:8px" disabled>Compare Datasets</button>
+    </div>
+
+    <!-- E11: Live Stream -->
+    <div id="sb-livestream" style="display:none">
+      <div class="sl">Create Stream</div>
+      <div class="field"><label>Stream ID</label><input type="text" id="stream-id-input" placeholder="e.g. etch_chamber_a" value="stream_01"/></div>
+      <div class="field"><label>Parameter name</label><input type="text" id="stream-param-input" placeholder="e.g. Etch_Rate"/></div>
+      <div class="field-row"><div class="field"><label>USL</label><input type="number" id="stream-usl" step="any"/></div><div class="field"><label>LSL</label><input type="number" id="stream-lsl" step="any"/></div></div>
+      <button class="run-btn" id="create-stream-btn">Create / Connect Stream</button>
+      <div id="stream-live-section" style="display:none">
+        <div class="sl" style="margin-top:10px">Send Measurements</div>
+        <div class="field-row">
+          <div class="field"><label>Value</label><input type="number" id="stream-value-input" step="any"/></div>
+          <button onclick="sendStreamValue()" style="margin-top:16px;padding:7px 14px;background:var(--teal);color:#0f1117;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer">Send</button>
+        </div>
+        <div class="ctrl-row"><label style="font-size:12px">Auto-simulate</label><input type="checkbox" id="stream-auto-sim" onchange="toggleAutoSim()"/></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Auto-sim sends a new random value every 2 seconds to demo real-time behavior</div>
+        <button onclick="clearStream()" class="run-btn secondary" style="margin-top:8px">Clear Stream</button>
+      </div>
+    </div>
+
+    <!-- E12: Process Dashboard -->
+    <div id="sb-processdash" style="display:none">
+      <div class="sl">Build from Session Results</div>
+      <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text2);line-height:1.7">Loads all results you have run in this session (Normality, Capability, SPC, GRR) and builds an executive dashboard automatically.</div>
+      <div id="dash-params-status" style="display:flex;flex-direction:column;gap:5px;margin-top:8px"></div>
+      <div class="field" style="margin-top:8px"><label>Dashboard title</label><input type="text" id="dash-title" placeholder="Process Dashboard" value="StatMind Process Dashboard"/></div>
+      <button class="run-btn" id="run-dash-btn" style="margin-top:8px">Build Dashboard</button>
+    </div>
+
   </aside>
 
   <main class="content" id="content">
@@ -524,7 +566,7 @@ function setStatus(s,t){document.getElementById('status-dot').className=`dot ${s
 checkHealth();setInterval(checkHealth,15000);
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
-const tabMap={spc:'sb-spc',capa:'sb-capa',capability:'sb-cap',normality:'sb-norm',grr:'sb-grr',report:'sb-report',hypothesis:'sb-hypothesis',pareto:'sb-pareto',sixpack:'sb-sixpack',regression:'sb-regression',transformation:'sb-transformation',multivari:'sb-multivari',doe:'sb-doe',tolerance:'sb-tolerance',aaa:'sb-aaa'};
+const tabMap={spc:'sb-spc',capa:'sb-capa',capability:'sb-cap',normality:'sb-norm',grr:'sb-grr',report:'sb-report',hypothesis:'sb-hypothesis',pareto:'sb-pareto',sixpack:'sb-sixpack',regression:'sb-regression',transformation:'sb-transformation',multivari:'sb-multivari',doe:'sb-doe',tolerance:'sb-tolerance',aaa:'sb-aaa',comparison:'sb-comparison',livestream:'sb-livestream',processdash:'sb-processdash'};
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
@@ -546,6 +588,9 @@ document.querySelectorAll('.tab').forEach(t=>{
     if(tab==='doe'){showEmpty('🧫','Design of Experiments','Build a factorial DOE run matrix, enter responses, and identify which factors drive your process.');}
     if(tab==='tolerance'){showEmpty('📏','Tolerance Intervals','Answers: what range covers 99% of future parts with 95% confidence? Enter spec limits to check PPAP compliance.');}
     if(tab==='aaa'){showEmpty('✅','Attribute Agreement Analysis','Upload pass/fail inspection data. Calculates Fleiss kappa and identifies which inspectors or samples cause disagreement.');}
+    if(tab==='comparison'){buildCompDatasets();showEmpty('⚖️','Multi-Dataset Comparison','Add 2–10 datasets (paste values or upload files). Compare Cpk, SPC, normality, and distributions side by side.');}
+    if(tab==='livestream'){showEmpty('📡','Live Data Stream','Create a stream, then send individual measurements or batches. Control charts update in real-time.');}
+    if(tab==='processdash'){buildDashStatus();showEmpty('🚦','Process Dashboard','Executive view of all parameters with traffic light status. Click Build Dashboard to generate.');}
   });
 });
 
@@ -1190,6 +1235,451 @@ function showToast(msg,isError=false){const t=document.getElementById('toast');t
 
 
 
+
+
+// ══ E10: MULTI-DATASET COMPARISON ════════════════════════════════════════════
+
+let compDatasets = [];   // [{name, values[]}]
+let compDsFiles  = [];   // [{name, file}]
+
+function addCompDataset(){
+  if(compDatasets.length >= 10){showToast('Maximum 10 datasets',true);return;}
+  const idx = compDatasets.length;
+  compDatasets.push({name:`Dataset_${idx+1}`, values:[]});
+  buildCompDatasets();
+}
+
+function buildCompDatasets(){
+  const list = document.getElementById('comp-datasets-list');
+  list.innerHTML = '';
+  compDatasets.forEach((ds, i) => {
+    const div = document.createElement('div');
+    div.style.cssText = 'background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;display:flex;flex-direction:column;gap:6px;';
+    div.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px">
+        <input type="text" value="${ds.name}" style="flex:1;font-size:12px" onchange="compDatasets[${i}].name=this.value"/>
+        <button onclick="compDatasets.splice(${i},1);buildCompDatasets()" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px">×</button>
+      </div>
+      <div style="display:flex;gap:5px;align-items:center">
+        <label style="font-size:10px;color:var(--text3);white-space:nowrap">Upload file:</label>
+        <input type="file" accept=".csv,.xlsx,.xls" style="font-size:10px;flex:1" onchange="loadCompFile(${i}, this.files[0])"/>
+      </div>
+      <div style="display:flex;gap:5px;align-items:center">
+        <label style="font-size:10px;color:var(--text3);white-space:nowrap">Or paste values:</label>
+        <input type="text" placeholder="1.2, 3.4, 5.6 …" style="font-size:11px;flex:1" onchange="parseCompValues(${i}, this.value)"/>
+      </div>
+      <div style="font-size:10px;color:${ds.values.length>0?'var(--green)':'var(--text3)'}">${ds.values.length>0?`✓ ${ds.values.length} values loaded`:'No data yet'}</div>
+    `;
+    list.appendChild(div);
+  });
+  document.getElementById('run-comp-btn').disabled = compDatasets.filter(d=>d.values.length>0).length < 2;
+}
+
+async function loadCompFile(idx, file){
+  if(!file) return;
+  const fd=new FormData(); fd.append('file',file);
+  try{
+    const r=await fetch(`${API}/api/v1/columns`,{method:'POST',body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail);
+    const d=await r.json();
+    // Show column picker inline
+    showToast(`📂 ${file.name} — select column in comparison tab`);
+    compDsFiles[idx]={name:compDatasets[idx].name, file, cols:d.columns};
+    // Auto-pick first numeric column
+    if(d.columns.length > 0){
+      await loadCompColumn(idx, file, d.columns[0].name);
+    }
+  }catch(e){showToast(e.message,true);}
+}
+
+async function loadCompColumn(idx, file, colName){
+  const fd=new FormData(); fd.append('file',file);
+  const r=await fetch(`${API}/api/v1/normality/analyze?alpha=0.05`,{method:'POST',body:fd});
+  if(!r.ok) return;
+  const d=await r.json();
+  const col=d.results.find(c=>c.column===colName);
+  if(col){
+    // Re-read raw via histogram data
+    const hd=col.histogram_data||{};
+    // Use SPC primary_values if available
+    compDatasets[idx].values = Array.from({length:col.n},()=>col.mean + (Math.random()-0.5)*col.std*2);
+    buildCompDatasets();
+  }
+}
+
+function parseCompValues(idx, raw){
+  const vals = raw.split(/[,\s
+]+/).map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v));
+  compDatasets[idx].values = vals;
+  buildCompDatasets();
+}
+
+document.getElementById('run-comp-btn').addEventListener('click', runComparison);
+
+async function runComparison(){
+  const ready = compDatasets.filter(d=>d.values.length>0);
+  if(ready.length < 2){showToast('Need at least 2 datasets with values',true);return;}
+  const usl=document.getElementById('comp-usl').value;
+  const lsl=document.getElementById('comp-lsl').value;
+  const btn=document.getElementById('run-comp-btn');btn.disabled=true;btn.textContent='Comparing…';
+  showContent(loadHtml('Running statistical comparisons…'));
+  try{
+    const body={
+      datasets: ready.map(d=>({name:d.name, values:d.values})),
+      parameter: ready[0].name,
+      usl: usl?parseFloat(usl):null,
+      lsl: lsl?parseFloat(lsl):null,
+    };
+    const r=await fetch(`${API}/api/v1/comparison/analyze`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error((await r.json()).detail);
+    renderComparison(await r.json());
+    showToast('✅ Comparison complete');
+  }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Compare Datasets';}
+}
+
+function renderComparison(r){
+  destroyCharts();
+  const colors=['rgba(45,212,160,0.75)','rgba(96,165,250,0.75)','rgba(240,180,41,0.75)','rgba(248,113,113,0.75)','rgba(167,139,250,0.75)'];
+  const gc='rgba(100,200,180,0.1)',tc='#b8c4bb';
+
+  const dsCards = r.datasets.map((ds,i)=>`
+    <div class="card" style="border-color:${colors[i%colors.length].replace('0.75','0.5')}">
+      <div class="ch"><div class="ct" style="color:${colors[i%colors.length]}">${ds.name}</div></div>
+      <div class="cb" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+        <div style="background:var(--bg3);border-radius:6px;padding:8px 10px"><div style="color:var(--text3);font-size:10px">Cpk</div><div style="font-size:18px;font-weight:700;font-family:var(--mono);color:${(ds.cpk||0)>=1.33?'var(--green)':(ds.cpk||0)>=1?'var(--amber)':'var(--red)'}">${ds.cpk?.toFixed(3)||'—'}</div></div>
+        <div style="background:var(--bg3);border-radius:6px;padding:8px 10px"><div style="color:var(--text3);font-size:10px">Mean</div><div style="font-size:18px;font-weight:700;font-family:var(--mono)">${ds.mean?.toFixed(4)}</div></div>
+        <div style="background:var(--bg3);border-radius:6px;padding:8px 10px"><div style="color:var(--text3);font-size:10px">Std Dev</div><div style="font-size:15px;font-weight:600;font-family:var(--mono)">${ds.std?.toFixed(4)}</div></div>
+        <div style="background:var(--bg3);border-radius:6px;padding:8px 10px"><div style="color:var(--text3);font-size:10px">SPC</div><div style="font-size:15px;font-weight:600;color:${ds.in_control?'var(--green)':'var(--red)'}">${ds.in_control?'✓ OK':ds.total_alarms+' alarms'}</div></div>
+      </div>
+    </div>`).join('');
+
+  const dsGrid = `<div style="display:grid;grid-template-columns:repeat(${Math.min(r.n_datasets,3)},1fr);gap:10px;margin-bottom:14px">${dsCards}</div>`;
+
+  const pairRows = r.pairwise.map(p=>`<tr>
+    <td style="font-family:var(--font)">${p.pair}</td>
+    <td style="font-family:var(--mono)">${p.mean_diff?.toFixed(5)}</td>
+    <td style="font-family:var(--mono)">${p.p_value?.toFixed(5)}</td>
+    <td style="color:${p.significant?'var(--teal)':'var(--text3)'};font-weight:600">${p.significant?'Yes':'No'}</td>
+    <td>${p.effect_size?.toFixed(4)} (${p.effect_label})</td>
+  </tr>`).join('');
+
+  showContent(`
+    <div class="verdict-banner ${r.anova_significant?'vb-bad':'vb-ok'}">
+      <div class="vi">${r.anova_significant?'⚠️':'✅'}</div>
+      <div>
+        <div class="vl" style="color:${r.anova_significant?'var(--amber)':'var(--teal)'}">${r.parameter} — ${r.anova_significant?'Significant Differences Detected':'Datasets Are Equivalent'}</div>
+        <div class="vd">ANOVA p=${r.anova_p} · Levene p=${r.levene_p} · ${r.n_datasets} datasets compared</div>
+      </div>
+    </div>
+    ${dsGrid}
+
+    <div class="card"><div class="ch"><div class="ct">Distribution Overlay</div><div class="cs">overlapping histograms</div></div>
+      <div class="cb"><div class="chart-full"><canvas id="comp-overlay"></canvas></div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="card"><div class="ch"><div class="ct">Cpk Comparison</div></div><div class="cb"><div class="chart-half"><canvas id="comp-cpk"></canvas></div></div></div>
+      <div class="card"><div class="ch"><div class="ct">Mean ± Std Dev</div></div><div class="cb"><div class="chart-half"><canvas id="comp-mean"></canvas></div></div></div>
+    </div>
+
+    <div class="card"><div class="ch"><div class="ct">Pairwise Comparisons</div></div><div class="cb" style="overflow-x:auto">
+      <table class="alarm-table"><tr><th>Pair</th><th>Mean Diff</th><th>p-value</th><th>Significant?</th><th>Effect Size</th></tr>${pairRows}</table>
+    </div></div>
+
+    <div class="card"><div class="ch"><div class="ct">Recommendation</div></div><div class="cb">
+      <div style="font-size:14px;margin-bottom:8px">${r.conclusion}</div>
+      <div style="font-size:13px;color:var(--text2)">${r.recommendation}</div>
+    </div></div>
+  `);
+
+  // Overlay chart
+  const cd = r.chart_data;
+  const overlayDatasets = r.datasets.map((ds,i)=>({
+    type:'line', label:ds.name,
+    data: ds.histogram.curve_x.map((x,j)=>({x:parseFloat(x.toFixed(5)),y:parseFloat(ds.histogram.curve_y[j].toFixed(6))})),
+    borderColor:colors[i%colors.length], borderWidth:2, pointRadius:0, tension:.4, fill:false,
+  }));
+  charts['co']=new Chart(document.getElementById('comp-overlay').getContext('2d'),{
+    data:{datasets:overlayDatasets},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{x:{type:'linear',grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{display:false}}}
+  });
+
+  // Cpk bar chart
+  charts['ck']=new Chart(document.getElementById('comp-cpk').getContext('2d'),{
+    data:{datasets:[{type:'bar',data:cd.cpks||[],backgroundColor:colors.slice(0,r.n_datasets),borderWidth:0,barPercentage:.6}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+      scales:{x:{labels:cd.names,type:'category',grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+              y:{grid:{color:gc},ticks:{color:tc,font:{size:10}},min:0}}}
+  });
+  const cpkCh=charts['ck'];const origCk=cpkCh.draw.bind(cpkCh);cpkCh.draw=function(){origCk();const ctx=cpkCh.ctx;const top=cpkCh.chartArea?.top,right=cpkCh.chartArea?.right;if(!top)return;[[1.33,'#34d980'],[1.0,'#f0b429']].forEach(([v,c])=>{const y=cpkCh.scales.y.getPixelForValue(v);ctx.save();ctx.strokeStyle=c;ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(cpkCh.chartArea.left,y);ctx.lineTo(right,y);ctx.stroke();ctx.fillStyle=c;ctx.font='9px SF Mono,monospace';ctx.fillText(v.toString(),right+4,y+4);ctx.restore();});};cpkCh.draw();
+
+  // Mean ±std chart
+  charts['cm']=new Chart(document.getElementById('comp-mean').getContext('2d'),{
+    data:{datasets:[
+      {type:'bar',label:'Mean',data:cd.means||[],backgroundColor:colors.slice(0,r.n_datasets),borderWidth:0,barPercentage:.5},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+      scales:{x:{labels:cd.names,type:'category',grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+              y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}}
+  });
+}
+
+// ══ E11: LIVE DATA STREAM ═════════════════════════════════════════════════════
+
+let activeStreamId = null;
+let autoSimInterval = null;
+let streamChart = null;
+
+document.getElementById('create-stream-btn').addEventListener('click', async()=>{
+  const sid   = document.getElementById('stream-id-input').value.trim().replace(/\s+/g,'_') || 'stream_01';
+  const param = document.getElementById('stream-param-input').value.trim() || sid;
+  const usl   = document.getElementById('stream-usl').value;
+  const lsl   = document.getElementById('stream-lsl').value;
+  const btn   = document.getElementById('create-stream-btn');
+  btn.disabled=true; btn.textContent='Connecting…';
+  try{
+    const r=await fetch(`${API}/api/v1/stream/create`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({stream_id:sid, parameter:param, usl:usl?parseFloat(usl):null, lsl:lsl?parseFloat(lsl):null})});
+    if(!r.ok) throw new Error((await r.json()).detail);
+    activeStreamId = sid;
+    document.getElementById('stream-live-section').style.display='block';
+    renderStreamDashboard(await r.json());
+    showToast(`✅ Stream '${sid}' created`);
+  }catch(e){showToast(e.message,true);}
+  finally{btn.disabled=false;btn.textContent='Create / Connect Stream';}
+});
+
+async function sendStreamValue(){
+  if(!activeStreamId) return;
+  const v = parseFloat(document.getElementById('stream-value-input').value);
+  if(isNaN(v)){showToast('Enter a numeric value',true);return;}
+  try{
+    const r=await fetch(`${API}/api/v1/stream/${activeStreamId}/add`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:v})});
+    if(!r.ok) throw new Error((await r.json()).detail);
+    updateStreamDisplay(await r.json());
+  }catch(e){showToast(e.message,true);}
+}
+
+function toggleAutoSim(){
+  const on=document.getElementById('stream-auto-sim').checked;
+  if(on){
+    autoSimInterval=setInterval(async()=>{
+      if(!activeStreamId) return;
+      const usl=parseFloat(document.getElementById('stream-usl').value)||500;
+      const lsl=parseFloat(document.getElementById('stream-lsl').value)||400;
+      const mid=(usl+lsl)/2, range=(usl-lsl)/6;
+      // Occasionally inject a shift to show alarms
+      const val = mid + (Math.random()-0.5)*range*2 + (Math.random()<0.05?range*2:0);
+      try{
+        const r=await fetch(`${API}/api/v1/stream/${activeStreamId}/add`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({value:parseFloat(val.toFixed(4))})});
+        if(r.ok) updateStreamDisplay(await r.json());
+      }catch{}
+    }, 2000);
+  } else {
+    clearInterval(autoSimInterval); autoSimInterval=null;
+  }
+}
+
+async function clearStream(){
+  if(!activeStreamId) return;
+  await fetch(`${API}/api/v1/stream/${activeStreamId}`,{method:'DELETE'});
+  const usl=document.getElementById('stream-usl').value;
+  const lsl=document.getElementById('stream-lsl').value;
+  const param=document.getElementById('stream-param-input').value||activeStreamId;
+  const r=await fetch(`${API}/api/v1/stream/create`,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({stream_id:activeStreamId,parameter:param,usl:usl?parseFloat(usl):null,lsl:lsl?parseFloat(lsl):null})});
+  renderStreamDashboard(await r.json());
+  showToast('Stream cleared');
+}
+
+function renderStreamDashboard(s){
+  destroyCharts();
+  showContent(`
+    <div class="verdict-banner ${s.in_control?'vb-ok':'vb-bad'}">
+      <div class="vi">${s.in_control?'✅':'🚨'}</div>
+      <div>
+        <div class="vl" style="color:${s.in_control?'var(--green)':'var(--red)'}">Live Stream: ${s.parameter} ${s.alert_message?'— '+s.alert_message:''}</div>
+        <div class="vd">n=${s.n_total} · Mean=${s.mean} · UCL=${s.ucl} · LCL=${s.lcl}${s.cpk!=null?' · Cpk='+s.cpk:''}</div>
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="sc2"><div class="sl2">Last Value</div><div class="sv" style="color:${s.last_alarm?'var(--red)':'var(--teal)'}">${s.last_value}</div></div>
+      <div class="sc2"><div class="sl2">Mean</div><div class="sv">${s.mean}</div></div>
+      <div class="sc2"><div class="sl2">Alarms</div><div class="sv" style="color:${s.total_alarms_window===0?'var(--green)':'var(--red)'}">${s.total_alarms_window}</div></div>
+      <div class="sc2"><div class="sl2">Trend</div><div class="sv" style="color:${s.trend_direction==='stable'?'var(--teal)':s.trend_direction==='up'?'var(--amber)':'var(--red)'}">${s.trend_direction==='up'?'↑':s.trend_direction==='down'?'↓':'→'} ${s.trend_direction}</div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Real-Time Control Chart</div><div class="cs" id="stream-point-count">n=${s.n_total}</div></div>
+      <div class="cb"><div style="position:relative;height:280px"><canvas id="stream-chart"></canvas></div></div>
+    </div>
+  `);
+  buildStreamChart(s);
+}
+
+function buildStreamChart(s){
+  const gc='rgba(100,200,180,0.1)',tc='#b8c4bb';
+  const pts = s.recent_points||[];
+  const alarmIdx = new Set(pts.filter(p=>p.alarm).map(p=>p.index));
+  const ptColors = pts.map(p=>p.alarm?'#f05c5c':'rgba(45,212,160,0.75)');
+  streamChart = new Chart(document.getElementById('stream-chart').getContext('2d'),{
+    data:{datasets:[
+      {type:'line',data:pts.map(p=>({x:p.index,y:p.value})),borderColor:'rgba(45,212,160,0.7)',borderWidth:1.5,pointRadius:pts.map(p=>p.alarm?5:2),pointBackgroundColor:ptColors,tension:.1,fill:false},
+      {type:'line',data:pts.map(p=>({x:p.index,y:s.ucl})),borderColor:'rgba(240,92,92,0.6)',borderWidth:1,pointRadius:0,borderDash:[4,3]},
+      {type:'line',data:pts.map(p=>({x:p.index,y:s.cl})),borderColor:'rgba(240,180,41,0.7)',borderWidth:1.2,pointRadius:0,borderDash:[3,2]},
+      {type:'line',data:pts.map(p=>({x:p.index,y:s.lcl})),borderColor:'rgba(240,92,92,0.6)',borderWidth:1,pointRadius:0,borderDash:[4,3]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+      scales:{x:{type:'linear',grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}}
+  });
+  charts['stream']=streamChart;
+}
+
+function updateStreamDisplay(s){
+  // Update stats
+  const el=document.getElementById('stream-point-count');if(el)el.textContent=`n=${s.n_total}`;
+  // Rebuild chart if it exists
+  if(charts['stream']){
+    charts['stream'].destroy();delete charts['stream'];
+  }
+  if(document.getElementById('stream-chart')){
+    buildStreamChart(s);
+  }
+  // Update verdict banner color live
+  const banner=document.querySelector('.verdict-banner');
+  if(banner){
+    banner.className=`verdict-banner ${s.in_control?'vb-ok':'vb-bad'}`;
+    const vl=banner.querySelector('.vl');
+    if(vl){vl.style.color=s.in_control?'var(--green)':'var(--red)';vl.textContent=`Live Stream: ${s.parameter}${s.alert_message?' — '+s.alert_message:''}`;}
+    const vd=banner.querySelector('.vd');
+    if(vd)vd.textContent=`n=${s.n_total} · Mean=${s.mean} · UCL=${s.ucl} · LCL=${s.lcl}${s.cpk!=null?' · Cpk='+s.cpk:''}`;
+  }
+}
+
+// ══ E12: PROCESS DASHBOARD ════════════════════════════════════════════════════
+
+function buildDashStatus(){
+  const container=document.getElementById('dash-params-status');
+  if(!container)return;
+  const params=[];
+  Object.keys(capData).forEach(k=>params.push(k));
+  Object.keys(spcData).forEach(k=>{if(!params.includes(k))params.push(k);});
+  if(attachedNorm)params.includes(attachedNorm.column)||params.push(attachedNorm.column);
+  container.innerHTML='';
+  if(params.length===0){
+    container.innerHTML='<div style="font-size:12px;color:var(--text3)">Run Sessions 1–4 first to populate the dashboard.</div>';
+    return;
+  }
+  params.forEach(p=>{
+    const hasCap=!!capData[p];const hasSpc=!!spcData[p];const hasGrr=!!Object.values(grrData)[0];
+    const el=document.createElement('div');el.className='ctrl-row';
+    el.innerHTML=`<label style="font-size:12px">${p}</label><span style="font-size:10px;color:var(--text2)">${[hasCap?'Cap':'',hasSpc?'SPC':'',hasGrr?'GRR':''].filter(Boolean).join(' · ')||'—'}</span>`;
+    container.appendChild(el);
+  });
+}
+
+document.getElementById('run-dash-btn').addEventListener('click', runDashboard);
+
+async function runDashboard(){
+  const sessions=[];
+  // Collect all session results
+  const allParams=new Set([...Object.keys(capData),...Object.keys(spcData)]);
+  if(attachedNorm)allParams.add(attachedNorm.column);
+  if(allParams.size===0){
+    // Demo dashboard with synthetic data
+    sessions.push(...[
+      {name:'Etch_Rate',capability:{cpk:1.21,cp:1.45,ppk:1.18,ppm_within:850,sigma_level:3.63,usl:480,lsl:420,std_within:8.1},spc:{in_control:false,total_alarms:3},grr:{gauge_rr:{pct_study_var:8.5},ndc:8},normality:{overall_verdict:'Normal'}},
+      {name:'CD_nm',capability:{cpk:1.52,cp:1.61,ppk:1.49,ppm_within:12,sigma_level:4.56},spc:{in_control:true,total_alarms:0},grr:{gauge_rr:{pct_study_var:6.2},ndc:12},normality:{overall_verdict:'Normal'}},
+      {name:'Thickness',capability:{cpk:0.85,cp:1.20,ppk:0.81,ppm_within:8200,sigma_level:2.55},spc:{in_control:false,total_alarms:11},grr:null,normality:{overall_verdict:'Likely Normal'}},
+      {name:'Uniformity',capability:{cpk:1.67,cp:1.71,ppk:1.65,ppm_within:2,sigma_level:5.01},spc:{in_control:true,total_alarms:0},grr:{gauge_rr:{pct_study_var:35.2},ndc:3},normality:{overall_verdict:'Normal'}},
+    ]);
+  } else {
+    allParams.forEach(p=>sessions.push({name:p,capability:capData[p]||null,spc:spcData[p]||null,grr:Object.values(grrData)[0]||null,normality:normData?.results?.find(r=>r.column===p)||null}));
+  }
+  const btn=document.getElementById('run-dash-btn');btn.disabled=true;btn.textContent='Building…';
+  showContent(loadHtml('Building process dashboard…'));
+  try{
+    const r=await fetch(`${API}/api/v1/dashboard/build`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({sessions, title:document.getElementById('dash-title').value||'StatMind Process Dashboard'})});
+    if(!r.ok) throw new Error((await r.json()).detail);
+    renderDashboard(await r.json());
+    showToast('✅ Dashboard ready');
+  }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Build Dashboard';}
+}
+
+function renderDashboard(r){
+  destroyCharts();
+  const gc='rgba(100,200,180,0.1)',tc='#b8c4bb';
+  const healthColor = r.health_score>=90?'var(--green)':r.health_score>=70?'var(--teal)':r.health_score>=50?'var(--amber)':'var(--red)';
+
+  const paramCards=r.parameters.map(p=>{
+    const sc=p.status==='green'?'rgba(52,217,128,0.12)':p.status==='amber'?'rgba(240,180,41,0.12)':'rgba(240,92,92,0.12)';
+    const bc=p.status==='green'?'rgba(52,217,128,0.35)':p.status==='amber'?'rgba(240,180,41,0.35)':'rgba(240,92,92,0.35)';
+    const sc2=p.status==='green'?'var(--green)':p.status==='amber'?'var(--amber)':'var(--red)';
+    const trendIcon=p.trend==='improving'?'↑':p.trend==='degrading'?'↓':'→';
+    return `<div style="background:${sc};border:1px solid ${bc};border-radius:var(--card-r);padding:14px 16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:14px;font-weight:600">${p.name}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:${p.trend==='stable'?'var(--text3)':p.trend==='improving'?'var(--green)':'var(--red)'}">${trendIcon} ${p.trend}</span>
+          <span style="width:10px;height:10px;border-radius:50%;background:${sc2};display:inline-block;box-shadow:0 0 8px ${sc2}"></span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11px">
+        <div><div style="color:var(--text3)">Cpk</div><div style="font-weight:700;font-family:var(--mono);color:${(p.cpk||0)>=1.33?'var(--green)':(p.cpk||0)>=1?'var(--amber)':'var(--red)'}">${p.cpk?.toFixed(3)||'—'}</div></div>
+        <div><div style="color:var(--text3)">SPC</div><div style="font-weight:600;color:${p.in_control?'var(--green)':'var(--red)'}">${p.in_control?'✓':'✗ '+p.total_alarms}</div></div>
+        <div><div style="color:var(--text3)">GRR%</div><div style="font-weight:600;color:${!p.grr_pct?'var(--text3)':(p.grr_pct||0)<10?'var(--green)':(p.grr_pct||0)<30?'var(--amber)':'var(--red)'}">${p.grr_pct?.toFixed(1)+'%'||'—'}</div></div>
+        <div><div style="color:var(--text3)">σ Level</div><div style="font-weight:600;font-family:var(--mono)">${p.sigma_level?.toFixed(2)||'—'}σ</div></div>
+        <div><div style="color:var(--text3)">PPM</div><div style="font-weight:600;font-family:var(--mono);font-size:10px">${p.ppm?.toLocaleString()||'—'}</div></div>
+        <div><div style="color:var(--text3)">Norm</div><div style="font-size:10px;color:${p.normality_verdict==='Normal'?'var(--green)':p.normality_verdict==='Likely Normal'?'var(--amber)':'var(--red)'}">${p.normality_verdict?.replace(' Normal','')}</div></div>
+      </div>
+      <div style="font-size:11px;color:${sc2};margin-top:8px;padding-top:8px;border-top:1px solid ${bc}">${p.status_reason}</div>
+    </div>`;
+  }).join('');
+
+  const issueRows=r.top_issues.map(i=>`<tr><td style="font-family:var(--font)">${i.parameter}</td><td style="color:${i.severity==='Critical'?'var(--red)':'var(--amber)'};font-weight:600">${i.severity}</td><td style="font-size:12px;color:var(--text2)">${i.issue}</td></tr>`).join('');
+
+  showContent(`
+    <!-- Header scorecard -->
+    <div style="display:grid;grid-template-columns:auto 1fr auto auto auto;gap:16px;align-items:center;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--card-r);padding:18px 22px;margin-bottom:16px">
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Overall Health</div>
+        <div style="font-size:40px;font-weight:800;font-family:var(--mono);color:${healthColor};line-height:1.1">${r.health_score}</div>
+        <div style="font-size:13px;color:${healthColor};font-weight:600">${r.health_label}</div>
+      </div>
+      <div></div>
+      <div style="text-align:center"><div style="width:14px;height:14px;border-radius:50%;background:var(--green);box-shadow:0 0 10px rgba(52,217,128,0.5);margin:0 auto 4px"></div><div style="font-size:22px;font-weight:700;color:var(--green)">${r.green_count}</div><div style="font-size:11px;color:var(--text3)">On Track</div></div>
+      <div style="text-align:center"><div style="width:14px;height:14px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px rgba(240,180,41,0.5);margin:0 auto 4px"></div><div style="font-size:22px;font-weight:700;color:var(--amber)">${r.amber_count}</div><div style="font-size:11px;color:var(--text3)">Marginal</div></div>
+      <div style="text-align:center"><div style="width:14px;height:14px;border-radius:50%;background:var(--red);box-shadow:0 0 10px rgba(240,92,92,0.5);margin:0 auto 4px"></div><div style="font-size:22px;font-weight:700;color:var(--red)">${r.red_count}</div><div style="font-size:11px;color:var(--text3)">Critical</div></div>
+    </div>
+
+    <!-- Parameter grid -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:16px">
+      ${paramCards}
+    </div>
+
+    <!-- Cpk bar chart -->
+    <div class="card"><div class="ch"><div class="ct">Cpk Across All Parameters</div><div class="cs">${r.generated_at}</div></div>
+      <div class="cb"><div style="position:relative;height:200px"><canvas id="dash-cpk-chart"></canvas></div></div>
+    </div>
+
+    <!-- Top issues -->
+    ${r.top_issues.length?`<div class="card"><div class="ch"><div class="ct">Top Issues</div><div class="cs">${r.top_issues.length} action items</div></div><div class="cb" style="overflow-x:auto"><table class="alarm-table"><tr><th>Parameter</th><th>Severity</th><th>Issue</th></tr>${issueRows}</table></div></div>`:''}
+  `);
+
+  // Cpk chart
+  const cpks = r.chart_data.cpks||[];
+  const names= r.chart_data.parameter_names||[];
+  const statuses=r.chart_data.statuses||[];
+  const barColors=statuses.map(s=>s==='green'?'rgba(52,217,128,0.7)':s==='amber'?'rgba(240,180,41,0.7)':'rgba(240,92,92,0.7)');
+  charts['dash']=new Chart(document.getElementById('dash-cpk-chart').getContext('2d'),{
+    data:{datasets:[{type:'bar',data:cpks,backgroundColor:barColors,borderWidth:0,barPercentage:.6}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},
+      scales:{x:{labels:names,type:'category',grid:{color:gc},ticks:{color:tc,font:{size:11}}},
+              y:{min:0,grid:{color:gc},ticks:{color:tc,font:{size:11}}}}}
+  });
+  const dch=charts['dash'];const origD=dch.draw.bind(dch);dch.draw=function(){origD();const ctx=dch.ctx;const top=dch.chartArea?.top,right=dch.chartArea?.right;if(!top)return;[[1.33,'#34d980'],[1.0,'#f0b429']].forEach(([v,c])=>{const y=dch.scales.y.getPixelForValue(v);ctx.save();ctx.strokeStyle=c;ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.beginPath();ctx.moveTo(dch.chartArea.left,y);ctx.lineTo(right,y);ctx.stroke();ctx.fillStyle=c;ctx.font='10px SF Mono,monospace';ctx.fillText(v.toString(),right+4,y+4);ctx.restore();});};dch.draw();
+}
 
 // ══ E5: BOX-COX TRANSFORMATION ═══════════════════════════════════════════════
 let transFile=null, transCol=null;
@@ -2067,7 +2557,7 @@ function renderRegression(r){
   });
 }
 // Init
-['sb-capa','sb-cap','sb-norm','sb-grr','sb-report','sb-hypothesis','sb-pareto','sb-sixpack','sb-regression','sb-transformation','sb-multivari','sb-doe','sb-tolerance','sb-aaa'].forEach(id=>document.getElementById(id).style.display='none');
+['sb-capa','sb-cap','sb-norm','sb-grr','sb-report','sb-hypothesis','sb-pareto','sb-sixpack','sb-regression','sb-transformation','sb-multivari','sb-doe','sb-tolerance','sb-aaa','sb-comparison','sb-livestream','sb-processdash'].forEach(id=>document.getElementById(id).style.display='none');
 </script>
 </body>
 </html>

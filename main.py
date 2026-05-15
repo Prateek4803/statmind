@@ -575,3 +575,361 @@ async def regression_analyze(
         return jd(dc.asdict(reg))
     except Exception as e:
         raise HTTPException(400, str(e))
+
+
+# ══ Phase 2 Extensions ════════════════════════════════════════════════════════
+
+# ── E5: Box-Cox Transformation ────────────────────────────────────────────────
+@app.post("/api/v1/transformation/analyze")
+async def transform_analyze(
+    file: UploadFile = File(...),
+    column: str = Query(...),
+    usl: float = Query(None), lsl: float = Query(None),
+    alpha: float = Query(0.05),
+):
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if column not in result.df.columns:
+        raise HTTPException(404, f"Column '{column}' not found")
+    import dataclasses as dc
+    from transformation import auto_transform
+    try:
+        r = auto_transform(result.df[column].dropna().values.astype(float),
+                           column, usl, lsl, alpha)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ── E6: Multi-Vari Chart ──────────────────────────────────────────────────────
+@app.post("/api/v1/multivari/analyze")
+async def multivari_analyze(
+    file: UploadFile = File(...),
+    value_col: str = Query(...),
+    part_col: str = Query(...),
+    position_col: str = Query(None),
+    time_col: str = Query(None),
+):
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+    # For non-numeric columns, re-read as full DataFrame
+    import pandas as pd, io
+    try:
+        raw = c
+        fname = file.filename.lower()
+        if fname.endswith(('.xlsx','.xls')):
+            df_full = pd.read_excel(io.BytesIO(raw))
+        else:
+            sample = raw[:2048].decode('utf-8', errors='replace')
+            sep = '\t' if '\t' in sample else ';' if ';' in sample else ','
+            df_full = pd.read_csv(io.BytesIO(raw), sep=sep, on_bad_lines='skip')
+    except Exception:
+        df_full = result.df
+
+    if value_col not in df_full.columns:
+        raise HTTPException(404, f"Column '{value_col}' not found")
+    if part_col not in df_full.columns:
+        raise HTTPException(404, f"Part column '{part_col}' not found")
+
+    import dataclasses as dc
+    from multivari import analyze_multivari
+    try:
+        vals  = df_full[value_col].values.astype(float)
+        parts = df_full[part_col].values.astype(str)
+        positions   = df_full[position_col].values.astype(str) if position_col and position_col in df_full.columns else None
+        time_periods = df_full[time_col].values.astype(str) if time_col and time_col in df_full.columns else None
+        r = analyze_multivari(vals, parts, positions, time_periods, value_col)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+@app.post("/api/v1/multivari/columns")
+async def multivari_columns(file: UploadFile = File(...)):
+    """Return all columns including text for column selection."""
+    c = await file.read()
+    import pandas as pd, io
+    try:
+        raw = c
+        fname = file.filename.lower()
+        if fname.endswith(('.xlsx','.xls')):
+            df = pd.read_excel(io.BytesIO(raw))
+        else:
+            sample = raw[:2048].decode('utf-8', errors='replace')
+            sep = '\t' if '\t' in sample else ';' if ';' in sample else ','
+            df = pd.read_csv(io.BytesIO(raw), sep=sep, on_bad_lines='skip')
+        all_cols = df.columns.tolist()
+        num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        return jd({"all_columns": all_cols, "numeric_columns": num_cols, "rows": len(df)})
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ── E7: DOE ───────────────────────────────────────────────────────────────────
+@app.post("/api/v1/doe/generate")
+async def doe_generate(request: Request):
+    """Generate DOE run matrix (no responses yet)."""
+    body = await request.json()
+    import dataclasses as dc
+    from doe import generate_design
+    try:
+        factor_names  = body["factor_names"]
+        factor_levels = body["factor_levels"]
+        design_type   = body.get("design_type", "auto")
+        responses     = body.get("responses", None)
+        r = generate_design(factor_names, factor_levels, design_type, responses)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+@app.post("/api/v1/doe/analyze")
+async def doe_analyze(request: Request):
+    """Analyze DOE with response data."""
+    body = await request.json()
+    import dataclasses as dc
+    from doe import generate_design
+    try:
+        factor_names  = body["factor_names"]
+        factor_levels = body["factor_levels"]
+        design_type   = body.get("design_type", "auto")
+        responses     = body["responses"]
+        if len(responses) == 0:
+            raise ValueError("No response data provided.")
+        r = generate_design(factor_names, factor_levels, design_type, responses)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ── E8: Tolerance Intervals ───────────────────────────────────────────────────
+@app.post("/api/v1/tolerance/analyze")
+async def tolerance_analyze(
+    file: UploadFile = File(...),
+    column: str = Query(...),
+    coverage: float = Query(0.99),
+    confidence: float = Query(0.95),
+    interval_type: str = Query("two_sided"),
+    usl: float = Query(None),
+    lsl: float = Query(None),
+):
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if column not in result.df.columns:
+        raise HTTPException(404, f"Column '{column}' not found")
+    import dataclasses as dc
+    from tolerance_interval import tolerance_interval
+    try:
+        r = tolerance_interval(result.df[column].dropna().values.astype(float),
+                               column, coverage, confidence, interval_type, usl, lsl)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ── E9: Attribute Agreement Analysis ─────────────────────────────────────────
+@app.post("/api/v1/aaa/analyze")
+async def aaa_analyze(
+    file: UploadFile = File(...),
+    decision_col: str = Query(...),
+    sample_col: str = Query(...),
+    appraiser_col: str = Query(...),
+    replicate_col: str = Query(None),
+    reference_col: str = Query(None),
+):
+    c = await file.read()
+    import pandas as pd, io
+    try:
+        raw = c
+        fname = file.filename.lower()
+        if fname.endswith(('.xlsx','.xls')):
+            df = pd.read_excel(io.BytesIO(raw))
+        else:
+            sample = raw[:2048].decode('utf-8', errors='replace')
+            sep = '\t' if '\t' in sample else ';' if ';' in sample else ','
+            df = pd.read_csv(io.BytesIO(raw), sep=sep, on_bad_lines='skip')
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+    for col in [decision_col, sample_col, appraiser_col]:
+        if col not in df.columns:
+            raise HTTPException(404, f"Column '{col}' not found. Available: {df.columns.tolist()}")
+
+    import dataclasses as dc
+    from attribute_agreement import analyze_aaa
+    try:
+        decisions   = df[decision_col].values.astype(str)
+        samples     = df[sample_col].values.astype(str)
+        appraisers  = df[appraiser_col].values.astype(str)
+        replicates  = df[replicate_col].values.astype(str) if replicate_col and replicate_col in df.columns else np.ones(len(df), dtype=str)
+        reference   = df[reference_col].values.astype(str) if reference_col and reference_col in df.columns else None
+        r = analyze_aaa(decisions, samples, appraisers, replicates, reference)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+@app.post("/api/v1/aaa/columns")
+async def aaa_columns(file: UploadFile = File(...)):
+    c = await file.read()
+    import pandas as pd, io
+    try:
+        raw = c
+        fname = file.filename.lower()
+        if fname.endswith(('.xlsx','.xls')):
+            df = pd.read_excel(io.BytesIO(raw))
+        else:
+            sample = raw[:2048].decode('utf-8', errors='replace')
+            sep = '\t' if '\t' in sample else ';' if ';' in sample else ','
+            df = pd.read_csv(io.BytesIO(raw), sep=sep, on_bad_lines='skip')
+        return jd({"all_columns": df.columns.tolist(),
+                   "numeric_columns": df.select_dtypes(include=[np.number]).columns.tolist(),
+                   "rows": len(df)})
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ══ Phase 3 Extensions ════════════════════════════════════════════════════════
+
+# ── E10: Multi-Dataset Comparison ────────────────────────────────────────────
+@app.post("/api/v1/comparison/analyze")
+async def comparison_analyze(request: Request):
+    """
+    Body: { datasets: [{name, values}], parameter, usl, lsl, alpha }
+    Or upload via multipart with dataset_names query param.
+    """
+    body = await request.json()
+    import dataclasses as dc
+    from comparison import compare_datasets
+    try:
+        raw_ds = body.get("datasets", [])
+        datasets = [(d["name"], np.array(d["values"], dtype=float)) for d in raw_ds]
+        r = compare_datasets(
+            datasets,
+            parameter=body.get("parameter", "Measurement"),
+            usl=body.get("usl"), lsl=body.get("lsl"),
+            alpha=body.get("alpha", 0.05),
+        )
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+@app.post("/api/v1/comparison/from-files")
+async def comparison_from_files(
+    files: list[UploadFile] = File(...),
+    names: str = Query(...),          # comma-separated dataset names
+    column: str = Query(...),         # which column to compare
+    usl: float = Query(None),
+    lsl: float = Query(None),
+):
+    """Upload multiple files, compare the same column across them."""
+    import dataclasses as dc
+    from comparison import compare_datasets
+    name_list = [n.strip() for n in names.split(",")]
+    datasets = []
+    for i, f in enumerate(files):
+        c = await f.read()
+        try:
+            result = parse_any_file(c, f.filename)
+        except Exception as e:
+            raise HTTPException(400, f"File {f.filename}: {e}")
+        if column not in result.df.columns:
+            raise HTTPException(404, f"Column '{column}' not in {f.filename}. Available: {result.numeric_columns}")
+        dname = name_list[i] if i < len(name_list) else f.filename
+        datasets.append((dname, result.df[column].dropna().values.astype(float)))
+    try:
+        r = compare_datasets(datasets, parameter=column, usl=usl, lsl=lsl)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ── E11: Live Data Stream ─────────────────────────────────────────────────────
+@app.post("/api/v1/stream/create")
+async def stream_create(request: Request):
+    body = await request.json()
+    import dataclasses as dc
+    from livestream import create_stream
+    try:
+        r = create_stream(
+            stream_id=body["stream_id"],
+            parameter=body.get("parameter", body["stream_id"]),
+            usl=body.get("usl"), lsl=body.get("lsl"),
+        )
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+@app.post("/api/v1/stream/{stream_id}/add")
+async def stream_add(stream_id: str, request: Request):
+    body = await request.json()
+    import dataclasses as dc
+    from livestream import add_measurement
+    try:
+        r = add_measurement(stream_id, float(body["value"]),
+                            body.get("timestamp"))
+        return jd(dc.asdict(r))
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+@app.post("/api/v1/stream/{stream_id}/batch")
+async def stream_batch(stream_id: str, request: Request):
+    body = await request.json()
+    import dataclasses as dc
+    from livestream import add_batch
+    try:
+        r = add_batch(stream_id, body["values"], body.get("timestamps"))
+        return jd(dc.asdict(r))
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+@app.get("/api/v1/stream/{stream_id}/status")
+async def stream_status(stream_id: str):
+    import dataclasses as dc
+    from livestream import get_stream_status
+    try:
+        return jd(dc.asdict(get_stream_status(stream_id)))
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+
+@app.get("/api/v1/stream/list")
+async def stream_list():
+    import dataclasses as dc
+    from livestream import list_streams
+    return jd({"streams": [dc.asdict(s) for s in list_streams()]})
+
+@app.delete("/api/v1/stream/{stream_id}")
+async def stream_delete(stream_id: str):
+    from livestream import delete_stream
+    return jd({"deleted": delete_stream(stream_id)})
+
+
+# ── E12: Process Dashboard ────────────────────────────────────────────────────
+@app.post("/api/v1/dashboard/build")
+async def dashboard_build(request: Request):
+    """
+    Body: { title, sessions: [{name, capability, spc, grr, normality}] }
+    Accepts the result dicts from any previous sessions.
+    """
+    body = await request.json()
+    import dataclasses as dc
+    from dashboard import build_dashboard
+    try:
+        r = build_dashboard(
+            session_results=body.get("sessions", []),
+            title=body.get("title", "StatMind Process Dashboard"),
+        )
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))

@@ -1250,12 +1250,7 @@ let attachedNorm=null, attachedCap=null, attachedSpc=null, attachedGrr=null;
 let brushStart=null, brushEnd=null, isDragging=false;
 let currentSpcResult=null;
 
-async function checkHealth(){
-  try{const r=await fetch(`${API}/health`);setStatus(r.ok?'ok':'err',r.ok?'API connected':'API offline');}
-  catch{setStatus('err','API offline');}
-}
-function setStatus(s,t){document.getElementById('status-dot').className=`dot ${s}`;document.getElementById('status-text').textContent=t;}
-checkHealth();setInterval(checkHealth,15000);
+// health check defined above
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 const tabMap={spc:'sb-spc',capa:'sb-capa',capability:'sb-cap',normality:'sb-norm',grr:'sb-grr',report:'sb-report',hypothesis:'sb-hypothesis',pareto:'sb-pareto',sixpack:'sb-sixpack',regression:'sb-regression',transformation:'sb-transformation',multivari:'sb-multivari',doe:'sb-doe',tolerance:'sb-tolerance',aaa:'sb-aaa',comparison:'sb-comparison',livestream:'sb-livestream',processdash:'sb-processdash'};

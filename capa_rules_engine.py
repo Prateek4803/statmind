@@ -6,7 +6,7 @@ No LLM, no API key — fully deterministic
 
 import dataclasses
 from typing import Optional
-from capa_database import CAPA_RULES, CAPARule
+from capa_database_r2 import CAPA_RULES, CAPARule, CAPAAction, PreventiveAction
 
 
 def score_rule(rule: CAPARule, stats: dict) -> float:

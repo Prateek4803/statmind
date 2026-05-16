@@ -352,12 +352,8 @@ def get_all_rules_catalog() -> list:
 # ── R2: Load expanded database if available ───────────────────────────────────
 def _get_rules():
     """Load expanded R2 database if available, fallback to original."""
-    try:
-        from capa_database_r2 import CAPA_RULES as R2_RULES
-        return R2_RULES
-    except ImportError:
-        from capa_database import CAPA_RULES as R1_RULES
-        return R1_RULES
+    from capa_database_r2 import CAPA_RULES as R2_RULES
+    return R2_RULES
 
 
 def run_capa_engine_v2(

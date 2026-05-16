@@ -1237,7 +1237,6 @@ function showNewFileTable(){
   openModal('new-file-modal');
 }
 
-<script>
 const API=window.location.origin.includes('localhost')?'http://localhost:8010':'';
 let spcData={}, capData={}, normData=null, grrData={}, capaReports={};
 let spcFile=null, capFile=null, normFile=null;
@@ -1284,10 +1283,10 @@ function switchAnalysis(tab){
     if(tab==='comparison'){buildCompDatasets();showEmpty('⚖️','Multi-Dataset Comparison','Add 2–10 datasets (paste values or upload files). Compare Cpk, SPC, normality, and distributions side by side.');}
     if(tab==='livestream'){showEmpty('📡','Live Data Stream','Create a stream, then send individual measurements or batches. Control charts update in real-time.');}
     if(tab==='processdash'){buildDashStatus();showEmpty('🚦','Process Dashboard','Executive view of all parameters with traffic light status. Click Build Dashboard to generate.');}
-  });
-});
+  }
+}
 
-function switchTab(name){document.querySelectorAll('.tab').forEach(t=>{if(t.dataset.tab===name)t.click();});}
+function switchTab(name){switchAnalysis(name);}
 
 // ══ SESSION 3: SPC with Subrange ══════════════════════════════════════════════
 
@@ -2001,8 +2000,7 @@ async function loadCompColumn(idx, file, colName){
 }
 
 function parseCompValues(idx, raw){
-  const vals = raw.split(/[,\s
-]+/).map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v));
+  const vals = raw.split(/[,\s]+/).map(v=>parseFloat(v.trim())).filter(v=>!isNaN(v));
   compDatasets[idx].values = vals;
   buildCompDatasets();
 }
@@ -3251,7 +3249,6 @@ function renderRegression(r){
 }
 // Init
 ['sb-capa','sb-cap','sb-norm','sb-grr','sb-report','sb-hypothesis','sb-pareto','sb-sixpack','sb-regression','sb-transformation','sb-multivari','sb-doe','sb-tolerance','sb-aaa','sb-comparison','sb-livestream','sb-processdash'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-</script>
 </script>
 </body>
 </html>

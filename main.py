@@ -1632,3 +1632,383 @@ async def msa_lin_analyze(request: Request):
         )
         return jd(dc.asdict(r))
     except Exception as e: raise HTTPException(400, str(e))
+
+
+# ══ Gap-fill sessions: 8D, Supplier Scorecard, CoPQ, Equivalence, Cpk Trend ═══
+
+# ── 8D Problem Solving ────────────────────────────────────────────────────────
+@app.post("/api/v1/8d/create")
+async def eightd_create(request: Request):
+    b = await request.json()
+    from eight_d import create_8d, report_to_dict
+    r = create_8d(b.get("title","8D Report"), b.get("part_number",""), b.get("customer",""), b.get("team_members",[]))
+    return jd(report_to_dict(r))
+
+@app.post("/api/v1/8d/{report_id}/update")
+async def eightd_update(report_id: str, request: Request):
+    b = await request.json()
+    from eight_d import update_8d, report_to_dict
+    try: return jd(report_to_dict(update_8d(report_id, b)))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/8d/{report_id}")
+async def eightd_get(report_id: str):
+    from eight_d import get_8d, report_to_dict
+    try: return jd(report_to_dict(get_8d(report_id)))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/8d/list")
+async def eightd_list():
+    from eight_d import list_8d, report_to_dict
+    return jd({"reports": [report_to_dict(r) for r in list_8d()]})
+
+@app.delete("/api/v1/8d/{report_id}")
+async def eightd_delete(report_id: str):
+    from eight_d import delete_8d
+    return jd({"deleted": delete_8d(report_id)})
+
+
+# ── Supplier Scorecard ────────────────────────────────────────────────────────
+@app.post("/api/v1/supplier/create")
+async def supplier_create(request: Request):
+    b = await request.json()
+    from supplier_scorecard import create_scorecard, scorecard_to_dict
+    try:
+        s = create_scorecard(
+            b.get("supplier_name",""), b.get("commodity",""), b.get("site_location",""),
+            b.get("tier","Tier 1"), float(b.get("incoming_ppm",0)),
+            float(b.get("cpk_avg",0)), float(b.get("grr_pct",0)),
+            float(b.get("on_time_delivery_pct",100)), int(b.get("open_corrective_actions",0))
+        )
+        return jd(scorecard_to_dict(s))
+    except Exception as e: raise HTTPException(400, str(e))
+
+@app.post("/api/v1/supplier/{supplier_id}/update-kpis")
+async def supplier_update(supplier_id: str, request: Request):
+    b = await request.json()
+    from supplier_scorecard import update_kpis, scorecard_to_dict
+    try: return jd(scorecard_to_dict(update_kpis(supplier_id, b)))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+@app.post("/api/v1/supplier/{supplier_id}/add-audit")
+async def supplier_audit(supplier_id: str, request: Request):
+    b = await request.json()
+    from supplier_scorecard import add_audit, scorecard_to_dict
+    try: return jd(scorecard_to_dict(add_audit(supplier_id, b)))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/supplier/list")
+async def supplier_list():
+    from supplier_scorecard import list_scorecards, rank_suppliers, scorecard_to_dict
+    return jd({"suppliers": [scorecard_to_dict(s) for s in rank_suppliers()]})
+
+@app.get("/api/v1/supplier/{supplier_id}")
+async def supplier_get(supplier_id: str):
+    from supplier_scorecard import get_scorecard, scorecard_to_dict
+    try: return jd(scorecard_to_dict(get_scorecard(supplier_id)))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+
+# ── CoPQ Calculator ──────────────────────────────────────────────────────────
+@app.post("/api/v1/copq/calculate")
+async def copq_calc(request: Request):
+    b = await request.json()
+    import dataclasses as dc
+    from copq import calculate_copq
+    try:
+        r = calculate_copq(
+            process_name=b.get("process_name","Process"),
+            annual_production=int(b.get("annual_production",100000)),
+            unit_cost=float(b.get("unit_cost",10)),
+            cpk_current=float(b.get("cpk_current",1.0)),
+            cpk_target=float(b.get("cpk_target",1.33)),
+            scrap_cost_per_unit=b.get("scrap_cost_per_unit"),
+            rework_cost_per_unit=b.get("rework_cost_per_unit"),
+            warranty_cost_per_unit=b.get("warranty_cost_per_unit"),
+            inspection_cost_per_unit=b.get("inspection_cost_per_unit"),
+            improvement_investment=float(b.get("improvement_investment",0)),
+        )
+        return jd(dc.asdict(r))
+    except Exception as e: raise HTTPException(400, str(e))
+
+
+# ── Equivalence Testing (TOST) ────────────────────────────────────────────────
+@app.post("/api/v1/equivalence/analyze")
+async def equiv_analyze(
+    file: UploadFile = File(...),
+    col_a: str = Query(...),
+    col_b: str = Query(...),
+    delta_pct: float = Query(5.0),
+    alpha: float = Query(0.05),
+    usl: float = Query(None),
+    lsl: float = Query(None),
+):
+    c = await file.read()
+    try: r = parse_any_file(c, file.filename)
+    except Exception as e: raise HTTPException(400, str(e))
+    if col_a not in r.df.columns or col_b not in r.df.columns:
+        raise HTTPException(404, f"Columns not found. Available: {r.numeric_columns}")
+    import dataclasses as dc
+    from equivalence_test import equivalence_test
+    try:
+        res = equivalence_test(r.df[col_a].dropna().values.astype(float),
+                               r.df[col_b].dropna().values.astype(float),
+                               col_a, col_b, delta_pct=delta_pct, alpha=alpha, usl=usl, lsl=lsl)
+        return jd(dc.asdict(res))
+    except Exception as e: raise HTTPException(400, str(e))
+
+@app.post("/api/v1/equivalence/from-lists")
+async def equiv_from_lists(request: Request):
+    b = await request.json()
+    import dataclasses as dc
+    from equivalence_test import equivalence_test
+    try:
+        res = equivalence_test(np.array(b["data_a"]), np.array(b["data_b"]),
+                               b.get("name_a","A"), b.get("name_b","B"),
+                               delta_pct=b.get("delta_pct",5.0), alpha=b.get("alpha",0.05),
+                               usl=b.get("usl"), lsl=b.get("lsl"))
+        return jd(dc.asdict(res))
+    except Exception as e: raise HTTPException(400, str(e))
+
+
+# ── Cpk Trend Tracker ─────────────────────────────────────────────────────────
+@app.post("/api/v1/cpk-trend/add-study")
+async def cpk_trend_add(request: Request):
+    b = await request.json()
+    from cpk_trend import add_cpk_study
+    try:
+        return jd(add_cpk_study(
+            parameter=b.get("parameter",""),
+            cpk=b.get("cpk"), cp=b.get("cp"), n=b.get("n"),
+            mean=b.get("mean"), std=b.get("std"),
+            usl=b.get("usl"), lsl=b.get("lsl"),
+            date=b.get("date"), notes=b.get("notes","")
+        ))
+    except Exception as e: raise HTTPException(400, str(e))
+
+@app.post("/api/v1/cpk-trend/add-study-from-file")
+async def cpk_trend_from_file(
+    file: UploadFile = File(...),
+    column: str = Query(...),
+    usl: float = Query(None),
+    lsl: float = Query(None),
+    date: str = Query(None),
+    notes: str = Query(""),
+):
+    c = await file.read()
+    try: r = parse_any_file(c, file.filename)
+    except Exception as e: raise HTTPException(400, str(e))
+    if column not in r.df.columns: raise HTTPException(404, f"Column not found")
+    from cpk_trend import add_cpk_study
+    try:
+        return jd(add_cpk_study(column, r.df[column].dropna().values.astype(float),
+                                usl=usl, lsl=lsl, date=date, notes=notes))
+    except Exception as e: raise HTTPException(400, str(e))
+
+@app.get("/api/v1/cpk-trend/{parameter}")
+async def cpk_trend_get(parameter: str, cpk_target: float = Query(1.33)):
+    import dataclasses as dc
+    from cpk_trend import get_cpk_trend
+    try: return jd(dc.asdict(get_cpk_trend(parameter, cpk_target)))
+    except ValueError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/cpk-trend/list")
+async def cpk_trend_list():
+    from cpk_trend import list_parameters
+    return jd({"parameters": list_parameters()})
+
+
+# ══ Gap-fill 2: NPI, IQC/AQL, FAI, NCR, FRACAS, PCN, Reliability Prediction ══
+
+# ── NPI Quality Gate Tracker ──────────────────────────────────────────────────
+@app.post("/api/v1/npi/create")
+async def npi_create(request: Request):
+    b = await request.json()
+    from npi_tracker import create_npi, npi_to_dict
+    return jd(npi_to_dict(create_npi(b.get("product_name",""), b.get("part_number",""),
+        b.get("program",""), b.get("team",""), b.get("target_mp_date",""))))
+
+@app.post("/api/v1/npi/{project_id}/update-gate")
+async def npi_update(project_id: str, request: Request):
+    b = await request.json()
+    from npi_tracker import update_gate, npi_to_dict
+    try: return jd(npi_to_dict(update_gate(project_id,
+        b.get("phase_name",""), b.get("gate_text",""), b.get("status","Passed"),
+        b.get("evidence",""), b.get("owner",""), b.get("target_date",""),
+        b.get("cpk"), b.get("grr"), b.get("notes",""))))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/npi/{project_id}")
+async def npi_get(project_id: str):
+    from npi_tracker import get_npi, npi_to_dict
+    try: return jd(npi_to_dict(get_npi(project_id)))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/npi/list")
+async def npi_list():
+    from npi_tracker import list_npi, npi_to_dict
+    return jd({"projects": [npi_to_dict(p) for p in list_npi()]})
+
+@app.get("/api/v1/npi/phase-gates")
+async def npi_phase_gates():
+    from npi_tracker import PHASE_GATES, PHASE_NAMES
+    return jd({"phases": PHASE_NAMES, "gates": PHASE_GATES})
+
+
+# ── IQC / AQL Sampling Plan ──────────────────────────────────────────────────
+@app.post("/api/v1/iqc/sampling-plan")
+async def iqc_plan(request: Request):
+    b = await request.json()
+    import dataclasses as dc
+    from iqc_sampling import generate_sampling_plan
+    try:
+        return jd(dc.asdict(generate_sampling_plan(
+            lot_size=int(b.get("lot_size", 500)),
+            aql=float(b.get("aql", 1.0)),
+            inspection_level=b.get("inspection_level", "II"),
+            defects_found=b.get("defects_found"),
+            usl=b.get("usl"), lsl=b.get("lsl"),
+            sample_data=b.get("sample_data"),
+        )))
+    except Exception as e: raise HTTPException(400, str(e))
+
+@app.get("/api/v1/iqc/aql-levels")
+async def iqc_aql_levels():
+    from iqc_sampling import AQL_LEVELS
+    return jd({"aql_levels": AQL_LEVELS,
+                "inspection_levels": ["I", "II", "III"],
+                "standard": "ANSI/ASQ Z1.4 (Attribute) + Z1.9 (Variable)"})
+
+
+# ── First Article Inspection (FAI) ───────────────────────────────────────────
+@app.post("/api/v1/fai/create")
+async def fai_create(request: Request):
+    b = await request.json()
+    from fai_report import create_fai, fai_to_dict
+    return jd(fai_to_dict(create_fai(b.get("part_name",""), b.get("part_number",""),
+        b.get("revision","A"), b.get("supplier",""), b.get("customer",""),
+        b.get("report_type","Full FAI"))))
+
+@app.post("/api/v1/fai/{report_id}/add-measurement")
+async def fai_add(report_id: str, request: Request):
+    b = await request.json()
+    from fai_report import add_measurement, fai_to_dict
+    try: return jd(fai_to_dict(add_measurement(report_id, b)))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/fai/{report_id}")
+async def fai_get(report_id: str):
+    from fai_report import get_fai, fai_to_dict
+    try: return jd(fai_to_dict(get_fai(report_id)))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/fai/list")
+async def fai_list():
+    from fai_report import list_fai, fai_to_dict
+    return jd({"reports": [fai_to_dict(r) for r in list_fai()]})
+
+
+# ── NCR / MRB Tracker ─────────────────────────────────────────────────────────
+@app.post("/api/v1/ncr/create")
+async def ncr_create(request: Request):
+    b = await request.json()
+    from ncr_tracker import create_ncr, ncr_to_dict
+    return jd(ncr_to_dict(create_ncr(b.get("title",""), b.get("part_number",""),
+        b.get("lot_number",""), int(b.get("qty_affected",1)), int(b.get("qty_nc",1)),
+        b.get("detection_point","IQC"), b.get("priority","Major"),
+        b.get("description",""))))
+
+@app.post("/api/v1/ncr/{ncr_id}/update")
+async def ncr_update(ncr_id: str, request: Request):
+    b = await request.json()
+    from ncr_tracker import update_ncr, ncr_to_dict
+    try: return jd(ncr_to_dict(update_ncr(ncr_id, b)))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/ncr/summary")
+async def ncr_summary_ep():
+    from ncr_tracker import ncr_summary
+    return jd(ncr_summary())
+
+@app.get("/api/v1/ncr/list")
+async def ncr_list(status: str = None):
+    from ncr_tracker import list_ncrs, ncr_to_dict
+    return jd({"ncrs": [ncr_to_dict(r) for r in list_ncrs(status)]})
+
+
+# ── FRACAS ────────────────────────────────────────────────────────────────────
+@app.post("/api/v1/fracas/log-failure")
+async def fracas_log(request: Request):
+    b = await request.json()
+    import dataclasses as dc
+    from fracas import log_failure, failure_to_dict
+    try:
+        f = log_failure(b.get("product",""), b.get("failure_mode","Unknown"),
+            float(b.get("age_hours",0)), b.get("serial_number",""),
+            b.get("failure_description",""), b.get("category","Unknown"),
+            b.get("component",""), b.get("customer_impact","Functional"),
+            float(b.get("warranty_cost",0)))
+        return jd(failure_to_dict(f))
+    except Exception as e: raise HTTPException(400, str(e))
+
+@app.get("/api/v1/fracas/{product}/analyze")
+async def fracas_analyze(product: str, units_fielded: int = 1000,
+                          observation_hours: float = 8760, target_hours: float = 1000):
+    import dataclasses as dc
+    from fracas import analyze_fracas
+    try: return jd(dc.asdict(analyze_fracas(product, units_fielded, observation_hours, target_hours)))
+    except ValueError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/fracas/products")
+async def fracas_products():
+    from fracas import list_products
+    return jd({"products": list_products()})
+
+
+# ── PCN Tracker ───────────────────────────────────────────────────────────────
+@app.post("/api/v1/pcn/create")
+async def pcn_create(request: Request):
+    b = await request.json()
+    from pcn_tracker import create_pcn, pcn_to_dict
+    return jd(pcn_to_dict(create_pcn(b.get("supplier",""), b.get("part_number",""),
+        b.get("change_description",""), b.get("change_category","Process"),
+        b.get("impact","Major"), b.get("effective_date",""))))
+
+@app.post("/api/v1/pcn/{pcn_id}/update")
+async def pcn_update(pcn_id: str, request: Request):
+    b = await request.json()
+    from pcn_tracker import update_pcn, pcn_to_dict
+    try: return jd(pcn_to_dict(update_pcn(pcn_id, b)))
+    except KeyError as e: raise HTTPException(404, str(e))
+
+@app.get("/api/v1/pcn/summary")
+async def pcn_summary_ep():
+    from pcn_tracker import pcn_summary
+    return jd(pcn_summary())
+
+@app.get("/api/v1/pcn/list")
+async def pcn_list():
+    from pcn_tracker import list_pcns, pcn_to_dict
+    return jd({"pcns": [pcn_to_dict(r) for r in list_pcns()]})
+
+
+# ── Reliability Prediction (FIT / MTBF / Bathtub) ────────────────────────────
+@app.post("/api/v1/reliability/predict")
+async def rel_predict(request: Request):
+    b = await request.json()
+    import dataclasses as dc
+    from reliability_pred import predict_reliability
+    try:
+        r = predict_reliability(
+            system_name=b.get("system_name","System"),
+            component_list=b.get("components",[]),
+            environment=b.get("environment","Ground Fixed"),
+            target_hours=float(b.get("target_hours",8760)),
+        )
+        return jd(dc.asdict(r))
+    except Exception as e: raise HTTPException(400, str(e))
+
+@app.get("/api/v1/reliability/categories")
+async def rel_categories():
+    from reliability_pred import list_categories, ENVIRONMENT_FACTORS
+    return jd({"categories": list_categories(), "environments": list(ENVIRONMENT_FACTORS.keys())})

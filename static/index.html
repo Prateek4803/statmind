@@ -403,6 +403,184 @@ textarea{resize:vertical;min-height:52px;}
 .chart-half{position:relative;height:200px;}
 .chart-mini{position:relative;height:160px;}
 ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — StatMind v3
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Hamburger button — hidden on desktop */
+.mob-menu-btn {
+  display:none;
+  background:none;border:1px solid var(--border2);
+  color:var(--text2);border-radius:8px;
+  padding:5px 9px;cursor:pointer;font-size:18px;
+  line-height:1;flex-shrink:0;
+}
+
+/* Mobile nav drawer */
+.mob-drawer {
+  display:none;
+  position:fixed;inset:0;z-index:400;
+}
+.mob-drawer.open { display:block; }
+.mob-drawer-overlay {
+  position:absolute;inset:0;background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(4px);
+}
+.mob-drawer-panel {
+  position:absolute;top:0;left:0;bottom:0;
+  width:min(320px,90vw);
+  background:var(--bg2);border-right:1px solid var(--border2);
+  overflow-y:auto;padding:16px 12px;
+  display:flex;flex-direction:column;gap:4px;
+  transform:translateX(-100%);
+  transition:transform .25s cubic-bezier(.4,0,.2,1);
+}
+.mob-drawer.open .mob-drawer-panel { transform:translateX(0); }
+.mob-drawer-header {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 4px 16px;border-bottom:1px solid var(--border);
+  margin-bottom:8px;
+}
+.mob-drawer-close {
+  background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;
+}
+.mob-section-label {
+  font-size:10px;font-weight:700;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.8px;
+  padding:12px 8px 4px;
+}
+.mob-nav-item {
+  display:flex;align-items:center;gap:10px;
+  padding:11px 10px;border-radius:9px;cursor:pointer;
+  font-size:14px;color:var(--text2);transition:all .12s;
+  border:1px solid transparent;
+}
+.mob-nav-item:hover, .mob-nav-item:active {
+  background:var(--bg3);color:var(--text);border-color:var(--border);
+}
+.mob-nav-item.active { color:var(--teal);background:rgba(45,212,160,0.08);border-color:rgba(45,212,160,0.2); }
+.mob-nav-icon { font-size:16px;width:22px;text-align:center;flex-shrink:0; }
+.mob-nav-sep { height:1px;background:var(--border);margin:6px 0; }
+
+/* Mobile file upload button — shown only on mobile */
+.mob-upload-btn {
+  display:none;
+  width:100%;padding:14px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#0f1117;border:none;border-radius:10px;
+  font-size:15px;font-weight:700;cursor:pointer;
+  font-family:var(--font);margin-bottom:8px;
+  position:relative;overflow:hidden;
+}
+.mob-upload-btn input[type=file] {
+  position:absolute;inset:0;opacity:0;cursor:pointer;
+  width:100%;height:100%;font-size:0;
+}
+
+@media (max-width: 768px) {
+
+  /* Nav: hide desktop items, show hamburger */
+  .nav-group { display:none; }
+  .nav-sep   { display:none; }
+  .nav-group-label { display:none; }
+  .logo-name { margin-right:0; }
+  .mob-menu-btn { display:flex; align-items:center; }
+
+  /* API status shrinks */
+  .api-label { display:none; }
+
+  /* Context bar wraps tighter */
+  .context-bar { padding:5px 12px; gap:7px; font-size:11px; }
+  .ctx-cols { display:none; }
+
+  /* Layout: sidebar hidden by default, content full width */
+  .app-body { flex-direction:column; }
+  .sidebar {
+    width:100%;
+    border-right:none;
+    border-bottom:1px solid var(--border);
+    padding:12px 10px;
+    gap:10px;
+    max-height:none;
+  }
+  /* Sidebar shown as a bottom sheet or inline below nav */
+  .app-body.mobile-sidebar-open .sidebar { display:flex; }
+  .app-body:not(.mobile-sidebar-open) .sidebar { display:none; }
+
+  /* Content full width */
+  .content { padding:14px 12px; }
+
+  /* Welcome screen */
+  .welcome-title { font-size:20px; }
+  .welcome-sub   { font-size:13px; }
+  .welcome-actions { flex-direction:column; align-items:stretch; }
+  .wa-btn { padding:12px 16px; font-size:13px; justify-content:center; }
+  .feature-grid { grid-template-columns:1fr 1fr; gap:8px; }
+  .feat-title { font-size:12px; }
+  .feat-desc  { font-size:10px; }
+
+  /* Modal full-screen on mobile */
+  .modal-overlay { align-items:flex-end; }
+  .modal {
+    border-radius:16px 16px 0 0;
+    max-width:100%;width:100%;
+    max-height:92vh;
+    padding:20px 16px;
+  }
+
+  /* Stat grids: 2 col instead of 4 */
+  .stat-grid   { grid-template-columns:repeat(2,1fr); }
+  .indices-grid{ grid-template-columns:repeat(3,1fr); gap:7px; }
+  .grr-grid    { grid-template-columns:repeat(2,1fr); }
+  .section-2col{ grid-template-columns:1fr; }
+  .metrics-grid{ grid-template-columns:repeat(2,1fr); }
+
+  /* Charts smaller */
+  .chart-full { height:180px; }
+  .chart-half { height:160px; }
+  .chart-mini { height:130px; }
+
+  /* DOE/RSM factor grid */
+  .proc-grid { grid-template-columns:repeat(2,1fr); }
+
+  /* Toast at top on mobile */
+  .toast { top:12px;bottom:auto;left:12px;right:12px;max-width:none; }
+
+  /* Show mobile upload button */
+  .mob-upload-btn { display:block; }
+
+  /* Col tabs wrappable */
+  .col-tabs { gap:4px; }
+  .col-tab  { font-size:11px; padding:4px 10px; }
+
+  /* Upload zones - larger tap target */
+  .upload-zone { padding:20px 12px; }
+
+  /* Back button repositioned */
+  #global-back-btn { left:12px !important; bottom:72px !important; }
+
+  /* Floating sidebar toggle pill (shown when analysis active) */
+  .mob-sidebar-toggle {
+    display:flex;
+    position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+    background:var(--bg2);border:1px solid var(--border2);
+    color:var(--text2);border-radius:20px;padding:8px 18px;
+    font-size:12px;font-weight:600;cursor:pointer;z-index:100;
+    gap:6px;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,0.4);
+    white-space:nowrap;
+  }
+}
+
+/* Hidden on mobile class */
+@media (max-width:768px) {
+  .desktop-only { display:none !important; }
+}
+@media (min-width:769px) {
+  .mobile-only { display:none !important; }
+  .mob-drawer  { display:none !important; }
+  .mob-sidebar-toggle { display:none !important; }
+}
+
 </style>
 </head>
 <body>
@@ -487,12 +665,77 @@ textarea{resize:vertical;min-height:52px;}
     </div>
   </div>
 
+  <!-- Hamburger — mobile only -->
+  <button class="mob-menu-btn mobile-only" id="mob-menu-btn" onclick="openMobDrawer()" aria-label="Open menu">☰</button>
+
   <!-- Right side -->
   <div class="nav-right">
     <div class="api-dot checking" id="status-dot"></div>
     <span class="api-label" id="status-text">Checking…</span>
   </div>
 </nav>
+
+<!-- MOBILE DRAWER -->
+<div class="mob-drawer" id="mob-drawer">
+  <div class="mob-drawer-overlay" onclick="closeMobDrawer()"></div>
+  <div class="mob-drawer-panel">
+    <div class="mob-drawer-header">
+      <div style="display:flex;align-items:center;gap:9px">
+        <div class="logo-mark" style="width:26px;height:26px;font-size:11px">S</div>
+        <span style="font-size:15px;font-weight:700">StatMind</span>
+      </div>
+      <button class="mob-drawer-close" onclick="closeMobDrawer()">✕</button>
+    </div>
+
+    <!-- File actions -->
+    <div class="mob-section-label">File</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();openNewFileWizard()"><span class="mob-nav-icon">📄</span>New File</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();openMobileFileUpload()"><span class="mob-nav-icon">📂</span>Open File</div>
+
+    <div class="mob-nav-sep"></div>
+    <div class="mob-section-label">Stat Tests</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('normality')"><span class="mob-nav-icon">⚗️</span>Normality Tests</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('transformation')"><span class="mob-nav-icon">🔄</span>Box-Cox Transform</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('hypothesis')"><span class="mob-nav-icon">🧪</span>Hypothesis Tests</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('comparison')"><span class="mob-nav-icon">⚖️</span>Comparison</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('correlation')"><span class="mob-nav-icon">🔗</span>Correlation Matrix</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('outliers')"><span class="mob-nav-icon">🎯</span>Outlier Detection</div>
+
+    <div class="mob-nav-sep"></div>
+    <div class="mob-section-label">Quality</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('capability')"><span class="mob-nav-icon">📐</span>Capability (Cp/Cpk)</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('spc')"><span class="mob-nav-icon">📈</span>SPC Control Charts</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('cusum')"><span class="mob-nav-icon">📉</span>CUSUM / EWMA</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('runchart')"><span class="mob-nav-icon">📋</span>Run Chart</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('grr')"><span class="mob-nav-icon">🔬</span>Gauge R&R</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('sixpack')"><span class="mob-nav-icon">6️⃣</span>Capability Sixpack</div>
+
+    <div class="mob-nav-sep"></div>
+    <div class="mob-section-label">DOE &amp; Regression</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('regression')"><span class="mob-nav-icon">📈</span>Regression</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('doe')"><span class="mob-nav-icon">🧫</span>DOE</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('rsm')"><span class="mob-nav-icon">🏔️</span>RSM</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('pareto')"><span class="mob-nav-icon">📊</span>Pareto</div>
+
+    <div class="mob-nav-sep"></div>
+    <div class="mob-section-label">CAPA &amp; Report</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('capa')"><span class="mob-nav-icon">🗄️</span>CAPA Engine</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('report')"><span class="mob-nav-icon">📄</span>PDF Report</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('processdash')"><span class="mob-nav-icon">🚦</span>Process Dashboard</div>
+
+    <div class="mob-nav-sep"></div>
+    <!-- API status -->
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:11px;color:var(--text3)">
+      <div class="api-dot checking" id="mob-status-dot"></div>
+      <span id="mob-status-text">Checking API…</span>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE SIDEBAR TOGGLE (shown when analysis is active) -->
+<button class="mob-sidebar-toggle mobile-only" id="mob-sidebar-toggle" onclick="toggleMobSidebar()" style="display:none">
+  ⚙️ Controls
+</button>
 
 <!-- CONTEXT BAR — shown after file is loaded -->
 <div class="context-bar" id="context-bar">
@@ -578,25 +821,66 @@ textarea{resize:vertical;min-height:52px;}
         <div class="sl" style="margin-bottom:6px">Prerequisite analyses</div>
         <div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5">CAPA uses results from completed analyses. Run them first for the best report quality.</div>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-          <div class="ctrl-row" style="cursor:pointer" onclick="capaRunPrereq('normality')">
-            <div style="flex:1"><div style="font-size:12px;font-weight:600">Normality Test</div><div style="font-size:10px;color:var(--text3)">Required — detects non-normal data</div></div>
-            <span id="norm-attach-status" style="font-size:11px;color:var(--text3)">—</span>
-            <span id="capa-norm-go" style="font-size:11px;color:var(--teal);cursor:pointer">Run →</span>
+          <!-- Normality -->
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <div style="flex:1">
+                <div style="font-size:12px;font-weight:600">Normality Test</div>
+                <div style="font-size:10px;color:var(--text3)">Required — identifies non-normal data</div>
+              </div>
+              <span id="norm-attach-status" style="font-size:11px;font-weight:600;color:var(--text3)">—</span>
+            </div>
+            <div id="capa-norm-inline" style="display:none;margin-bottom:6px;font-size:11px;color:var(--text2)"></div>
+            <div style="display:flex;gap:6px">
+              <button onclick="capaRunInline('normality')" id="capa-run-norm-btn" style="flex:1;padding:6px;background:rgba(45,212,160,0.1);border:1px solid rgba(45,212,160,0.3);color:var(--teal);border-radius:7px;font-size:11px;font-weight:600;cursor:pointer">▶ Run now</button>
+              <button onclick="switchAnalysis('normality')" style="flex:1;padding:6px;background:var(--bg2);border:1px solid var(--border2);color:var(--text2);border-radius:7px;font-size:11px;cursor:pointer">Full view →</button>
+            </div>
           </div>
-          <div class="ctrl-row" style="cursor:pointer" onclick="capaRunPrereq('capability')">
-            <div style="flex:1"><div style="font-size:12px;font-weight:600">Capability (Cpk)</div><div style="font-size:10px;color:var(--text3)">Required — Cp/Cpk/Pp/Ppk</div></div>
-            <span id="cap-attach-status" style="font-size:11px;color:var(--text3)">—</span>
-            <span style="font-size:11px;color:var(--teal);cursor:pointer">Run →</span>
+          <!-- Capability -->
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <div style="flex:1">
+                <div style="font-size:12px;font-weight:600">Capability (Cpk)</div>
+                <div style="font-size:10px;color:var(--text3)">Required — Cp/Cpk/Pp/Ppk indices</div>
+              </div>
+              <span id="cap-attach-status" style="font-size:11px;font-weight:600;color:var(--text3)">—</span>
+            </div>
+            <div id="capa-cap-inline" style="display:none;margin-bottom:6px;font-size:11px;color:var(--text2)"></div>
+            <div id="capa-cap-spec-row" style="display:none;margin-bottom:6px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <div><label style="font-size:10px;color:var(--text3)">USL</label><input type="number" id="capa-inline-usl" step="any" style="font-size:12px;padding:4px 8px"/></div>
+              <div><label style="font-size:10px;color:var(--text3)">LSL</label><input type="number" id="capa-inline-lsl" step="any" style="font-size:12px;padding:4px 8px"/></div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button onclick="capaRunInline('capability')" id="capa-run-cap-btn" style="flex:1;padding:6px;background:rgba(45,212,160,0.1);border:1px solid rgba(45,212,160,0.3);color:var(--teal);border-radius:7px;font-size:11px;font-weight:600;cursor:pointer">▶ Run now</button>
+              <button onclick="switchAnalysis('capability')" style="flex:1;padding:6px;background:var(--bg2);border:1px solid var(--border2);color:var(--text2);border-radius:7px;font-size:11px;cursor:pointer">Full view →</button>
+            </div>
           </div>
-          <div class="ctrl-row" style="cursor:pointer" onclick="capaRunPrereq('spc')">
-            <div style="flex:1"><div style="font-size:12px;font-weight:600">SPC / Control Charts</div><div style="font-size:10px;color:var(--text3)">Recommended — alarm detection</div></div>
-            <span id="spc-attach-status" style="font-size:11px;color:var(--text3)">—</span>
-            <span style="font-size:11px;color:var(--teal);cursor:pointer">Run →</span>
+          <!-- SPC -->
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <div style="flex:1">
+                <div style="font-size:12px;font-weight:600">SPC / Control Charts</div>
+                <div style="font-size:10px;color:var(--text3)">Recommended — alarm detection</div>
+              </div>
+              <span id="spc-attach-status" style="font-size:11px;font-weight:600;color:var(--text3)">—</span>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button onclick="capaRunInline('spc')" style="flex:1;padding:6px;background:rgba(45,212,160,0.1);border:1px solid rgba(45,212,160,0.3);color:var(--teal);border-radius:7px;font-size:11px;font-weight:600;cursor:pointer">▶ Run now</button>
+              <button onclick="switchAnalysis('spc')" style="flex:1;padding:6px;background:var(--bg2);border:1px solid var(--border2);color:var(--text2);border-radius:7px;font-size:11px;cursor:pointer">Full view →</button>
+            </div>
           </div>
-          <div class="ctrl-row" style="cursor:pointer" onclick="capaRunPrereq('grr')">
-            <div style="flex:1"><div style="font-size:12px;font-weight:600">Gauge R&R (MSA)</div><div style="font-size:10px;color:var(--text3)">Optional — measurement system</div></div>
-            <span id="grr-attach-status" style="font-size:11px;color:var(--text3)">—</span>
-            <span style="font-size:11px;color:var(--teal);cursor:pointer">Run →</span>
+          <!-- GRR -->
+          <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <div style="flex:1">
+                <div style="font-size:12px;font-weight:600">Gauge R&R (MSA)</div>
+                <div style="font-size:10px;color:var(--text3)">Optional — measurement system quality</div>
+              </div>
+              <span id="grr-attach-status" style="font-size:11px;font-weight:600;color:var(--text3)">—</span>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button onclick="switchAnalysis('grr')" style="flex:1;padding:6px;background:var(--bg2);border:1px solid var(--border2);color:var(--text2);border-radius:7px;font-size:11px;cursor:pointer">Requires separate GRR file →</button>
+            </div>
           </div>
         </div>
         <div id="capa-data-warning" style="display:none;font-size:11px;color:var(--amber);background:rgba(240,180,41,0.08);border:1px solid rgba(240,180,41,0.25);border-radius:7px;padding:8px 10px;margin-bottom:10px">
@@ -1732,7 +2016,7 @@ function renderSPC(r, isSubrange=false){
 
     ${allAlarms.length?`
     <div class="card">
-      <div class="ch"><div class="ct">Rule Violations (${allAlarms.length})</div><div class="cs"><button onclick="switchTab('capa')" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div>
+      <div class="ch"><div class="ct">Rule Violations (${allAlarms.length})</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');capaGoStep(2)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div>
       <div class="cb"><div style="overflow-x:auto"><table class="alarm-table"><tr><th>Pt</th><th>Rule</th><th>Value</th><th>Description</th></tr>${alarmRows}${allAlarms.length>12?`<tr><td colspan="4" style="color:var(--text3);font-size:11px">…${allAlarms.length-12} more</td></tr>`:''}</table></div></div>
     </div>`:''}
   `);
@@ -2059,18 +2343,47 @@ function renderCap(r){
   const vcc=r.verdict==='Excellent'||r.verdict==='Capable'?'var(--green)':r.verdict==='Marginal'?'var(--amber)':'var(--red)';
   const hints=r.capa_notes.map(n=>`<div class="hint-item"><div class="hd"></div><div>${n}</div></div>`).join('');
   const tabs=Object.keys(capData).map(k=>makeColTab(k,k===r.column,`renderCap(capData['${k}'])`)).join('');
+  // ── Non-normal data warning ──────────────────────────────────────────────
+  const normResult = attachedNorm || (normData?.results?.find(x=>x.column===r.column));
+  const isNonNormal = normResult && normResult.overall_verdict==='Non-Normal';
+  const isLikelyNonNormal = normResult && normResult.overall_verdict==='Likely Normal';
+  const transData = window._lastTransformResult; // set by Box-Cox transform
+  const transLambda = transData?.optimal_lambda;
+  const nonNormalBanner = isNonNormal ? `
+    <div style="background:rgba(240,92,92,0.08);border:1px solid rgba(240,92,92,0.35);border-radius:var(--card-r);padding:13px 17px;margin-bottom:14px;display:flex;gap:12px;align-items:flex-start">
+      <div style="font-size:20px">⚠️</div>
+      <div style="flex:1">
+        <div style="font-weight:700;color:var(--red);margin-bottom:5px">Non-Normal Data — Cp/Cpk Values May Be Misleading</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.6">Standard Cp/Cpk/Pp/Ppk indices assume normally distributed data. Your data failed normality tests (SW p=${normResult.shapiro_wilk?.p_value?.toFixed(4)||'—'}). These values are based on the normal distribution assumption and may over- or under-estimate actual process capability.</div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="switchAnalysis('transformation')" style="padding:5px 12px;background:rgba(240,180,41,0.12);border:1px solid rgba(240,180,41,0.3);color:var(--amber);border-radius:7px;font-size:12px;font-weight:600;cursor:pointer">🔄 Try Box-Cox Transform</button>
+          <button onclick="switchAnalysis('normality')" style="padding:5px 12px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);border-radius:7px;font-size:12px;cursor:pointer">⚗️ View normality detail</button>
+          ${transLambda!==undefined?`<span style="padding:5px 12px;background:rgba(45,212,160,0.08);border:1px solid rgba(45,212,160,0.2);border-radius:7px;font-size:12px;color:var(--teal)">✓ Best transform: λ=${transLambda.toFixed(2)}</span>`:''}
+        </div>
+        ${transLambda!==undefined?`<div style="margin-top:8px;font-size:11px;color:var(--teal);background:rgba(45,212,160,0.06);border-radius:6px;padding:7px 10px">Box-Cox transformation (λ=${transLambda.toFixed(2)}) has been applied. CAPA engine will use transformed Cpk for rule matching.</div>`:''}
+      </div>
+    </div>` : isLikelyNonNormal ? `
+    <div style="background:rgba(240,180,41,0.06);border:1px solid rgba(240,180,41,0.25);border-radius:var(--card-r);padding:10px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:center">
+      <span style="font-size:16px">⚠️</span>
+      <div style="font-size:12px;color:var(--amber)"><strong>Borderline normality</strong> — Cp/Cpk values are approximate. Consider non-normal capability analysis.</div>
+    </div>` : '';
   showContent(`
     <div class="col-tabs">${tabs}</div>
     <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${vcc}">${r.verdict}</div><div class="vd">${r.verdict_detail}</div></div></div>
+    ${nonNormalBanner}
     <div class="indices-grid">
-      <div class="ic"><div class="in">Cp</div><div class="iv" style="color:${r.cp>=1.33?'var(--green)':r.cp>=1?'var(--amber)':'var(--red)'}">${r.cp.toFixed(3)}</div></div>
-      <div class="ic"><div class="in">Cpk</div><div class="iv" style="color:${r.cpk>=1.33?'var(--green)':r.cpk>=1?'var(--amber)':'var(--red)'}">${r.cpk.toFixed(3)}</div></div>
-      <div class="ic"><div class="in">Pp</div><div class="iv" style="color:${r.pp>=1.33?'var(--green)':r.pp>=1?'var(--amber)':'var(--red)'}">${r.pp.toFixed(3)}</div></div>
-      <div class="ic"><div class="in">Ppk</div><div class="iv" style="color:${r.ppk>=1.33?'var(--green)':r.ppk>=1?'var(--amber)':'var(--red)'}">${r.ppk.toFixed(3)}</div></div>
+      <div class="ic" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''}"><div class="in">Cp${isNonNormal?' ⚠':''}
+      </div><div class="iv" style="color:${r.cp>=1.33?'var(--green)':r.cp>=1?'var(--amber)':'var(--red)'}">${r.cp.toFixed(3)}</div></div>
+      <div class="ic" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''}"><div class="in">Cpk${isNonNormal?' ⚠':''}
+      </div><div class="iv" style="color:${r.cpk>=1.33?'var(--green)':r.cpk>=1?'var(--amber)':'var(--red)'}">${r.cpk.toFixed(3)}</div></div>
+      <div class="ic" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''}"><div class="in">Pp${isNonNormal?' ⚠':''}
+      </div><div class="iv" style="color:${r.pp>=1.33?'var(--green)':r.pp>=1?'var(--amber)':'var(--red)'}">${r.pp.toFixed(3)}</div></div>
+      <div class="ic" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''}"><div class="in">Ppk${isNonNormal?' ⚠':''}
+      </div><div class="iv" style="color:${r.ppk>=1.33?'var(--green)':r.ppk>=1?'var(--amber)':'var(--red)'}">${r.ppk.toFixed(3)}</div></div>
       <div class="ic"><div class="in">σ Level</div><div class="iv">${r.sigma_level.toFixed(2)}σ</div></div>
     </div>
     <div id="cap-ci-banner" style="display:none;margin-bottom:12px"></div>
-    <div class="card"><div class="ch"><div class="ct">Capability Histogram</div><div class="cs"><button onclick="switchTab('capa')" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div><div class="cb"><div class="chart-half"><canvas id="cap-hist"></canvas></div></div></div>
+    <div class="card"><div class="ch"><div class="ct">Capability Histogram</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');capaGoStep(2)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div><div class="cb"><div class="chart-half"><canvas id="cap-hist"></canvas></div></div></div>
     <div class="card"><div class="ch"><div class="ct">Analysis Notes</div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
   `);
   const hd=r.histogram_data,gc='rgba(100,200,180,0.1)',tc='#b8c4bb';
@@ -2125,7 +2438,7 @@ function showNorm(colName){
     <div class="col-tabs">${tabs}</div>
     <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${cc}">${r.overall_verdict}</div><div class="vd">${r.capability_hint.reason}</div></div></div>
     <div class="stat-grid"><div class="sc2"><div class="sl2">Mean</div><div class="sv" style="font-size:18px">${r.mean.toFixed(4)}</div></div><div class="sc2"><div class="sl2">Std Dev</div><div class="sv" style="font-size:18px">${r.std.toFixed(4)}</div></div><div class="sc2"><div class="sl2">Skewness</div><div class="sv" style="font-size:18px">${r.skewness.toFixed(3)}</div></div><div class="sc2"><div class="sl2">Kurtosis</div><div class="sv" style="font-size:18px">${r.kurtosis.toFixed(3)}</div></div></div>
-    <div class="card"><div class="ch"><div class="ct">Normality Tests</div><div class="cs"><button onclick="switchTab('capa')" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div>
+    <div class="card"><div class="ch"><div class="ct">Normality Tests</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');capaGoStep(2)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div>
       <div class="cb"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">
         <div class="ic"><div class="in">Shapiro-Wilk</div><div class="iv" style="font-size:14px">W=${r.shapiro_wilk.statistic.toFixed(5)}</div><div class="is">p=${r.shapiro_wilk.p_value.toFixed(5)}</div><div style="${tvS(r.shapiro_wilk.reject_null)};font-size:11px;margin-top:5px">${r.shapiro_wilk.reject_null?'✗ Not Normal':'✓ Normal'}</div></div>
         <div class="ic"><div class="in">Anderson-Darling</div><div class="iv" style="font-size:14px">A²=${r.anderson_darling.statistic.toFixed(5)}</div><div class="is">p≈${r.anderson_darling.p_value.toFixed(5)}</div><div style="${tvS(r.anderson_darling.reject_null)};font-size:11px;margin-top:5px">${r.anderson_darling.reject_null?'✗ Not Normal':'✓ Normal'}</div></div>
@@ -2184,7 +2497,7 @@ function renderGRR(r){
     <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${vcc}">${r.verdict}</div><div class="vd">${r.verdict_detail}</div><div style="margin-top:3px;font-size:12px;color:var(--text2)">${r.n_parts}p×${r.n_operators}op×${r.n_replicates}r · ndc=${r.ndc}</div></div></div>
     <div class="grr-grid"><div class="gc"><div class="gl">%GRR</div><div class="gv" style="color:${vcc}">${r.gauge_rr.pct_study_var.toFixed(1)}%</div></div><div class="gc"><div class="gl">Repeatability</div><div class="gv" style="color:var(--teal)">${r.repeatability.pct_study_var.toFixed(1)}%</div><div class="gs">EV</div></div><div class="gc"><div class="gl">Reproducibility</div><div class="gv" style="color:var(--coral)">${r.reproducibility.pct_study_var.toFixed(1)}%</div><div class="gs">AV</div></div><div class="gc"><div class="gl">Part-to-Part</div><div class="gv" style="color:var(--green)">${r.part_to_part.pct_study_var.toFixed(1)}%</div><div class="gs">PV</div></div></div>
     <div class="card"><div class="ch"><div class="ct">Variance Components</div></div><div class="cb" style="overflow-x:auto"><table class="vc-table"><tr><th>Source</th><th>Std Dev</th><th>% Study Var</th></tr>${vcRows}</table></div></div>
-    <div class="card"><div class="ch"><div class="ct">Analysis Notes</div><div class="cs"><button onclick="switchTab('capa')" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
+    <div class="card"><div class="ch"><div class="ct">Analysis Notes</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');capaGoStep(2)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
   `);
 }
 
@@ -2720,7 +3033,7 @@ document.getElementById('run-trans-btn').addEventListener('click',async()=>{
   if(usl)url+=`&usl=${parseFloat(usl)}`;if(lsl)url+=`&lsl=${parseFloat(lsl)}`;
   try{
     const r=await fetch(url,{method:'POST',body:fd});if(!r.ok)throw new Error((await r.json()).detail);
-    renderTransformation(await r.json());showToast('✅ Transformation complete');
+    const transResult=await r.json();window._lastTransformResult=transResult;renderTransformation(transResult);showToast('✅ Transformation complete');
   }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
   finally{btn.disabled=false;btn.textContent='Find Best Transformation';}
 });
@@ -4633,6 +4946,378 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
 });
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOBILE + CAPA INLINE + NON-NORMAL FIXES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Mobile: drawer open/close ─────────────────────────────────────────── */
+function openMobDrawer() {
+  const d = document.getElementById('mob-drawer');
+  if (d) {
+    d.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    // Sync API status dot
+    const dot = document.getElementById('status-dot');
+    const mobDot = document.getElementById('mob-status-dot');
+    const txt = document.getElementById('status-text');
+    const mobTxt = document.getElementById('mob-status-text');
+    if (dot && mobDot) { mobDot.className = dot.className; }
+    if (txt && mobTxt) { mobTxt.textContent = txt.textContent; }
+  }
+}
+function closeMobDrawer() {
+  const d = document.getElementById('mob-drawer');
+  if (d) { d.classList.remove('open'); document.body.style.overflow = ''; }
+}
+// Close drawer on Escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMobDrawer(); });
+
+/* ── Mobile: sidebar toggle ────────────────────────────────────────────── */
+function toggleMobSidebar() {
+  const body = document.getElementById('app-body');
+  const toggle = document.getElementById('mob-sidebar-toggle');
+  if (!body) return;
+  const isOpen = body.classList.toggle('mobile-sidebar-open');
+  if (toggle) toggle.textContent = isOpen ? '✕ Close' : '⚙️ Controls';
+}
+
+// Show/hide the sidebar toggle pill when an analysis is active
+function showMobSidebarToggle(show) {
+  const t = document.getElementById('mob-sidebar-toggle');
+  if (!t) return;
+  if (window.innerWidth <= 768) {
+    t.style.display = show ? 'flex' : 'none';
+  }
+}
+
+/* ── Mobile: file upload fix ────────────────────────────────────────────── */
+// Target: which analysis to feed the file to after selection
+let _mobUploadTarget = null;
+
+function openMobileFileUpload(target) {
+  // target: 'wizard' | 'normality' | 'capability' | 'spc' | 'grr' | null
+  _mobUploadTarget = target || 'wizard';
+  const inp = document.getElementById('mob-file-input-global');
+  if (inp) {
+    inp.value = ''; // reset so same file re-triggers change
+    inp.click();
+  }
+}
+
+function handleMobileFileSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const target = _mobUploadTarget || 'wizard';
+
+  if (target === 'wizard') {
+    // Feed into the Open File wizard
+    openFileWizardWithFile(file);
+    return;
+  }
+  // Feed directly into a specific analysis upload zone
+  const uploadMap = {
+    normality: 'norm-file-input',
+    capability: 'cap-file-input',
+    spc: 'spc-file-input',
+    grr: 'grr-file-input',
+    cusum: 'cusum-file-input',
+    runchart: 'runchart-file-input',
+    regression: 'reg-file-input',
+    correlation: 'corr-file-input',
+  };
+  const inputId = uploadMap[target];
+  if (inputId) {
+    const dest = document.getElementById(inputId);
+    if (dest) {
+      // Create a DataTransfer to set files on the input
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        dest.files = dt.files;
+        dest.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch (e) {
+        // DataTransfer not supported — trigger the normal input
+        showToast(`Selected: ${file.name}. Tap the upload zone to confirm.`);
+      }
+    }
+  }
+}
+
+// Patch openFileWizard to handle mobile (no hover → explicit tap needed)
+function openFileWizardWithFile(file) {
+  // Open the wizard modal if it exists, pre-load file
+  const overlay = document.getElementById('file-wizard-overlay') ||
+                  document.getElementById('open-wizard-overlay');
+  if (overlay) {
+    overlay.classList.add('open');
+    // Try to inject the file into the wizard's file input
+    const wizInput = document.querySelector('#file-wizard-overlay input[type=file]') ||
+                     document.querySelector('#open-wizard-overlay input[type=file]');
+    if (wizInput && file) {
+      try {
+        const dt = new DataTransfer(); dt.items.add(file);
+        wizInput.files = dt.files;
+        wizInput.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch (e) { /* silent */ }
+    }
+  } else {
+    // Fallback: run openFileWizard normally (works on desktop)
+    if (typeof openFileWizard === 'function') openFileWizard();
+  }
+}
+
+/* Patch all upload zones to also handle mobile tap better.
+   iOS Safari: the invisible <input type=file> inside a positioned div sometimes
+   doesn't fire. We patch each zone to listen for touchend and manually click
+   the input. */
+function patchUploadZonesForMobile() {
+  document.querySelectorAll('.upload-zone').forEach(zone => {
+    if (zone.dataset.mobPatched) return;
+    zone.dataset.mobPatched = '1';
+    const inp = zone.querySelector('input[type=file]');
+    if (!inp) return;
+
+    // touchend fires reliably even when the zone is positioned
+    zone.addEventListener('touchend', e => {
+      if (e.cancelable) e.preventDefault();
+      inp.click();
+    }, { passive: false });
+  });
+}
+
+/* Run after DOM ready and after each switchAnalysis */
+document.addEventListener('DOMContentLoaded', () => {
+  patchUploadZonesForMobile();
+  // Also patch after sidebar shows
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) {
+    const obs = new MutationObserver(patchUploadZonesForMobile);
+    obs.observe(sidebar, { childList: true, subtree: true, attributes: true });
+  }
+});
+
+/* ── Patch switchAnalysis to show mobile sidebar toggle ────────────────── */
+const _origSwitchForMob = switchAnalysis;
+switchAnalysis = function(tab) {
+  _origSwitchForMob(tab);
+  // On mobile, show the sidebar
+  if (window.innerWidth <= 768) {
+    const body = document.getElementById('app-body');
+    if (body) body.classList.add('mobile-sidebar-open');
+    const toggle = document.getElementById('mob-sidebar-toggle');
+    if (toggle) { toggle.style.display = 'flex'; toggle.textContent = '✕ Close'; }
+  }
+};
+
+/* ── CAPA Inline Prerequisite Runner ───────────────────────────────────── */
+// Runs normality or capability directly from the CAPA step 2 panel
+// without navigating away, using the already-loaded global file
+
+async function capaRunInline(type) {
+  const globalFile = normFile || capFile || spcFile;
+  if (!globalFile) {
+    // No file loaded at all — need to prompt upload
+    showToast('Upload a data file first (use Open File)', true);
+    if (window.innerWidth <= 768) {
+      _mobUploadTarget = type;
+      openMobileFileUpload(type);
+    } else {
+      openFileWizard();
+    }
+    return;
+  }
+
+  const inlineEl = document.getElementById(`capa-${type==='capability'?'cap':'norm'}-inline`);
+  const runBtn = document.getElementById(`capa-run-${type==='capability'?'cap':'norm'}-btn`);
+  if (runBtn) { runBtn.disabled = true; runBtn.textContent = '⏳ Running…'; }
+  if (inlineEl) {
+    inlineEl.style.display = 'block';
+    inlineEl.textContent = `Running ${type} analysis…`;
+    inlineEl.style.color = 'var(--amber)';
+  }
+
+  try {
+    if (type === 'normality') {
+      // Use normFile or fall back to globalFile
+      const file = normFile || globalFile;
+      const alpha = parseFloat(document.getElementById('alpha-select')?.value || '0.05');
+      const fd = new FormData(); fd.append('file', file);
+      const r = await fetch(`${API}/api/v1/normality/analyze?alpha=${alpha}`, { method:'POST', body:fd });
+      if (!r.ok) throw new Error((await r.json()).detail);
+      const raw = await r.json();
+      raw.results = raw.results.filter(rr => !wizardSelectedCols.length || wizardSelectedCols.includes(rr.column));
+      normData = raw;
+      attachedNorm = normData.results[0];
+      updateAttachStatus();
+
+      const verdict = attachedNorm?.overall_verdict || 'Unknown';
+      const isNonNorm = verdict === 'Non-Normal';
+      if (inlineEl) {
+        inlineEl.style.display = 'block';
+        inlineEl.style.color = isNonNorm ? 'var(--red)' : verdict === 'Likely Normal' ? 'var(--amber)' : 'var(--green)';
+        inlineEl.innerHTML = `${isNonNorm ? '❌' : verdict === 'Likely Normal' ? '⚠️' : '✅'} <strong>${attachedNorm?.column}</strong>: ${verdict}
+          ${isNonNorm ? '<br><span style="color:var(--text3);font-size:10px">⚠ Cp/Cpk values will be flagged as unreliable</span>' : ''}`;
+      }
+      // Update CAPA inference to know about non-normality
+      if (isNonNorm) {
+        window._capaInferenceFlags = window._capaInferenceFlags || {};
+        window._capaInferenceFlags.nonNormal = true;
+        window._capaInferenceFlags.normColumn = attachedNorm?.column;
+        window._capaInferenceFlags.swP = attachedNorm?.shapiro_wilk?.p_value;
+      }
+      const dot = document.getElementById('norm-attach-status');
+      if (dot) { dot.textContent = `✓ ${verdict}`; dot.style.color = isNonNorm ? 'var(--red)' : 'var(--green)'; }
+      showToast(`✅ Normality: ${verdict}`);
+
+    } else if (type === 'capability') {
+      const file = capFile || normFile || globalFile;
+      const usl = parseFloat(document.getElementById('capa-inline-usl')?.value);
+      const lsl = parseFloat(document.getElementById('capa-inline-lsl')?.value);
+
+      if (!usl || !lsl || isNaN(usl) || isNaN(lsl)) {
+        // Show the spec row
+        const specRow = document.getElementById('capa-cap-spec-row');
+        if (specRow) specRow.style.display = 'grid';
+        if (inlineEl) { inlineEl.style.display = 'block'; inlineEl.style.color = 'var(--amber)'; inlineEl.textContent = 'Enter USL and LSL first'; }
+        if (runBtn) { runBtn.disabled = false; runBtn.textContent = '▶ Run now'; }
+        return;
+      }
+
+      // Pick first available column
+      const col = wizardSelectedCols[0] || attachedNorm?.column ||
+                  (normData?.results?.[0]?.column) || '';
+      if (!col) throw new Error('No column detected — run normality first');
+
+      const fd = new FormData(); fd.append('file', file);
+      const url = `${API}/api/v1/capability/analyze?column=${encodeURIComponent(col)}&usl=${usl}&lsl=${lsl}`;
+      const r = await fetch(url, { method:'POST', body:fd });
+      if (!r.ok) throw new Error((await r.json()).detail);
+      const data = await r.json();
+      capData[col] = data;
+      attachedCap = data;
+      updateAttachStatus();
+
+      const isNonNorm = window._capaInferenceFlags?.nonNormal;
+      if (inlineEl) {
+        inlineEl.style.display = 'block';
+        inlineEl.style.color = data.cpk >= 1.33 ? 'var(--green)' : data.cpk >= 1 ? 'var(--amber)' : 'var(--red)';
+        inlineEl.innerHTML = `${data.cpk >= 1.33 ? '✅' : '⚠️'} Cpk=${data.cpk.toFixed(3)} · Cp=${data.cp.toFixed(3)}
+          ${isNonNorm ? '<br><span style="color:var(--red);font-size:10px">⚠ Non-normal data — values may not be reliable</span>' : ''}`;
+      }
+      const dot = document.getElementById('cap-attach-status');
+      if (dot) { dot.textContent = `✓ Cpk=${data.cpk.toFixed(3)}`; dot.style.color = data.cpk >= 1.33 ? 'var(--green)' : 'var(--amber)'; }
+      showToast(`✅ Capability: Cpk=${data.cpk.toFixed(3)}`);
+
+    } else if (type === 'spc') {
+      // SPC inline: use first col, default subgroup 1
+      const file = spcFile || normFile || capFile || globalFile;
+      const col = wizardSelectedCols[0] || attachedNorm?.column || '';
+      if (!col) throw new Error('No column detected — run normality first');
+      const fd = new FormData(); fd.append('file', file);
+      const r = await fetch(`${API}/api/v1/spc/analyze?column=${encodeURIComponent(col)}&subgroup_size=1`, { method:'POST', body:fd });
+      if (!r.ok) throw new Error((await r.json()).detail);
+      const data = await r.json();
+      spcData[col] = data;
+      attachedSpc = data;
+      updateAttachStatus();
+      const alarms = data.we_violations?.total_alarms || 0;
+      const dot = document.getElementById('spc-attach-status');
+      if (dot) { dot.textContent = `✓ ${alarms} alarm${alarms!==1?'s':''}`; dot.style.color = alarms > 0 ? 'var(--amber)' : 'var(--green)'; }
+      showToast(`✅ SPC: ${alarms} alarm(s)`);
+    }
+
+  } catch(e) {
+    if (inlineEl) { inlineEl.style.display = 'block'; inlineEl.style.color = 'var(--red)'; inlineEl.textContent = '❌ ' + e.message; }
+    showToast(e.message, true);
+  } finally {
+    if (runBtn) { runBtn.disabled = false; runBtn.textContent = '▶ Run now'; }
+  }
+}
+
+/* ── Show spec inputs when capability inline tapped ─────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  // Show USL/LSL row when user taps capability inline run
+  const capRunBtn = document.getElementById('capa-run-cap-btn');
+  if (capRunBtn) {
+    const specRow = document.getElementById('capa-cap-spec-row');
+    // Pre-fill from existing spec inputs if available
+    const uslEl = document.getElementById('usl-input');
+    const lslEl = document.getElementById('lsl-input');
+    if (specRow && uslEl && lslEl) {
+      const u = uslEl.value, l = lslEl.value;
+      if (u) document.getElementById('capa-inline-usl').value = u;
+      if (l) document.getElementById('capa-inline-lsl').value = l;
+      if (u && l) specRow.style.display = 'grid';
+    }
+  }
+});
+
+/* ── CAPA inference: include non-normal flag in CAPA request ─────────────── */
+// Patch runCAPA to add non-normal context to the request
+const _origRunCAPA = typeof runCAPA === 'function' ? runCAPA : null;
+
+function runCAPA_patched() {
+  const flags = window._capaInferenceFlags || {};
+  // Append non-normal info to process context so CAPA engine knows
+  const ctxEl = document.getElementById('capa-context');
+  if (ctxEl && flags.nonNormal) {
+    const existingCtx = ctxEl.value.trim();
+    const nonNormNote = `[Non-normal data: SW p=${flags.swP?.toFixed(4)||'<0.05'}]`;
+    if (!existingCtx.includes('[Non-normal')) {
+      ctxEl.value = existingCtx ? `${existingCtx}; ${nonNormNote}` : nonNormNote;
+    }
+  }
+  if (_origRunCAPA) _origRunCAPA();
+}
+
+// Wire the run-capa-btn to patched version
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('run-capa-btn');
+  if (btn) {
+    btn.removeEventListener('click', runCAPA);
+    btn.addEventListener('click', runCAPA_patched);
+  }
+});
+
+/* ── updateAttachStatus — also refresh the CAPA inline dots ─────────────── */
+const _origUpdateAttach = typeof updateAttachStatus === 'function' ? updateAttachStatus : null;
+function updateAttachStatus() {
+  if (_origUpdateAttach) _origUpdateAttach();
+  // Also update the CAPA step 2 buttons: if already done, green style
+  if (attachedNorm) {
+    const btn = document.getElementById('capa-run-norm-btn');
+    if (btn) { btn.textContent = '✓ Done'; btn.style.background = 'rgba(52,217,128,0.1)'; btn.style.borderColor = 'rgba(52,217,128,0.3)'; btn.style.color = 'var(--green)'; }
+  }
+  if (attachedCap) {
+    const btn = document.getElementById('capa-run-cap-btn');
+    if (btn) { btn.textContent = '✓ Done'; btn.style.background = 'rgba(52,217,128,0.1)'; btn.style.borderColor = 'rgba(52,217,128,0.3)'; btn.style.color = 'var(--green)'; }
+  }
+}
+
+/* ── Mobile: also update mob-status-dot on API check ────────────────────── */
+const _origApiCheck = typeof checkAPI === 'function' ? checkAPI : null;
+if (_origApiCheck) {
+  window.addEventListener('load', () => {
+    // Mirror status dot to mobile drawer
+    const observer = new MutationObserver(() => {
+      const dot = document.getElementById('status-dot');
+      const mobDot = document.getElementById('mob-status-dot');
+      const txt = document.getElementById('status-text');
+      const mobTxt = document.getElementById('mob-status-text');
+      if (dot && mobDot) mobDot.className = dot.className;
+      if (txt && mobTxt) mobTxt.textContent = txt.textContent;
+    });
+    const dot = document.getElementById('status-dot');
+    if (dot) observer.observe(dot, { attributes: true, childList: true });
+  });
+}
+
 </script>
+
+<!-- MOBILE FILE INPUT — programmatically triggered to bypass iOS Safari upload-zone bug -->
+<input type="file" id="mob-file-input-global" accept=".csv,.xlsx,.xls,.tsv,.txt"
+  style="position:fixed;left:-9999px;opacity:0;width:1px;height:1px"
+  onchange="handleMobileFileSelect(this)"/>
 </body>
 </html>

@@ -53,7 +53,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16
 .nav-dropdown-menu{
   display:none;position:absolute;top:calc(100% + 2px);left:0;
   background:var(--bg2);border:1px solid var(--border2);border-radius:var(--card-r);
-  min-width:220px;padding:6px;z-index:200;
+  min-width:220px;padding:6px;z-index:500;
   box-shadow:0 8px 32px rgba(0,0,0,0.4);
   /* 8px transparent padding bridges the visual gap — cursor never leaves hover zone */
   padding-top:10px;
@@ -68,6 +68,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16
 .nav-dropdown:hover::before{display:block;}
 .nav-dropdown:hover .nav-dropdown-menu,
 .nav-dropdown-menu:hover{display:block;}
+/* Click-open support for after canvas renders */
+.nav-dropdown.open .nav-dropdown-menu{display:block !important;}
 /* Smooth reveal instead of snap */
 .nav-dropdown-menu{
   opacity:0;transform:translateY(-4px);transition:opacity .14s ease,transform .14s ease;
@@ -123,7 +125,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16
   display:flex;flex-direction:column;gap:12px;
   padding:16px 13px;overflow-y:auto;
 }
-.content{flex:1;padding:22px 26px;overflow-y:auto;min-height:0;}
+.content{flex:1;padding:22px 26px;overflow-y:auto;min-height:0;position:relative;}
 
 /* ── WELCOME SCREEN ── */
 .welcome{
@@ -1843,7 +1845,7 @@ function updateBackBtn(){
   if(!btn){
     btn=document.createElement('button');
     btn.id='global-back-btn';
-    btn.style.cssText='position:fixed;bottom:20px;left:316px;z-index:500;background:var(--bg2);border:1px solid var(--border2);color:var(--text2);padding:7px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;display:none;align-items:center;gap:6px;font-family:var(--font);transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,0.3)';
+    btn.style.cssText='position:fixed;bottom:24px;left:320px;z-index:90;background:var(--bg2);border:1px solid var(--border2);color:var(--text2);padding:7px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;display:none;align-items:center;gap:6px;font-family:var(--font);transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,0.3)';
     btn.innerHTML='← Back';
     btn.onclick=goBackAnalysis;
     btn.onmouseenter=()=>btn.style.borderColor='var(--teal)';
@@ -1860,8 +1862,11 @@ function updateBackBtn(){
 }
 
 function switchAnalysis(tab){
-    document.getElementById('welcome-screen').style.display='none';
-    document.getElementById('sidebar').style.display='flex';
+    // Always hide welcome, show sidebar and context bar
+    const ws=document.getElementById('welcome-screen');
+    if(ws) ws.style.display='none';
+    const sb=document.getElementById('sidebar');
+    if(sb){ sb.style.display='flex'; sb.style.visibility='visible'; sb.style.opacity='1'; }
     document.getElementById('context-bar').classList.add('visible');
     // Track analysis history for back navigation
     if(currentAnalysis!==tab){
@@ -1884,26 +1889,34 @@ function switchAnalysis(tab){
       const toggle=document.getElementById('mob-sidebar-toggle');
       if(toggle){ toggle.style.display='flex'; toggle.textContent='✕ Close'; }
     }
-    if(false){/* dummy to keep block structure */
-    if(tab==='spc'){const k=Object.keys(spcData)[0];if(k)renderSPC(spcData[k]);else showEmpty('📈','Upload process data','Run SPC with interactive subrange selector');}
-    if(tab==='capa'){autoPopulateCAPA();updateAttachStatus();const k=Object.keys(capaReports)[0];if(k)renderCAPA(capaReports[k]);else showEmpty('🗄️','Rule-Based CAPA Engine','Run Sessions 1–4 then generate CAPA report.');}
-    if(tab==='capability'){const k=Object.keys(capData)[0];if(k)renderCap(capData[k]);else showEmpty('📐','Upload process data','Enter USL/LSL to calculate capability.');}
-    if(tab==='normality'){if(normData&&normData.results[0])showNorm(normData.results[0].column);else showEmpty('⚗️','Upload process data','SW, AD, RJ normality tests.');}
-    if(tab==='grr'){const k=Object.keys(grrData)[0];if(k)renderGRR(grrData[k]);else showEmpty('🔬','Upload GRR study file','Columns: Part, Operator, Measurement.');}
-    if(tab==='report'){autoPopulateCAPA();updateReportStatus();showEmpty('📄','Generate PDF Report','All completed sessions will be included.');}
-    if(tab==='hypothesis'){showEmpty('🧪','Hypothesis Testing','Upload data, select test type and columns, then run. 2-sample t, ANOVA, Mann-Whitney and more.');}
-    if(tab==='pareto'){showEmpty('📊','Pareto Chart','Upload defect data with a category column. Identifies the vital few causes driving 80% of problems.');}
-    if(tab==='sixpack'){showEmpty('6️⃣','Capability Sixpack','All 6 panels in one view — just like Minitab. Upload data and enter spec limits.');}
-    if(tab==='regression'){showEmpty('📈','Regression Analysis','Find relationships between process inputs and outputs. Simple or multiple regression.');}
-    if(tab==='transformation'){showEmpty('🔄','Box-Cox Transformation','Auto-finds the best transformation for non-normal data. Compares before and after probability plots.');}
-    if(tab==='multivari'){showEmpty('📉','Multi-Vari Chart','Decomposes variation into within-part, part-to-part, and time-to-time. Upload a file with measurement + part ID columns.');}
-    if(tab==='doe'){showEmpty('🧫','Design of Experiments','Build a factorial DOE run matrix, enter responses, and identify which factors drive your process.');}
-    if(tab==='tolerance'){showEmpty('📏','Tolerance Intervals','Answers: what range covers 99% of future parts with 95% confidence? Enter spec limits to check PPAP compliance.');}
-    if(tab==='aaa'){showEmpty('✅','Attribute Agreement Analysis','Upload pass/fail inspection data. Calculates Fleiss kappa and identifies which inspectors or samples cause disagreement.');}
-    if(tab==='comparison'){buildCompDatasets();showEmpty('⚖️','Multi-Dataset Comparison','Add 2–10 datasets (paste values or upload files). Compare Cpk, SPC, normality, and distributions side by side.');}
-    if(tab==='livestream'){showEmpty('📡','Live Data Stream','Create a stream, then send individual measurements or batches. Control charts update in real-time.');}
-    if(tab==='processdash'){buildDashStatus();showEmpty('🚦','Process Dashboard','Executive view of all parameters with traffic light status. Click Build Dashboard to generate.');}
-  }
+    // ── Content area: restore previous result or show empty state ──────────
+    if(tab==='spc'){const k=Object.keys(spcData)[0];if(k)renderSPC(spcData[k]);else showEmpty('📈','SPC Control Charts','Upload process data and select a column. Detects Western Electric and Nelson rule violations.');}
+    else if(tab==='capa'){autoPopulateCAPA();updateAttachStatus();setTimeout(()=>{capaGoStep(1);const k=Object.keys(capaReports)[0];if(k){renderCAPA(capaReports[k]);capaGoStep(4);}else showEmpty('🗄️','CAPA Engine','Select process type in the sidebar → link data → generate report. Use the 4-step wizard on the left.');},20);}
+    else if(tab==='capability'){const k=Object.keys(capData)[0];if(k)renderCap(capData[k]);else showEmpty('📐','Capability Analysis (Cp/Cpk)','Upload process data, select a column, enter USL and LSL, then run.');}
+    else if(tab==='normality'){if(normData&&normData.results[0])showNorm(normData.results[0].column);else showEmpty('⚗️','Normality Tests','Upload data and run. Shapiro-Wilk, Anderson-Darling, Ryan-Joiner tests with probability plot.');}
+    else if(tab==='grr'){const k=Object.keys(grrData)[0];if(k)renderGRR(grrData[k]);else showEmpty('🔬','Gauge R&R (MSA)','Upload a GRR study file with Part, Operator, Measurement columns.');}
+    else if(tab==='report'){autoPopulateCAPA();updateReportStatus();showEmpty('📄','Generate PDF Report','All completed sessions are included automatically. Enter parameter name and click Generate.');}
+    else if(tab==='hypothesis'){showEmpty('🧪','Hypothesis Testing','Upload data, select test type and columns, then run. Supports 2-sample t, paired-t, ANOVA, Mann-Whitney, Kruskal-Wallis.');}
+    else if(tab==='pareto'){showEmpty('📊','Pareto Chart','Upload defect data with a category column. Automatically identifies the vital few causes driving 80% of problems.');}
+    else if(tab==='sixpack'){showEmpty('6️⃣','Capability Sixpack','All 6 Minitab panels in one view. Upload data and enter spec limits to generate.');}
+    else if(tab==='regression'){showEmpty('📈','Regression Analysis','Upload data and select input/output columns. Supports simple and multiple linear regression with residual plots.');}
+    else if(tab==='transformation'){showEmpty('🔄','Box-Cox Transformation','Upload non-normal data. Auto-finds the best λ and shows before/after probability plots.');}
+    else if(tab==='multivari'){showEmpty('📉','Multi-Vari Chart','Upload data with measurement + part ID columns. Decomposes within-part, part-to-part, and time-to-time variation.');}
+    else if(tab==='doe'){showEmpty('🧫','Design of Experiments','Use the 4-step wizard in the sidebar: pick design type, define factors, generate run matrix, analyze effects.');}
+    else if(tab==='tolerance'){showEmpty('📏','Tolerance Intervals','Upload data and enter spec limits. Answers: what range covers 99% of future parts with 95% confidence?');}
+    else if(tab==='aaa'){showEmpty('✅','Attribute Agreement Analysis','Upload pass/fail inspection data. Calculates Fleiss kappa and identifies disagreement between inspectors.');}
+    else if(tab==='comparison'){buildCompDatasets();showEmpty('⚖️','Multi-Dataset Comparison','Add 2–10 datasets and compare Cpk, SPC, normality, and distributions side by side.');}
+    else if(tab==='livestream'){showEmpty('📡','Live Data Stream','Create a stream, then send measurements. Control charts update in real-time.');}
+    else if(tab==='processdash'){buildDashStatus();showEmpty('🚦','Process Dashboard','Executive traffic-light view of all parameters. Click Build Dashboard to generate.');}
+    else if(tab==='cusum'){showEmpty('📉','CUSUM / EWMA','Upload data and select a column. Detects small shifts (≥0.5σ) that Shewhart charts miss.');}
+    else if(tab==='runchart'){showEmpty('📋','Run Chart','Upload data and select a column. Runs test and Cox-Stuart trend test with median line.');}
+    else if(tab==='correlation'){showEmpty('🔗','Correlation Matrix','Upload multi-column data. Pearson/Spearman heatmap with p-values on hover.');}
+    else if(tab==='equivalence'){showEmpty('⚖️','Equivalence Test (TOST)','Upload data with two columns to compare. Used for supplier qualification and process transfer.');}
+    else if(tab==='outliers'){showEmpty('🎯','Outlier Detection','Upload data and select a column. Grubbs, Dixon Q, and Rosner ESD methods.');}
+    else if(tab==='samplesize'){showEmpty('📏','Sample Size Calculator','Select study type and parameters. Calculates required n with power curve.');}
+    else if(tab==='twoway_anova'){showEmpty('🔢','Two-Way ANOVA','Upload data with Response, Factor A, Factor B columns. Tests main effects and interaction.');}
+    else if(tab==='rsm'){showEmpty('🏔️','Response Surface Methodology','Use the sidebar wizard: pick CCD or Box-Behnken design, define factors, generate matrix, fit model.');}
+    else{ showEmpty('📊', tab.charAt(0).toUpperCase()+tab.slice(1), 'Select options in the sidebar and run the analysis.'); }
 }
 
 function switchTab(name){switchAnalysis(name);}
@@ -2023,7 +2036,7 @@ function renderSPC(r, isSubrange=false){
 
     ${allAlarms.length?`
     <div class="card">
-      <div class="ch"><div class="ct">Rule Violations (${allAlarms.length})</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');capaGoStep(2)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div>
+      <div class="ch"><div class="ct">Rule Violations (${allAlarms.length})</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button></div></div>
       <div class="cb"><div style="overflow-x:auto"><table class="alarm-table"><tr><th>Pt</th><th>Rule</th><th>Value</th><th>Description</th></tr>${alarmRows}${allAlarms.length>12?`<tr><td colspan="4" style="color:var(--text3);font-size:11px">…${allAlarms.length-12} more</td></tr>`:''}</table></div></div>
     </div>`:''}
   `);
@@ -2244,6 +2257,8 @@ async function runCAPA(){
     buildCAPANav();renderCAPA(capaReports[key]);
     document.getElementById('override-section').style.display='block';loadCatalog();
     showToast(`✅ Matched ${data.matched_rules.length} rule(s)`);
+    // Advance to step 4 (Report) now that we have results
+    setTimeout(()=>capaGoStep(4), 100);
   }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
   finally{btn.disabled=false;btn.textContent='Generate CAPA Report';}
 }
@@ -2398,7 +2413,7 @@ function renderCap(r){
       <div class="ic"><div class="in">σ Level</div><div class="iv">${r.sigma_level.toFixed(2)}σ</div></div>
     </div>
     <div id="cap-ci-banner" style="display:none;margin-bottom:12px"></div>
-    <div class="card"><div class="ch"><div class="ct">Capability Histogram</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');capaGoStep(2)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div><div class="cb"><div class="chart-half"><canvas id="cap-hist"></canvas></div></div></div>
+    <div class="card"><div class="ch"><div class="ct">Capability Histogram</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button></div></div><div class="cb"><div class="chart-half"><canvas id="cap-hist"></canvas></div></div></div>
     <div class="card"><div class="ch"><div class="ct">Analysis Notes</div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
   `);
   const hd=r.histogram_data,gc='rgba(100,200,180,0.1)',tc='#b8c4bb';
@@ -2455,7 +2470,7 @@ function showNorm(colName){
     <div class="col-tabs">${tabs}</div>
     <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${cc}">${r.overall_verdict}</div><div class="vd">${r.capability_hint.reason}</div></div></div>
     <div class="stat-grid"><div class="sc2"><div class="sl2">Mean</div><div class="sv" style="font-size:18px">${r.mean.toFixed(4)}</div></div><div class="sc2"><div class="sl2">Std Dev</div><div class="sv" style="font-size:18px">${r.std.toFixed(4)}</div></div><div class="sc2"><div class="sl2">Skewness</div><div class="sv" style="font-size:18px">${r.skewness.toFixed(3)}</div></div><div class="sc2"><div class="sl2">Kurtosis</div><div class="sv" style="font-size:18px">${r.kurtosis.toFixed(3)}</div></div></div>
-    <div class="card"><div class="ch"><div class="ct">Normality Tests</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');capaGoStep(2)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div>
+    <div class="card"><div class="ch"><div class="ct">Normality Tests</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button></div></div>
       <div class="cb"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">
         <div class="ic"><div class="in">Shapiro-Wilk</div><div class="iv" style="font-size:14px">W=${r.shapiro_wilk.statistic.toFixed(5)}</div><div class="is">p=${r.shapiro_wilk.p_value.toFixed(5)}</div><div style="${tvS(r.shapiro_wilk.reject_null)};font-size:11px;margin-top:5px">${r.shapiro_wilk.reject_null?'✗ Not Normal':'✓ Normal'}</div></div>
         <div class="ic"><div class="in">Anderson-Darling</div><div class="iv" style="font-size:14px">A²=${r.anderson_darling.statistic.toFixed(5)}</div><div class="is">p≈${r.anderson_darling.p_value.toFixed(5)}</div><div style="${tvS(r.anderson_darling.reject_null)};font-size:11px;margin-top:5px">${r.anderson_darling.reject_null?'✗ Not Normal':'✓ Normal'}</div></div>
@@ -2514,7 +2529,7 @@ function renderGRR(r){
     <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${vcc}">${r.verdict}</div><div class="vd">${r.verdict_detail}</div><div style="margin-top:3px;font-size:12px;color:var(--text2)">${r.n_parts}p×${r.n_operators}op×${r.n_replicates}r · ndc=${r.ndc}</div></div></div>
     <div class="grr-grid"><div class="gc"><div class="gl">%GRR</div><div class="gv" style="color:${vcc}">${r.gauge_rr.pct_study_var.toFixed(1)}%</div></div><div class="gc"><div class="gl">Repeatability</div><div class="gv" style="color:var(--teal)">${r.repeatability.pct_study_var.toFixed(1)}%</div><div class="gs">EV</div></div><div class="gc"><div class="gl">Reproducibility</div><div class="gv" style="color:var(--coral)">${r.reproducibility.pct_study_var.toFixed(1)}%</div><div class="gs">AV</div></div><div class="gc"><div class="gl">Part-to-Part</div><div class="gv" style="color:var(--green)">${r.part_to_part.pct_study_var.toFixed(1)}%</div><div class="gs">PV</div></div></div>
     <div class="card"><div class="ch"><div class="ct">Variance Components</div></div><div class="cb" style="overflow-x:auto"><table class="vc-table"><tr><th>Source</th><th>Std Dev</th><th>% Study Var</th></tr>${vcRows}</table></div></div>
-    <div class="card"><div class="ch"><div class="ct">Analysis Notes</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');capaGoStep(2)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer">→ CAPA</button></div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
+    <div class="card"><div class="ch"><div class="ct">Analysis Notes</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button></div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
   `);
 }
 
@@ -4125,7 +4140,30 @@ function capaGoStep(n){
       if(s>1) pill.style.borderLeft='none';
     }
   });
-  if(n===2){ updateAttachStatus(); capaCheckPrereqs(); }
+  if(n===2){
+    updateAttachStatus(); capaCheckPrereqs();
+    // Always show USL/LSL row for inline capability
+    const specRow=document.getElementById('capa-cap-spec-row');
+    if(specRow) specRow.style.display='grid';
+    // Pre-fill spec limits from capability sidebar
+    const uslEl=document.getElementById('usl-input');
+    const lslEl=document.getElementById('lsl-input');
+    const iu=document.getElementById('capa-inline-usl');
+    const il=document.getElementById('capa-inline-lsl');
+    if(iu&&lslEl&&uslEl){ if(uslEl.value&&!iu.value)iu.value=uslEl.value; if(lslEl.value&&!il.value)il.value=lslEl.value; }
+    // Show file warning if no data loaded
+    const noFile=!window.globalFile&&!normFile&&!capFile;
+    const warn=document.getElementById('capa-data-warning');
+    if(warn){
+      if(noFile){
+        warn.style.display='block';
+        warn.innerHTML='📂 <strong>No file loaded.</strong> Open a data file first (File → Open File), then return here to run prerequisites.';
+        warn.style.color='var(--amber)';
+      } else {
+        capaCheckPrereqs();
+      }
+    }
+  }
   if(n===3){ autoPopulateCAPA(); populateOverrideList(); }
   if(n===4){ updateAttachStatus(); }
 }
@@ -4179,15 +4217,7 @@ function populateOverrideList(){
     }).catch(()=>{});
 }
 
-// Wire run-capa-btn to capaGoStep(4) after success
-document.addEventListener('DOMContentLoaded',()=>{
-  const runBtn=document.getElementById('run-capa-btn');
-  if(runBtn){
-    // Original click handler calls runCapa — after success we go to step 4
-    const origClick=runBtn.onclick;
-    runBtn.addEventListener('click',()=>{ setTimeout(()=>{ if(document.getElementById('capa-col-results')?.children.length>0) capaGoStep(4); },2000); });
-  }
-});
+// capaGoStep(4) is called directly inside runCAPA on success — no duplicate listener needed
 
 // Init CAPA step 1 shown by default when switching to CAPA
 
@@ -5115,8 +5145,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // without navigating away, using the already-loaded global file
 
 async function capaRunInline(type) {
-  const globalFile = normFile || capFile || spcFile;
-  if (!globalFile) {
+  // Use any available file — globalFile is set by the Open File wizard
+  const fileToUse = window.globalFile || normFile || capFile || spcFile;
+  if (!fileToUse) {
     // No file loaded at all — need to prompt upload
     showToast('Upload a data file first (use Open File)', true);
     if (window.innerWidth <= 768) {
@@ -5139,8 +5170,8 @@ async function capaRunInline(type) {
 
   try {
     if (type === 'normality') {
-      // Use normFile or fall back to globalFile
-      const file = normFile || globalFile;
+      // Use normFile or fall back to any available file
+      const file = normFile || window.globalFile || fileToUse;
       const alpha = parseFloat(document.getElementById('alpha-select')?.value || '0.05');
       const fd = new FormData(); fd.append('file', file);
       const r = await fetch(`${API}/api/v1/normality/analyze?alpha=${alpha}`, { method:'POST', body:fd });
@@ -5171,7 +5202,7 @@ async function capaRunInline(type) {
       showToast(`✅ Normality: ${verdict}`);
 
     } else if (type === 'capability') {
-      const file = capFile || normFile || globalFile;
+      const file = capFile || normFile || window.globalFile || fileToUse;
       const usl = parseFloat(document.getElementById('capa-inline-usl')?.value);
       const lsl = parseFloat(document.getElementById('capa-inline-lsl')?.value);
 
@@ -5185,9 +5216,11 @@ async function capaRunInline(type) {
       }
 
       // Pick first available column
-      const col = wizardSelectedCols[0] || attachedNorm?.column ||
-                  (normData?.results?.[0]?.column) || '';
-      if (!col) throw new Error('No column detected — run normality first');
+      const col = wizardSelectedCols[0] ||
+                  attachedNorm?.column ||
+                  (normData?.results?.[0]?.column) ||
+                  (window.globalColumns && window.globalColumns[0]?.name) || '';
+      if (!col) throw new Error('No column detected — run normality first, or use the full Capability tab');
 
       const fd = new FormData(); fd.append('file', file);
       const url = `${API}/api/v1/capability/analyze?column=${encodeURIComponent(col)}&usl=${usl}&lsl=${lsl}`;
@@ -5211,8 +5244,11 @@ async function capaRunInline(type) {
 
     } else if (type === 'spc') {
       // SPC inline: use first col, default subgroup 1
-      const file = spcFile || normFile || capFile || globalFile;
-      const col = wizardSelectedCols[0] || attachedNorm?.column || '';
+      const file = spcFile || normFile || capFile || window.globalFile || fileToUse;
+      const col = wizardSelectedCols[0] ||
+                  attachedNorm?.column ||
+                  (normData?.results?.[0]?.column) ||
+                  (window.globalColumns && window.globalColumns[0]?.name) || '';
       if (!col) throw new Error('No column detected — run normality first');
       const fd = new FormData(); fd.append('file', file);
       const r = await fetch(`${API}/api/v1/spc/analyze?column=${encodeURIComponent(col)}&subgroup_size=1`, { method:'POST', body:fd });
@@ -5278,21 +5314,64 @@ if (_origApiCheck) {
 
 /* ── goHome: return to welcome screen ─────────────────────────────────── */
 function goHome() {
-  // Hide analysis view
-  document.getElementById('sidebar').style.display = 'none';
+  const welcome = document.getElementById('welcome-screen');
+  // If already on welcome screen, do nothing
+  if (welcome && welcome.style.display !== 'none') return;
+  // Show welcome screen
+  if (welcome) welcome.style.display = 'flex';
+  // Hide sidebar and context bar
+  const sb = document.getElementById('sidebar');
+  if (sb) sb.style.display = 'none';
   document.getElementById('context-bar').classList.remove('visible');
-  document.getElementById('welcome-screen').style.display = 'flex';
-  // Hide mobile sidebar toggle
+  // Hide back button
+  const backBtn = document.getElementById('global-back-btn');
+  if (backBtn) backBtn.style.display = 'none';
+  // Hide mobile controls
   const toggle = document.getElementById('mob-sidebar-toggle');
   if (toggle) toggle.style.display = 'none';
-  // Reset active nav
+  const appBody = document.getElementById('app-body');
+  if (appBody) appBody.classList.remove('mobile-sidebar-open');
+  // Deactivate nav
   document.querySelectorAll('.nav-dd-item').forEach(x => x.classList.remove('active'));
-  // Reset mobile app-body
-  const body = document.getElementById('app-body');
-  if (body) body.classList.remove('mobile-sidebar-open');
-  // Reset currentAnalysis so switching back works cleanly
+  // Reset so next switchAnalysis starts fresh
   currentAnalysis = null;
+  // Clear the content pane
+  const contentEl = document.getElementById('main-content');
+  if (contentEl) contentEl.innerHTML = '';
 }
+
+
+/* ── Nav dropdown click-toggle (supplements CSS :hover) ────────────────
+   After a chart renders, CSS :hover on nav can break because canvas
+   elements capture mouse events. Click-toggle ensures nav always works. */
+(function(){
+  function initNavClicks(){
+    document.querySelectorAll('.nav-dropdown').forEach(dd => {
+      if (dd.dataset.clickInited) return;
+      dd.dataset.clickInited = '1';
+      const btn = dd.querySelector('.nav-btn');
+      if (!btn) return;
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        // Close all other dropdowns
+        document.querySelectorAll('.nav-dropdown.open').forEach(other => {
+          if (other !== dd) other.classList.remove('open');
+        });
+        dd.classList.toggle('open');
+      });
+    });
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.nav-dropdown.open').forEach(dd => dd.classList.remove('open'));
+    }, {capture: false});
+  }
+  // Init on DOM ready and after any content change
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initNavClicks);
+  } else {
+    initNavClicks();
+  }
+})();
 
 </script>
 

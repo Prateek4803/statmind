@@ -2012,3 +2012,585 @@ async def rel_predict(request: Request):
 async def rel_categories():
     from reliability_pred import list_categories, ENVIRONMENT_FACTORS
     return jd({"categories": list_categories(), "environments": list(ENVIRONMENT_FACTORS.keys())})
+
+"""
+StatMind — Additions patch
+Paste this at the END of main.py (before the if __name__ == "__main__" block)
+"""
+
+# ══ NEW ENDPOINTS — Cpk CI, Hidden Engines, RSM, Run Chart, Two-Way ANOVA ════
+
+# ── Cpk Confidence Intervals (chi-squared / Bissell 1990) ────────────────────
+@app.post("/api/v1/capability/ci")
+async def capability_ci(request: Request):
+    body = await request.json()
+    from scipy import stats as _stats
+    import math
+    n   = max(int(body.get("n", 30)), 3)
+    cp  = float(body.get("cp",  1.0))
+    cpk = float(body.get("cpk", 1.0))
+    pp  = float(body.get("pp",  1.0))
+    ppk = float(body.get("ppk", 1.0))
+    alpha = 0.05
+    chi2_lo = _stats.chi2.ppf(alpha/2,   n-1)
+    chi2_hi = _stats.chi2.ppf(1-alpha/2, n-1)
+    cp_ci_lo  = round(cp  * math.sqrt((n-1)/chi2_hi), 4)
+    cp_ci_hi  = round(cp  * math.sqrt((n-1)/chi2_lo), 4)
+    cpk_se    = math.sqrt(max(cpk**2/(9*n) + 1/(2*(n-1)), 1e-9))
+    cpk_ci_lo = round(cpk - 1.96*cpk_se, 4)
+    cpk_ci_hi = round(cpk + 1.96*cpk_se, 4)
+    pp_ci_lo  = round(pp  * math.sqrt((n-1)/chi2_hi), 4)
+    pp_ci_hi  = round(pp  * math.sqrt((n-1)/chi2_lo), 4)
+    ppk_se    = math.sqrt(max(ppk**2/(9*n) + 1/(2*(n-1)), 1e-9))
+    ppk_ci_lo = round(ppk - 1.96*ppk_se, 4)
+    ppk_ci_hi = round(ppk + 1.96*ppk_se, 4)
+    supplier_qualified = cpk_ci_lo >= 1.33
+    meets_threshold    = cpk >= 1.33
+    return jd({
+        "n": n, "confidence": "95%",
+        "cp":  {"estimate": cp,  "ci_lo": cp_ci_lo,  "ci_hi": cp_ci_hi},
+        "cpk": {"estimate": cpk, "ci_lo": cpk_ci_lo, "ci_hi": cpk_ci_hi,
+                "supplier_qualified": supplier_qualified},
+        "pp":  {"estimate": pp,  "ci_lo": pp_ci_lo,  "ci_hi": pp_ci_hi},
+        "ppk": {"estimate": ppk, "ci_lo": ppk_ci_lo, "ci_hi": ppk_ci_hi},
+        "interpretation": (
+            "✅ Lower Cpk CI ≥ 1.33 — SUPPLIER QUALIFIED (Apple/AIAG standard)" if supplier_qualified else
+            f"⚠️ Cpk={cpk:.3f} ≥ 1.33 but lower 95% CI = {cpk_ci_lo:.3f} < 1.33 — more samples needed for qualification" if meets_threshold else
+            f"❌ Cpk={cpk:.3f} < 1.33 — process not capable"
+        )
+    })
+
+# ── CUSUM/EWMA (surface existing engine) ──────────────────────────────────────
+@app.post("/api/v1/cusum/analyze")
+async def cusum_analyze(
+    file: UploadFile = File(...),
+    column: str = Query(...),
+    k: float = Query(0.5),
+    h: float = Query(5.0),
+):
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if column not in result.df.columns:
+        raise HTTPException(404, f"Column '{column}' not found")
+    import dataclasses as dc
+    try:
+        from cusum_ewma import analyze_cusum_ewma
+        data = result.df[column].dropna().values.astype(float)
+        r = analyze_cusum_ewma(data, column, k=k, h=h)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+@app.post("/api/v1/ewma/analyze")
+async def ewma_analyze(
+    file: UploadFile = File(...),
+    column: str = Query(...),
+    lam: float = Query(0.2),
+    L: float = Query(3.0),
+):
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if column not in result.df.columns:
+        raise HTTPException(404, f"Column '{column}' not found")
+    import dataclasses as dc
+    try:
+        from cusum_ewma import analyze_cusum_ewma
+        data = result.df[column].dropna().values.astype(float)
+        r = analyze_cusum_ewma(data, column, k=0.5, h=5.0, lam=lam, L=L)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+# ── Correlation Matrix (surface existing engine) ──────────────────────────────
+@app.post("/api/v1/correlation/matrix")
+async def correlation_matrix(
+    file: UploadFile = File(...),
+    method: str = Query("pearson"),
+    alpha: float = Query(0.05),
+):
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    import dataclasses as dc
+    try:
+        from correlation import correlation_heatmap
+        r = correlation_heatmap(result.df[result.numeric_columns], method=method, alpha=alpha)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+# ── Equivalence Test / TOST (surface existing engine) ────────────────────────
+@app.post("/api/v1/equivalence/analyze")
+async def equivalence_analyze(
+    file: UploadFile = File(...),
+    col_a: str = Query(...),
+    col_b: str = Query(...),
+    delta: float = Query(0.05),
+    alpha: float = Query(0.05),
+):
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    import dataclasses as dc
+    try:
+        from equivalence_test import tost_equivalence
+        a = result.df[col_a].dropna().values.astype(float)
+        b = result.df[col_b].dropna().values.astype(float)
+        r = tost_equivalence(a, b, delta=delta, alpha=alpha,
+                             name_a=col_a, name_b=col_b)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+# ── Outlier Detection (surface existing engine) ───────────────────────────────
+@app.post("/api/v1/outliers/analyze")
+async def outliers_analyze(
+    file: UploadFile = File(...),
+    column: str = Query(...),
+    method: str = Query("all"),
+    alpha: float = Query(0.05),
+):
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if column not in result.df.columns:
+        raise HTTPException(404, f"Column '{column}' not found")
+    import dataclasses as dc
+    try:
+        from outliers import detect_outliers
+        data = result.df[column].dropna().values.astype(float)
+        r = detect_outliers(data, column, method=method, alpha=alpha)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+# ── Sample Size Calculator (surface existing engine) ──────────────────────────
+@app.post("/api/v1/sample-size/calculate")
+async def sample_size_calc(request: Request):
+    body = await request.json()
+    import dataclasses as dc
+    try:
+        from sample_size import calculate_sample_size
+        r = calculate_sample_size(
+            study_type = body.get("study_type", "capability"),
+            **{k: v for k, v in body.items() if k != "study_type"}
+        )
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+# ── Two-Way ANOVA ─────────────────────────────────────────────────────────────
+@app.post("/api/v1/hypothesis/two-way-anova")
+async def two_way_anova(request: Request):
+    body = await request.json()
+    import pandas as pd
+    import numpy as np
+    from scipy import stats
+    import itertools
+    try:
+        data   = body["data"]       # list of values
+        factor_a = body["factor_a"] # list of level labels for factor A
+        factor_b = body["factor_b"] # list of level labels for factor B
+        name_a = body.get("name_a", "Factor A")
+        name_b = body.get("name_b", "Factor B")
+        response_name = body.get("response", "Response")
+        alpha  = body.get("alpha", 0.05)
+
+        df = pd.DataFrame({"response": data, "A": factor_a, "B": factor_b})
+        levels_a = sorted(df["A"].unique())
+        levels_b = sorted(df["B"].unique())
+
+        # Grand mean
+        grand_mean = df["response"].mean()
+        n_total    = len(df)
+
+        # Cell means
+        cell_means = df.groupby(["A","B"])["response"].mean()
+        means_a    = df.groupby("A")["response"].mean()
+        means_b    = df.groupby("B")["response"].mean()
+        n_a        = len(levels_a)
+        n_b        = len(levels_b)
+        n_rep      = n_total // (n_a * n_b)
+
+        # SS calculations
+        ss_a   = n_b * n_rep * sum((means_a[la] - grand_mean)**2 for la in levels_a)
+        ss_b   = n_a * n_rep * sum((means_b[lb] - grand_mean)**2 for lb in levels_b)
+        ss_ab  = n_rep * sum((cell_means.get((la,lb), grand_mean) - means_a[la] - means_b[lb] + grand_mean)**2
+                             for la in levels_a for lb in levels_b)
+        ss_err = sum((row["response"] - cell_means.get((row["A"],row["B"]), grand_mean))**2
+                     for _, row in df.iterrows())
+        ss_tot = sum((v - grand_mean)**2 for v in df["response"])
+
+        df_a   = n_a - 1
+        df_b   = n_b - 1
+        df_ab  = df_a * df_b
+        df_err = n_total - n_a * n_b
+        df_tot = n_total - 1
+
+        ms_a   = ss_a / df_a   if df_a   > 0 else 0
+        ms_b   = ss_b / df_b   if df_b   > 0 else 0
+        ms_ab  = ss_ab / df_ab  if df_ab  > 0 else 0
+        ms_err = ss_err / df_err if df_err > 0 else 1e-9
+
+        f_a  = ms_a  / ms_err
+        f_b  = ms_b  / ms_err
+        f_ab = ms_ab / ms_err
+
+        p_a  = 1 - stats.f.cdf(f_a,  df_a,  df_err)
+        p_b  = 1 - stats.f.cdf(f_b,  df_b,  df_err)
+        p_ab = 1 - stats.f.cdf(f_ab, df_ab, df_err)
+
+        return jd({
+            "success": True,
+            "response": response_name,
+            "factor_a": name_a,
+            "factor_b": name_b,
+            "n_total": n_total,
+            "grand_mean": round(grand_mean, 4),
+            "anova_table": [
+                {"source": name_a,          "ss": round(ss_a,4),  "df": df_a,  "ms": round(ms_a,4),  "f": round(f_a,4),  "p": round(p_a,5),  "significant": p_a<alpha},
+                {"source": name_b,          "ss": round(ss_b,4),  "df": df_b,  "ms": round(ms_b,4),  "f": round(f_b,4),  "p": round(p_b,5),  "significant": p_b<alpha},
+                {"source": f"{name_a}×{name_b}", "ss": round(ss_ab,4),"df": df_ab, "ms": round(ms_ab,4),"f": round(f_ab,4),"p": round(p_ab,5),"significant": p_ab<alpha},
+                {"source": "Error",         "ss": round(ss_err,4),"df": df_err,"ms": round(ms_err,4),"f": None,          "p": None,           "significant": False},
+                {"source": "Total",         "ss": round(ss_tot,4),"df": df_tot,"ms": None,            "f": None,          "p": None,           "significant": False},
+            ],
+            "cell_means": {f"{la}|{lb}": round(float(cell_means.get((la,lb),0)),4)
+                           for la in levels_a for lb in levels_b},
+            "levels_a": levels_a,
+            "levels_b": levels_b,
+            "interaction_significant": p_ab < alpha,
+            "conclusion": (
+                f"Significant interaction between {name_a} and {name_b} (p={p_ab:.4f}) — "
+                "interpret main effects with caution." if p_ab < alpha else
+                f"No significant interaction. {name_a}: {'significant' if p_a<alpha else 'not significant'} (p={p_a:.4f}). "
+                f"{name_b}: {'significant' if p_b<alpha else 'not significant'} (p={p_b:.4f})."
+            )
+        })
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+# ── Run Chart ─────────────────────────────────────────────────────────────────
+@app.post("/api/v1/runchart/analyze")
+async def runchart_analyze(
+    file: UploadFile = File(...),
+    column: str = Query(...),
+):
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if column not in result.df.columns:
+        raise HTTPException(404, f"Column '{column}' not found")
+    from scipy import stats
+    import math
+    data = result.df[column].dropna().values.astype(float)
+    n = len(data)
+    median = float(np.median(data))
+    mean   = float(np.mean(data))
+
+    # Runs test (Swed-Eisenhart): count runs above/below median
+    above = [1 if x > median else 0 for x in data if x != median]
+    n_above = sum(above)
+    n_below = len(above) - n_above
+    runs = 1 + sum(1 for i in range(1, len(above)) if above[i] != above[i-1])
+
+    # Expected runs and variance
+    n_tot = n_above + n_below
+    if n_tot > 1:
+        runs_expected = (2*n_above*n_below / n_tot) + 1
+        runs_var = (2*n_above*n_below*(2*n_above*n_below - n_tot)) / (n_tot**2 * (n_tot-1)) if n_tot > 2 else 1
+        z_runs = (runs - runs_expected) / max(math.sqrt(runs_var), 1e-9)
+        p_runs = 2 * (1 - stats.norm.cdf(abs(z_runs)))
+        runs_verdict = "Non-random pattern detected" if p_runs < 0.05 else "Random (no pattern detected)"
+    else:
+        runs_expected = runs_var = z_runs = 0
+        p_runs = 1.0
+        runs_verdict = "Insufficient data"
+
+    # Cox-Stuart trend test
+    m = n // 2
+    pairs = [(data[i], data[i+m]) for i in range(m)]
+    n_plus  = sum(1 for a,b in pairs if b > a)
+    n_minus = sum(1 for a,b in pairs if b < a)
+    n_ties  = m - n_plus - n_minus
+    n_eff   = n_plus + n_minus
+    p_trend = 2 * stats.binom.cdf(min(n_plus, n_minus), n_eff, 0.5) if n_eff > 0 else 1.0
+    trend_verdict = "Significant trend detected" if p_trend < 0.05 else "No significant trend"
+
+    return jd({
+        "column": column, "n": n,
+        "median": round(median, 4), "mean": round(mean, 4),
+        "data": [round(float(x), 4) for x in data],
+        "runs_test": {
+            "runs": runs, "expected": round(runs_expected, 2),
+            "z": round(z_runs, 3), "p": round(p_runs, 4),
+            "verdict": runs_verdict
+        },
+        "trend_test": {
+            "n_plus": n_plus, "n_minus": n_minus,
+            "p": round(p_trend, 4), "verdict": trend_verdict
+        },
+        "overall_verdict": (
+            "Non-random" if p_runs < 0.05 or p_trend < 0.05 else "Random — process appears stable"
+        )
+    })
+
+# ── RSM — Response Surface Methodology ───────────────────────────────────────
+@app.post("/api/v1/rsm/design")
+async def rsm_design(request: Request):
+    """Generate Central Composite Design (CCD) or Box-Behnken matrix."""
+    body = await request.json()
+    import itertools, math
+    factor_names  = body.get("factor_names", ["X1","X2"])
+    factor_levels = body.get("factor_levels", {})  # {name: [lo, hi]}
+    design_type   = body.get("design_type", "ccd")  # ccd | bbd
+    center_points = body.get("center_points", 3)
+    alpha_val     = body.get("alpha", 1.414)  # axial distance (sqrt(2) for CCD)
+    k = len(factor_names)
+
+    runs = []
+    if design_type == "ccd":
+        # Factorial portion: all ±1 combinations
+        factorial = list(itertools.product([-1,1], repeat=k))
+        for combo in factorial:
+            run = {"run_type": "factorial"}
+            for i,name in enumerate(factor_names): run[name] = combo[i]
+            runs.append(run)
+        # Axial points: each factor at ±alpha, others at 0
+        for i,name in enumerate(factor_names):
+            for sign in [-1,1]:
+                run = {"run_type": "axial"}
+                for j,n2 in enumerate(factor_names): run[n2] = round(sign * alpha_val, 4) if j==i else 0.0
+                runs.append(run)
+        # Center points
+        for _ in range(center_points):
+            run = {"run_type": "center"}
+            for name in factor_names: run[name] = 0.0
+            runs.append(run)
+    elif design_type == "bbd" and k == 3:
+        # Box-Behnken for 3 factors
+        bbd_combos = [(1,1,0),(-1,1,0),(1,-1,0),(-1,-1,0),
+                      (1,0,1),(-1,0,1),(1,0,-1),(-1,0,-1),
+                      (0,1,1),(0,-1,1),(0,1,-1),(0,-1,-1)]
+        for combo in bbd_combos:
+            run = {"run_type": "bbd"}
+            for i,name in enumerate(factor_names): run[name] = float(combo[i])
+            runs.append(run)
+        for _ in range(center_points):
+            run = {"run_type": "center"}
+            for name in factor_names: run[name] = 0.0
+            runs.append(run)
+
+    # Add run number and decode coded to actual values
+    coded_to_actual = {}
+    for name in factor_names:
+        lo = float(factor_levels.get(name, [-1,1])[0])
+        hi = float(factor_levels.get(name, [-1,1])[1])
+        coded_to_actual[name] = {"lo": lo, "hi": hi, "center": (lo+hi)/2, "half_range": (hi-lo)/2}
+
+    for i, run in enumerate(runs):
+        run["run"] = i+1
+        run["response"] = None
+        for name in factor_names:
+            c2a = coded_to_actual[name]
+            coded = run[name]
+            run[f"{name}_actual"] = round(c2a["center"] + coded * c2a["half_range"], 4)
+
+    return jd({
+        "design_type": design_type.upper(),
+        "k": k,
+        "n_runs": len(runs),
+        "center_points": center_points,
+        "alpha": alpha_val,
+        "factor_names": factor_names,
+        "factor_levels": factor_levels,
+        "run_matrix": runs,
+        "model_terms": (
+            ["intercept"] + factor_names +
+            [f"{a}²" for a in factor_names] +
+            [f"{a}×{b}" for i,a in enumerate(factor_names) for b in factor_names[i+1:]]
+        )
+    })
+
+@app.post("/api/v1/rsm/analyze")
+async def rsm_analyze(request: Request):
+    """Fit RSM quadratic model and find optimum."""
+    body = await request.json()
+    import numpy as np
+    from scipy import stats, optimize
+    try:
+        factor_names = body["factor_names"]
+        run_matrix   = body["run_matrix"]
+        responses    = body["responses"]
+        goal         = body.get("goal", "maximize")  # maximize | minimize | target
+        target_val   = body.get("target_value", None)
+        k = len(factor_names)
+
+        X_coded = np.array([[row.get(n, 0) for n in factor_names] for row in run_matrix], dtype=float)
+        y = np.array(responses, dtype=float)
+
+        # Build model matrix: [1, x1, x2, ..., x1², x2², ..., x1x2, ...]
+        n_runs = len(y)
+        cols = [np.ones(n_runs)]
+        for i in range(k): cols.append(X_coded[:,i])
+        for i in range(k): cols.append(X_coded[:,i]**2)
+        for i in range(k):
+            for j in range(i+1,k): cols.append(X_coded[:,i]*X_coded[:,j])
+        X_model = np.column_stack(cols)
+
+        # OLS fit
+        try:
+            beta, residuals, rank, sv = np.linalg.lstsq(X_model, y, rcond=None)
+        except Exception:
+            raise ValueError("Matrix is singular — ensure all responses are entered")
+
+        y_pred = X_model @ beta
+        ss_res = np.sum((y - y_pred)**2)
+        ss_tot = np.sum((y - y.mean())**2)
+        r2     = 1 - ss_res/ss_tot if ss_tot > 0 else 0
+        n_params = X_model.shape[1]
+        r2_adj = 1 - (1-r2)*(n_runs-1)/(max(n_runs-n_params,1))
+        rmse   = np.sqrt(ss_res/max(n_runs-n_params,1))
+
+        # Find optimum via optimization in coded space [-alpha, alpha]
+        alpha_limit = max(body.get("alpha", 1.414), 1.0)
+        def objective(x_coded):
+            xv = np.concatenate([[1], x_coded,
+                                  x_coded**2,
+                                  [x_coded[i]*x_coded[j] for i in range(k) for j in range(i+1,k)]])
+            pred = float(xv @ beta)
+            if goal == "minimize": return pred
+            if goal == "maximize": return -pred
+            return (pred - target_val)**2
+
+        from scipy.optimize import minimize
+        best_obj = np.inf
+        best_result = None
+        for _ in range(20):
+            x0 = np.random.uniform(-1, 1, k)
+            res = minimize(objective, x0, method='L-BFGS-B',
+                           bounds=[(-alpha_limit, alpha_limit)]*k)
+            if res.fun < best_obj:
+                best_obj = res.fun
+                best_result = res
+
+        optimal_coded  = best_result.x.tolist() if best_result else [0]*k
+        optimal_actual = {}
+        factor_levels  = body.get("factor_levels", {})
+        for i, name in enumerate(factor_names):
+            lo = float(factor_levels.get(name, [-1,1])[0])
+            hi = float(factor_levels.get(name, [-1,1])[1])
+            center = (lo+hi)/2; half_range = (hi-lo)/2
+            optimal_actual[name] = round(center + optimal_coded[i]*half_range, 4)
+
+        optimal_response_coded = [1.0] + optimal_coded + [c**2 for c in optimal_coded]
+        for i in range(k):
+            for j in range(i+1,k): optimal_response_coded.append(optimal_coded[i]*optimal_coded[j])
+        optimal_response = float(np.array(optimal_response_coded) @ beta)
+
+        # Contour data for first 2 factors (grid scan)
+        contour_data = None
+        if k >= 2:
+            grid_n = 20
+            x1_grid = np.linspace(-1,1,grid_n)
+            x2_grid = np.linspace(-1,1,grid_n)
+            Z = np.zeros((grid_n,grid_n))
+            for i,x1 in enumerate(x1_grid):
+                for j,x2 in enumerate(x2_grid):
+                    xv_row = np.concatenate([[1],[x1,x2]+[0]*(k-2),
+                                             [x1**2,x2**2]+[0]*(k-2),
+                                             [x1*x2]+[0]*(k*(k-1)//2-1)])[:n_params]
+                    xv_row_full = np.ones(n_params)
+                    xv_row_full[0]=1; xv_row_full[1]=x1; xv_row_full[2]=x2
+                    if k>=2 and n_params>2+k: xv_row_full[1+k]=x1**2; xv_row_full[2+k]=x2**2
+                    Z[i,j] = float(xv_row_full @ beta)
+            contour_data = {
+                "x1": [round(float(x),4) for x in x1_grid],
+                "x2": [round(float(x),4) for x in x2_grid],
+                "z":  [[round(float(v),4) for v in row] for row in Z],
+                "factor1": factor_names[0],
+                "factor2": factor_names[1] if k>1 else factor_names[0],
+            }
+
+        term_names = (["Intercept"] + factor_names +
+                      [f"{n}²" for n in factor_names] +
+                      [f"{factor_names[i]}×{factor_names[j]}" for i in range(k) for j in range(i+1,k)])
+
+        return jd({
+            "success": True,
+            "model": {
+                "r_squared": round(r2,4), "r_squared_adj": round(r2_adj,4),
+                "rmse": round(rmse,4), "n_runs": n_runs, "n_params": n_params,
+                "terms": [{"name": nm, "coeff": round(float(b),4)}
+                          for nm,b in zip(term_names, beta)],
+            },
+            "goal": goal,
+            "optimal_coded": [round(float(c),4) for c in optimal_coded],
+            "optimal_settings": optimal_actual,
+            "predicted_optimum": round(optimal_response, 4),
+            "y_actual": [round(float(v),4) for v in y],
+            "y_predicted": [round(float(v),4) for v in y_pred],
+            "contour_data": contour_data,
+        })
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+# ── Probability Plot data (for normality visualization) ───────────────────────
+@app.post("/api/v1/normality/probplot")
+async def normality_probplot(
+    file: UploadFile = File(...),
+    column: str = Query(...),
+    distribution: str = Query("norm"),
+):
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if column not in result.df.columns:
+        raise HTTPException(404, f"Column '{column}' not found")
+    from scipy import stats
+    data = result.df[column].dropna().values.astype(float)
+    n = len(data)
+    sorted_data = np.sort(data)
+    # Blom plotting positions
+    probs = (np.arange(1,n+1) - 0.375) / (n + 0.25)
+    if distribution == "norm":
+        theoretical = stats.norm.ppf(probs)
+        dist_name = "Normal"
+    elif distribution == "lognorm":
+        theoretical = stats.norm.ppf(probs)
+        sorted_data = np.log(sorted_data[sorted_data>0])
+        dist_name = "Lognormal"
+    else:
+        theoretical = stats.norm.ppf(probs)
+        dist_name = "Normal"
+
+    # Fit line
+    slope, intercept, r, p, se = stats.linregress(theoretical, sorted_data)
+
+    return jd({
+        "column": column, "n": n,
+        "distribution": dist_name,
+        "theoretical_quantiles": [round(float(x),4) for x in theoretical],
+        "sample_quantiles": [round(float(x),4) for x in sorted_data],
+        "fit_line": {
+            "slope": round(float(slope),4),
+            "intercept": round(float(intercept),4),
+            "r_squared": round(float(r**2),4),
+        },
+        "percentiles": [round(float(p*100),1) for p in probs],
+    })

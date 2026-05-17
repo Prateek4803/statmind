@@ -587,8 +587,8 @@ textarea{resize:vertical;min-height:52px;}
 
 <!-- TOP NAV -->
 <nav class="topnav">
-  <div class="logo-mark">S</div>
-  <div class="logo-name">StatMind</div>
+  <div class="logo-mark" onclick="goHome()" style="cursor:pointer" title="Back to home">S</div>
+  <div class="logo-name" onclick="goHome()" style="cursor:pointer" title="Back to home">StatMind</div>
 
   <!-- File group -->
   <div class="nav-group">
@@ -681,8 +681,8 @@ textarea{resize:vertical;min-height:52px;}
   <div class="mob-drawer-panel">
     <div class="mob-drawer-header">
       <div style="display:flex;align-items:center;gap:9px">
-        <div class="logo-mark" style="width:26px;height:26px;font-size:11px">S</div>
-        <span style="font-size:15px;font-weight:700">StatMind</span>
+        <div class="logo-mark" onclick="closeMobDrawer();goHome()" style="width:26px;height:26px;font-size:11px;cursor:pointer">S</div>
+        <span style="font-size:15px;font-weight:700;cursor:pointer" onclick="closeMobDrawer();goHome()">StatMind</span>
       </div>
       <button class="mob-drawer-close" onclick="closeMobDrawer()">✕</button>
     </div>
@@ -1877,6 +1877,13 @@ function switchAnalysis(tab){
     Object.values(tabMap).forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
     const sbId = tabMap[tab];
     if(sbId){ const sb=document.getElementById(sbId); if(sb) sb.style.display='contents'; }
+    // Mobile: show sidebar and Controls toggle
+    if(window.innerWidth<=768){
+      const body=document.getElementById('app-body');
+      if(body) body.classList.add('mobile-sidebar-open');
+      const toggle=document.getElementById('mob-sidebar-toggle');
+      if(toggle){ toggle.style.display='flex'; toggle.textContent='✕ Close'; }
+    }
     if(false){/* dummy to keep block structure */
     if(tab==='spc'){const k=Object.keys(spcData)[0];if(k)renderSPC(spcData[k]);else showEmpty('📈','Upload process data','Run SPC with interactive subrange selector');}
     if(tab==='capa'){autoPopulateCAPA();updateAttachStatus();const k=Object.keys(capaReports)[0];if(k)renderCAPA(capaReports[k]);else showEmpty('🗄️','Rule-Based CAPA Engine','Run Sessions 1–4 then generate CAPA report.');}
@@ -2174,6 +2181,11 @@ function updateAttachStatus(){
   set('spc-attach-status',attachedSpc?'✓ attached':'—',!!attachedSpc);
   set('grr-attach-status',attachedGrr?'✓ attached':'—',!!attachedGrr);
   updateReportStatus();
+  // Refresh CAPA step-2 inline buttons
+  const nBtn=document.getElementById('capa-run-norm-btn');
+  if(nBtn&&attachedNorm){nBtn.textContent='✓ Done';nBtn.style.background='rgba(52,217,128,0.1)';nBtn.style.borderColor='rgba(52,217,128,0.3)';nBtn.style.color='var(--green)';}
+  const cBtn=document.getElementById('capa-run-cap-btn');
+  if(cBtn&&attachedCap){cBtn.textContent='✓ Done';cBtn.style.background='rgba(52,217,128,0.1)';cBtn.style.borderColor='rgba(52,217,128,0.3)';cBtn.style.color='var(--green)';}
 }
 
 async function loadCatalog(){
@@ -2212,6 +2224,9 @@ document.getElementById('run-capa-btn').addEventListener('click',runCAPA);
 
 async function runCAPA(){
   if(!attachedNorm&&!attachedCap&&!attachedSpc&&!attachedGrr){showToast('Run at least one session first',true);return;}
+  // Inject non-normal flag into context if detected
+  const _flags=window._capaInferenceFlags||{};
+  if(_flags.nonNormal){const ctxEl=document.getElementById('capa-context');if(ctxEl){const note=`[Non-normal SW p=${_flags.swP?.toFixed(4)||'<0.05'}]`;if(ctxEl.value&&!ctxEl.value.includes('[Non-normal'))ctxEl.value+='; '+note;else if(!ctxEl.value)ctxEl.value=note;}}
   const btn=document.getElementById('run-capa-btn');btn.disabled=true;btn.textContent='Generating…';
   showContent(loadHtml('Matching fault patterns in CAPA database…'));
   try{
@@ -2400,6 +2415,8 @@ function renderCap(r){
       const x=cht.scales.x.getPixelForValue(v);ctx.save();ctx.strokeStyle=c;ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bot);ctx.stroke();ctx.fillStyle=c;ctx.font='11px SF Mono,monospace';ctx.textAlign='center';ctx.fillText(l,x,top-4);ctx.restore();
     });
   };cht.draw();
+  // Fetch Cpk CI (non-blocking, enhances display)
+  setTimeout(()=>{ if(typeof fetchAndShowCapCI==='function') fetchAndShowCapCI(r); },400);
 }
 
 // ══ SESSION 1: NORMALITY ════════════════════════════════════════════════════
@@ -4173,7 +4190,6 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 // Init CAPA step 1 shown by default when switching to CAPA
-const _origSwitchAnalysis=switchAnalysis;
 
 /* ── Keyboard shortcuts: Ctrl+Z for back ── */
 document.addEventListener('keydown',e=>{
@@ -4236,12 +4252,7 @@ async function fetchAndShowCapCI(r) {
   } catch(e) { /* silent fail — CI is enhancement */ }
 }
 
-/* Hook into renderCap to auto-fetch CI */
-const _origRenderCap = renderCap;
-function renderCap(r) {
-  _origRenderCap(r);
-  setTimeout(() => fetchAndShowCapCI(r), 300);
-}
+/* CI fetch moved into canonical renderCap */
 
 /* ── TASK 2: CUSUM/EWMA ───────────────────────────────────────────────── */
 let cusumFile=null, cusumCol=null;
@@ -5097,18 +5108,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-/* ── Patch switchAnalysis to show mobile sidebar toggle ────────────────── */
-const _origSwitchForMob = switchAnalysis;
-switchAnalysis = function(tab) {
-  _origSwitchForMob(tab);
-  // On mobile, show the sidebar
-  if (window.innerWidth <= 768) {
-    const body = document.getElementById('app-body');
-    if (body) body.classList.add('mobile-sidebar-open');
-    const toggle = document.getElementById('mob-sidebar-toggle');
-    if (toggle) { toggle.style.display = 'flex'; toggle.textContent = '✕ Close'; }
-  }
-};
+/* mobile sidebar — handled inside switchAnalysis directly */
 
 /* ── CAPA Inline Prerequisite Runner ───────────────────────────────────── */
 // Runs normality or capability directly from the CAPA step 2 panel
@@ -5253,47 +5253,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-/* ── CAPA inference: include non-normal flag in CAPA request ─────────────── */
-// Patch runCAPA to add non-normal context to the request
-const _origRunCAPA = typeof runCAPA === 'function' ? runCAPA : null;
+/* runCAPA non-normal context injection moved to runCAPA directly */
 
-function runCAPA_patched() {
-  const flags = window._capaInferenceFlags || {};
-  // Append non-normal info to process context so CAPA engine knows
-  const ctxEl = document.getElementById('capa-context');
-  if (ctxEl && flags.nonNormal) {
-    const existingCtx = ctxEl.value.trim();
-    const nonNormNote = `[Non-normal data: SW p=${flags.swP?.toFixed(4)||'<0.05'}]`;
-    if (!existingCtx.includes('[Non-normal')) {
-      ctxEl.value = existingCtx ? `${existingCtx}; ${nonNormNote}` : nonNormNote;
-    }
-  }
-  if (_origRunCAPA) _origRunCAPA();
-}
-
-// Wire the run-capa-btn to patched version
-document.addEventListener('DOMContentLoaded', () => {
-  const btn = document.getElementById('run-capa-btn');
-  if (btn) {
-    btn.removeEventListener('click', runCAPA);
-    btn.addEventListener('click', runCAPA_patched);
-  }
-});
-
-/* ── updateAttachStatus — also refresh the CAPA inline dots ─────────────── */
-const _origUpdateAttach = typeof updateAttachStatus === 'function' ? updateAttachStatus : null;
-function updateAttachStatus() {
-  if (_origUpdateAttach) _origUpdateAttach();
-  // Also update the CAPA step 2 buttons: if already done, green style
-  if (attachedNorm) {
-    const btn = document.getElementById('capa-run-norm-btn');
-    if (btn) { btn.textContent = '✓ Done'; btn.style.background = 'rgba(52,217,128,0.1)'; btn.style.borderColor = 'rgba(52,217,128,0.3)'; btn.style.color = 'var(--green)'; }
-  }
-  if (attachedCap) {
-    const btn = document.getElementById('capa-run-cap-btn');
-    if (btn) { btn.textContent = '✓ Done'; btn.style.background = 'rgba(52,217,128,0.1)'; btn.style.borderColor = 'rgba(52,217,128,0.3)'; btn.style.color = 'var(--green)'; }
-  }
-}
+/* updateAttachStatus CAPA button refresh — moved into canonical function */
 
 /* ── Mobile: also update mob-status-dot on API check ────────────────────── */
 const _origApiCheck = typeof checkAPI === 'function' ? checkAPI : null;
@@ -5311,6 +5273,25 @@ if (_origApiCheck) {
     const dot = document.getElementById('status-dot');
     if (dot) observer.observe(dot, { attributes: true, childList: true });
   });
+}
+
+
+/* ── goHome: return to welcome screen ─────────────────────────────────── */
+function goHome() {
+  // Hide analysis view
+  document.getElementById('sidebar').style.display = 'none';
+  document.getElementById('context-bar').classList.remove('visible');
+  document.getElementById('welcome-screen').style.display = 'flex';
+  // Hide mobile sidebar toggle
+  const toggle = document.getElementById('mob-sidebar-toggle');
+  if (toggle) toggle.style.display = 'none';
+  // Reset active nav
+  document.querySelectorAll('.nav-dd-item').forEach(x => x.classList.remove('active'));
+  // Reset mobile app-body
+  const body = document.getElementById('app-body');
+  if (body) body.classList.remove('mobile-sidebar-open');
+  // Reset currentAnalysis so switching back works cleanly
+  currentAnalysis = null;
 }
 
 </script>

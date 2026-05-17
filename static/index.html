@@ -303,7 +303,14 @@ textarea{resize:vertical;min-height:52px;}
 .iv{font-size:22px;font-weight:700;font-family:var(--mono);}
 .is{font-size:10px;color:var(--text3);margin-top:2px;}
 .indices-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:14px;}
-.col-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px;}
+.col-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+.col-tab{padding:5px 13px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);transition:all .15s;display:flex;align-items:center;gap:5px;}
+.col-tab.active{background:var(--teal);color:#0f1117;border-color:var(--teal);}
+.col-tab-name{outline:none;background:transparent;border:none;color:inherit;font-size:12px;font-weight:500;font-family:var(--font);min-width:20px;max-width:100px;}
+.col-tab-name:focus{border-bottom:1px solid currentColor;}
+.col-tab-del{font-size:10px;opacity:0;cursor:pointer;padding:0 2px;transition:opacity .1s;line-height:1;}
+.col-tab:hover .col-tab-del{opacity:0.7;}
+.col-tab-del:hover{opacity:1!important;}
 .col-tab{padding:5px 13px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);transition:all .15px;}
 .col-tab.active{background:var(--teal);color:#0f1117;border-color:var(--teal);}
 .process-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
@@ -527,34 +534,88 @@ textarea{resize:vertical;min-height:52px;}
       </div>
     </div>
 
-    <!-- CAPA sidebar -->
+    <!-- CAPA sidebar — Step-by-step guided workflow -->
     <div id="sb-capa" style="display:none">
-      <div class="sl">Process Type</div>
-      <div class="process-chips">
-        <div class="process-chip pc-etch" data-proc="Etch" onclick="selectProcess(this)">Etch</div>
-        <div class="process-chip pc-cmp" data-proc="CMP" onclick="selectProcess(this)">CMP</div>
-        <div class="process-chip pc-litho" data-proc="Lithography" onclick="selectProcess(this)">Litho</div>
-        <div class="process-chip pc-diff" data-proc="Diffusion" onclick="selectProcess(this)">Diffusion</div>
-        <div class="process-chip pc-cmm" data-proc="CMM" onclick="selectProcess(this)">CMM/GD&T</div>
-        <div class="process-chip pc-auto" data-proc="Automotive" onclick="selectProcess(this)">Auto</div>
-        <div class="process-chip pc-aero" data-proc="Aerospace" onclick="selectProcess(this)">Aero</div>
-        <div class="process-chip pc-med" data-proc="Medical" onclick="selectProcess(this)">Medical</div>
-        <div class="process-chip pc-gen" data-proc="" onclick="selectProcess(this)">Auto-Detect</div>
+      <!-- Step indicator -->
+      <div style="display:flex;gap:0;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px">
+        <div id="capa-pill-1" onclick="capaGoStep(1)" style="flex:1;text-align:center;font-size:10px;font-weight:600;padding:4px 2px;cursor:pointer;border-radius:6px 0 0 6px;background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">1·PROCESS</div>
+        <div id="capa-pill-2" onclick="capaGoStep(2)" style="flex:1;text-align:center;font-size:10px;font-weight:600;padding:4px 2px;cursor:pointer;background:var(--bg3);color:var(--text3);border:1px solid var(--border2);border-left:none">2·DATA</div>
+        <div id="capa-pill-3" onclick="capaGoStep(3)" style="flex:1;text-align:center;font-size:10px;font-weight:600;padding:4px 2px;cursor:pointer;background:var(--bg3);color:var(--text3);border:1px solid var(--border2);border-left:none">3·RULES</div>
+        <div id="capa-pill-4" onclick="capaGoStep(4)" style="flex:1;text-align:center;font-size:10px;font-weight:600;padding:4px 2px;cursor:pointer;border-radius:0 6px 6px 0;background:var(--bg3);color:var(--text3);border:1px solid var(--border2);border-left:none">4·REPORT</div>
       </div>
-      <div class="field"><label>Parameter Name</label><input type="text" id="capa-col-name" placeholder="e.g. CD_nm, Flatness"/></div>
-      <div class="field"><label>Context</label><textarea id="capa-context" placeholder="e.g. RIE etch, 28nm CMOS…"></textarea></div>
-      <div style="display:flex;flex-direction:column;gap:5px">
-        <div class="ctrl-row"><label style="font-size:12px">Normality</label><span id="norm-attach-status" style="font-size:11px;color:var(--text3)">—</span></div>
-        <div class="ctrl-row"><label style="font-size:12px">Capability</label><span id="cap-attach-status" style="font-size:11px;color:var(--text3)">—</span></div>
-        <div class="ctrl-row"><label style="font-size:12px">SPC</label><span id="spc-attach-status" style="font-size:11px;color:var(--text3)">—</span></div>
-        <div class="ctrl-row"><label style="font-size:12px">GRR</label><span id="grr-attach-status" style="font-size:11px;color:var(--text3)">—</span></div>
+
+      <!-- Step 1: Process Type -->
+      <div id="capa-panel-1">
+        <div class="sl">Process type</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px">
+          <div class="capa-proc-card pc-etch" id="cpc-Etch" onclick="capaSelectProc('Etch',this)" style="border:1px solid rgba(45,212,160,0.3);background:rgba(45,212,160,0.06);border-radius:8px;padding:7px 9px;cursor:pointer;transition:all .12s"><div style="font-size:11px;font-weight:600;color:var(--teal)">⚗️ Etch</div></div>
+          <div class="capa-proc-card" id="cpc-CMP" onclick="capaSelectProc('CMP',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:7px 9px;cursor:pointer;transition:all .12s"><div style="font-size:11px;font-weight:600;color:var(--text)">🔷 CMP</div></div>
+          <div class="capa-proc-card" id="cpc-Lithography" onclick="capaSelectProc('Lithography',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:7px 9px;cursor:pointer;transition:all .12s"><div style="font-size:11px;font-weight:600;color:var(--text)">🔬 Litho</div></div>
+          <div class="capa-proc-card" id="cpc-Diffusion" onclick="capaSelectProc('Diffusion',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:7px 9px;cursor:pointer;transition:all .12s"><div style="font-size:11px;font-weight:600;color:var(--text)">🌡️ Diffusion</div></div>
+          <div class="capa-proc-card" id="cpc-CMM" onclick="capaSelectProc('CMM',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:7px 9px;cursor:pointer;transition:all .12s"><div style="font-size:11px;font-weight:600;color:var(--text)">📐 CMM/GD&T</div></div>
+          <div class="capa-proc-card" id="cpc-Automotive" onclick="capaSelectProc('Automotive',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:7px 9px;cursor:pointer;transition:all .12s"><div style="font-size:11px;font-weight:600;color:var(--text)">🚗 Auto</div></div>
+          <div class="capa-proc-card" id="cpc-Aerospace" onclick="capaSelectProc('Aerospace',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:7px 9px;cursor:pointer;transition:all .12s"><div style="font-size:11px;font-weight:600;color:var(--text)">✈️ Aero</div></div>
+          <div class="capa-proc-card" id="cpc-Medical" onclick="capaSelectProc('Medical',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:7px 9px;cursor:pointer;transition:all .12s"><div style="font-size:11px;font-weight:600;color:var(--text)">🏥 Medical</div></div>
+          <div class="capa-proc-card" id="cpc-" onclick="capaSelectProc('',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:7px 9px;cursor:pointer;transition:all .12s;grid-column:span 2"><div style="font-size:11px;font-weight:600;color:var(--text)">🔮 Auto-Detect</div></div>
+        </div>
+        <div class="field" style="margin-bottom:8px"><label>Parameter name</label><input type="text" id="capa-col-name" placeholder="e.g. CD_nm, Etch_Rate"/></div>
+        <div class="field"><label>Process context</label><textarea id="capa-context" placeholder="e.g. RIE etch, 28nm CMOS, chamber A…" style="min-height:44px"></textarea></div>
+        <button class="run-btn" onclick="capaGoStep(2)" style="margin-top:8px">Next: Link data →</button>
       </div>
-      <button class="run-btn" id="run-capa-btn">Generate CAPA Report</button>
-      <div id="override-section" style="display:none">
-        <div class="sl" style="margin-top:6px">Manual Override</div>
-        <div class="override-list" id="override-list"></div>
+
+      <!-- Step 2: Link analysis data -->
+      <div id="capa-panel-2" style="display:none">
+        <div class="sl" style="margin-bottom:6px">Prerequisite analyses</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5">CAPA uses results from completed analyses. Run them first for the best report quality.</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+          <div class="ctrl-row" style="cursor:pointer" onclick="capaRunPrereq('normality')">
+            <div style="flex:1"><div style="font-size:12px;font-weight:600">Normality Test</div><div style="font-size:10px;color:var(--text3)">Required — detects non-normal data</div></div>
+            <span id="norm-attach-status" style="font-size:11px;color:var(--text3)">—</span>
+            <span id="capa-norm-go" style="font-size:11px;color:var(--teal);cursor:pointer">Run →</span>
+          </div>
+          <div class="ctrl-row" style="cursor:pointer" onclick="capaRunPrereq('capability')">
+            <div style="flex:1"><div style="font-size:12px;font-weight:600">Capability (Cpk)</div><div style="font-size:10px;color:var(--text3)">Required — Cp/Cpk/Pp/Ppk</div></div>
+            <span id="cap-attach-status" style="font-size:11px;color:var(--text3)">—</span>
+            <span style="font-size:11px;color:var(--teal);cursor:pointer">Run →</span>
+          </div>
+          <div class="ctrl-row" style="cursor:pointer" onclick="capaRunPrereq('spc')">
+            <div style="flex:1"><div style="font-size:12px;font-weight:600">SPC / Control Charts</div><div style="font-size:10px;color:var(--text3)">Recommended — alarm detection</div></div>
+            <span id="spc-attach-status" style="font-size:11px;color:var(--text3)">—</span>
+            <span style="font-size:11px;color:var(--teal);cursor:pointer">Run →</span>
+          </div>
+          <div class="ctrl-row" style="cursor:pointer" onclick="capaRunPrereq('grr')">
+            <div style="flex:1"><div style="font-size:12px;font-weight:600">Gauge R&R (MSA)</div><div style="font-size:10px;color:var(--text3)">Optional — measurement system</div></div>
+            <span id="grr-attach-status" style="font-size:11px;color:var(--text3)">—</span>
+            <span style="font-size:11px;color:var(--teal);cursor:pointer">Run →</span>
+          </div>
+        </div>
+        <div id="capa-data-warning" style="display:none;font-size:11px;color:var(--amber);background:rgba(240,180,41,0.08);border:1px solid rgba(240,180,41,0.25);border-radius:7px;padding:8px 10px;margin-bottom:10px">
+          ⚠️ At minimum, run Normality + Capability before generating CAPA.
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="run-btn secondary" onclick="capaGoStep(1)" style="flex:1">← Back</button>
+          <button class="run-btn" onclick="capaGoStep(3)" style="flex:2">Next: Rules →</button>
+        </div>
       </div>
-      <div id="capa-results-nav" style="display:none"><div class="sl">Reports</div><div class="col-list" id="capa-col-results"></div></div>
+
+      <!-- Step 3: Rule selection / override -->
+      <div id="capa-panel-3" style="display:none">
+        <div class="sl">Manual rule override</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px;line-height:1.5">Auto-match is used by default. Optionally select a specific CAPA rule to apply.</div>
+        <div id="override-section">
+          <div class="override-list" id="override-list" style="max-height:200px"></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <button class="run-btn secondary" onclick="capaGoStep(2)" style="flex:1">← Back</button>
+          <button class="run-btn" id="run-capa-btn" style="flex:2">Generate Report →</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Results nav -->
+      <div id="capa-panel-4" style="display:none">
+        <div id="capa-results-nav"><div class="sl">Reports</div><div class="col-list" id="capa-col-results"></div></div>
+        <button class="run-btn secondary" onclick="capaGoStep(1)" style="width:100%;margin-top:10px">⟳ New CAPA</button>
+      </div>
     </div>
 
     <!-- Capability sidebar -->
@@ -1326,10 +1387,52 @@ let currentSpcResult=null;
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 const tabMap={spc:'sb-spc',capa:'sb-capa',capability:'sb-cap',normality:'sb-norm',grr:'sb-grr',report:'sb-report',hypothesis:'sb-hypothesis',pareto:'sb-pareto',sixpack:'sb-sixpack',regression:'sb-regression',transformation:'sb-transformation',multivari:'sb-multivari',doe:'sb-doe',tolerance:'sb-tolerance',aaa:'sb-aaa',comparison:'sb-comparison',livestream:'sb-livestream',processdash:'sb-processdash'};
+
+// Analysis history for back navigation
+let analysisHistory=[];
+let currentAnalysis=null;
+
+function goBackAnalysis(){
+  if(analysisHistory.length<2) return;
+  analysisHistory.pop(); // remove current
+  const prev=analysisHistory.pop(); // get previous
+  if(prev) switchAnalysis(prev);
+}
+
+const analysisLabels={spc:'SPC',capa:'CAPA',capability:'Capability',normality:'Normality',grr:'GRR',report:'Report',hypothesis:'Hypothesis',pareto:'Pareto',sixpack:'Sixpack',regression:'Regression',transformation:'Box-Cox',multivari:'Multi-Vari',doe:'DOE',tolerance:'Tolerance',aaa:'Attr. Agreement',comparison:'Comparison',livestream:'Live Stream',processdash:'Dashboard'};
+
+function updateBackBtn(){
+  let btn=document.getElementById('global-back-btn');
+  if(!btn){
+    btn=document.createElement('button');
+    btn.id='global-back-btn';
+    btn.style.cssText='position:fixed;bottom:20px;left:316px;z-index:500;background:var(--bg2);border:1px solid var(--border2);color:var(--text2);padding:7px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;display:none;align-items:center;gap:6px;font-family:var(--font);transition:all .2s;box-shadow:0 4px 16px rgba(0,0,0,0.3)';
+    btn.innerHTML='← Back';
+    btn.onclick=goBackAnalysis;
+    btn.onmouseenter=()=>btn.style.borderColor='var(--teal)';
+    btn.onmouseleave=()=>btn.style.borderColor='var(--border2)';
+    document.body.appendChild(btn);
+  }
+  if(analysisHistory.length>=2){
+    const prev=analysisHistory[analysisHistory.length-2];
+    btn.style.display='flex';
+    btn.innerHTML=`← ${analysisLabels[prev]||prev}`;
+  } else {
+    btn.style.display='none';
+  }
+}
+
 function switchAnalysis(tab){
     document.getElementById('welcome-screen').style.display='none';
     document.getElementById('sidebar').style.display='flex';
     document.getElementById('context-bar').classList.add('visible');
+    // Track analysis history for back navigation
+    if(currentAnalysis!==tab){
+      analysisHistory.push(tab);
+      if(analysisHistory.length>20) analysisHistory.shift();
+      currentAnalysis=tab;
+      updateBackBtn();
+    }
     // Update active nav
     document.querySelectorAll('.nav-dd-item').forEach(x=>x.classList.remove('active'));
     document.querySelectorAll(`.nav-dd-item[onclick*="${tab}"]`).forEach(x=>x.classList.add('active'));
@@ -1802,7 +1905,7 @@ function renderCap(r){
   const vi=r.verdict==='Excellent'?'🏆':r.verdict==='Capable'?'✅':r.verdict==='Marginal'?'⚠️':'❌';
   const vcc=r.verdict==='Excellent'||r.verdict==='Capable'?'var(--green)':r.verdict==='Marginal'?'var(--amber)':'var(--red)';
   const hints=r.capa_notes.map(n=>`<div class="hint-item"><div class="hd"></div><div>${n}</div></div>`).join('');
-  const tabs=Object.keys(capData).map(k=>`<div class="col-tab ${k===r.column?'active':''}" onclick="renderCap(capData['${k}'])">${k}</div>`).join('');
+  const tabs=Object.keys(capData).map(k=>makeColTab(k,k===r.column,`renderCap(capData['${k}'])`)).join('');
   showContent(`
     <div class="col-tabs">${tabs}</div>
     <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${vcc}">${r.verdict}</div><div class="vd">${r.verdict_detail}</div></div></div>
@@ -1845,9 +1948,12 @@ document.getElementById('run-norm-btn').addEventListener('click',async()=>{
   try{
     const r=await fetch(`${API}/api/v1/normality/analyze?alpha=${alpha}`,{method:'POST',body:fd});
     if(!r.ok)throw new Error((await r.json()).detail);
-    normData=await r.json();attachedNorm=normData.results[0];updateAttachStatus();
+    const rawNorm=await r.json();
+    // Filter to only selected columns from wizard
+    rawNorm.results = rawNorm.results.filter(rr=>!wizardSelectedCols.length||wizardSelectedCols.includes(rr.column));
+    normData=rawNorm;attachedNorm=normData.results[0];updateAttachStatus();
     const nav=document.getElementById('norm-col-results');nav.innerHTML='';document.getElementById('norm-results-nav').style.display='block';
-    normData.results.forEach(rr=>{const bc=rr.overall_verdict==='Normal'?'vb-g':rr.overall_verdict==='Likely Normal'?'vb-a':'vb-r';const el=document.createElement('div');el.className='col-item';el.dataset.col=rr.column;el.innerHTML=`<div><div class="ci-name">${rr.column}</div><div class="ci-meta">n=${rr.n}</div></div><span class="vb ${bc}">${rr.overall_verdict}</span>`;el.addEventListener('click',()=>{attachedNorm=rr;updateAttachStatus();showNorm(rr.column);});nav.appendChild(el);});
+    normData.results.forEach(rr=>{const bc=rr.overall_verdict==='Normal'?'vb-g':rr.overall_verdict==='Likely Normal'?'vb-a':'vb-r';const el=document.createElement('div');el.className='col-item';el.dataset.col=rr.column;el.innerHTML=`<div><div class="ci-name">${colDisplayName(rr.column)}</div><div class="ci-meta">n=${rr.n}</div></div><span class="vb ${bc}">${rr.overall_verdict}</span>`;el.addEventListener('click',()=>{attachedNorm=rr;updateAttachStatus();showNorm(rr.column);});nav.appendChild(el);});
     showNorm(normData.results[0]?.column);showToast('✅ Normality complete');
   }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
   finally{btn.disabled=false;btn.textContent='Run Normality';}
@@ -1860,7 +1966,7 @@ function showNorm(colName){
   const cc=r.overall_verdict==='Normal'?'var(--green)':r.overall_verdict==='Likely Normal'?'var(--amber)':'var(--red)';
   const tvS=f=>f?'color:var(--red);font-weight:600':'color:var(--green);font-weight:600';
   const hints=r.capability_hint.downstream_notes.map(n=>`<div class="hint-item"><div class="hd"></div><div>${n}</div></div>`).join('');
-  const tabs=normData.results.map(x=>`<div class="col-tab ${x.column===colName?'active':''}" onclick="showNorm('${x.column}')">${x.column}</div>`).join('');
+  const tabs=normData.results.map(x=>makeColTab(x.column,x.column===colName,`showNorm('${x.column}')`)).join('');
   showContent(`
     <div class="col-tabs">${tabs}</div>
     <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${cc}">${r.overall_verdict}</div><div class="vd">${r.capability_hint.reason}</div></div></div>
@@ -3416,6 +3522,214 @@ function renderRegression(r){
 }
 // Init
 ['sb-capa','sb-cap','sb-norm','sb-grr','sb-report','sb-hypothesis','sb-pareto','sb-sixpack','sb-regression','sb-transformation','sb-multivari','sb-doe','sb-tolerance','sb-aaa','sb-comparison','sb-livestream','sb-processdash'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STATMIND ENHANCEMENTS — All new feature JS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Fix 1: Capability index labels & tooltips ── */
+function capIdxLabel(metric, val, isNonNormal){
+  let label='', color='var(--text3)';
+  if(val>=1.67){label='Excellent';color='var(--green)';}
+  else if(val>=1.33){label='Capable';color='var(--green)';}
+  else if(val>=1.0){label='Marginal';color='var(--amber)';}
+  else if(val>=0.67){label='Lean';color='var(--red)';}
+  else{label='Not Capable';color='var(--red)';}
+  if(isNonNormal && isNonNormal!=='false') label+=' *';
+  return `<span style="color:${color}">${label}</span>`;
+}
+function sigmaLabel(sigma){
+  let label='', color='var(--text3)';
+  if(sigma>=6){label='World Class';color='var(--green)';}
+  else if(sigma>=4){label='Capable';color='var(--green)';}
+  else if(sigma>=3){label='Marginal';color='var(--amber)';}
+  else{label='Not Capable';color='var(--red)';}
+  return `<span style="color:${color}">${label}</span>`;
+}
+
+// Tooltip on hover for capability cards
+document.addEventListener('mouseover', e=>{
+  const card = e.target.closest('.cap-idx-card');
+  if(!card) return;
+  let tip = document.getElementById('cap-tooltip');
+  if(!tip){ tip=document.createElement('div'); tip.id='cap-tooltip'; tip.className='cap-tooltip'; document.body.appendChild(tip); }
+  const metric = card.dataset.metric;
+  const val = parseFloat(card.dataset.val);
+  const isNN = card.dataset.isNonNormal==='true';
+  const descs = {
+    Cp:'Cp measures process spread relative to spec width (assumes centered). Target ≥1.33 for Apple/automotive suppliers.',
+    Cpk:'Cpk measures actual process performance accounting for centering. Industry standard: ≥1.33 for capable, ≥1.67 for excellent.',
+    Pp:'Pp uses overall (long-term) sigma. Reflects true production spread including shifts and drifts.',
+    Ppk:'Ppk is the long-term capability index. Should be close to Cpk — large gap indicates process drift.',
+    'σ':'Sigma level: 3σ = 66,807 PPM, 4σ = 6,210 PPM, 6σ = 3.4 PPM. Apple MQE target: ≥4σ.'
+  };
+  let verdict='', verdictColor='var(--text2)';
+  if(metric!=='σ'){
+    if(val>=1.67){verdict='Excellent — meets Six Sigma supplier requirements';verdictColor='var(--green)';}
+    else if(val>=1.33){verdict='Capable — meets Apple/automotive standard';verdictColor='var(--green)';}
+    else if(val>=1.0){verdict='Marginal — barely capable, improvement recommended';verdictColor='var(--amber)';}
+    else if(val>=0.67){verdict='Lean — high defect risk, process improvement required';verdictColor='var(--red)';}
+    else{verdict='Not Capable — process must be improved before production';verdictColor='var(--red)';}
+  }
+  const nnWarn = (isNN&&metric!=='σ') ? '<div style="margin-top:7px;font-size:11px;color:var(--amber)">⚠️ Non-normal data detected — these values assume normality and may not be accurate. Use non-normal capability analysis for reliable results.</div>' : '';
+  tip.innerHTML = `<div style="font-weight:600;margin-bottom:5px;color:var(--text)">${metric} = ${val}</div><div style="color:${verdictColor};font-weight:600;margin-bottom:5px">${verdict}</div><div style="color:var(--text2);font-size:11px">${descs[metric]||''}</div>${nnWarn}`;
+  tip.style.display='block';
+  tip.style.left=(e.clientX+12)+'px';
+  tip.style.top=(e.clientY-10)+'px';
+});
+document.addEventListener('mousemove', e=>{
+  const tip=document.getElementById('cap-tooltip');
+  if(tip&&tip.style.display==='block'){ tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY-10)+'px'; }
+});
+document.addEventListener('mouseout', e=>{
+  if(!e.target.closest('.cap-idx-card')){ const tip=document.getElementById('cap-tooltip'); if(tip) tip.style.display='none'; }
+});
+
+/* ── Fix 2+5: Column / dataset renaming ── */
+// Global rename store: maps original col name → display name
+const colNameMap = {};
+function colDisplayName(orig){ return colNameMap[orig]||orig; }
+function setColDisplayName(orig, newName){
+  colNameMap[orig]=newName||orig;
+  // Refresh any visible col-tabs and sidebar col-items that show this name
+  document.querySelectorAll(`[data-col="${orig}"] .ci-name`).forEach(el=>el.textContent=newName||orig);
+  document.querySelectorAll(`.col-tab-name[data-orig="${orig}"]`).forEach(el=>el.value=newName||orig);
+}
+
+// Build a renameable col-tab HTML string
+function makeColTab(colKey, isActive, onClickFn){
+  const disp = colDisplayName(colKey);
+  return `<div class="col-tab ${isActive?'active':''}" onclick="${onClickFn}">
+    <input class="col-tab-name" data-orig="${colKey}" value="${disp}" title="Double-click to rename"
+      ondblclick="this.focus();this.select();event.stopPropagation()"
+      onblur="setColDisplayName('${colKey}',this.value)"
+      onkeydown="if(event.key==='Enter'||event.key==='Escape'){this.blur();event.preventDefault()}"
+      onclick="event.stopPropagation()"
+      style="pointer-events:none"
+    />
+    <span class="col-tab-del" onclick="deleteColData('${colKey}');event.stopPropagation()" title="Remove dataset">✕</span>
+  </div>`;
+}
+
+function deleteColData(colKey){
+  if(!confirm(`Remove dataset "${colDisplayName(colKey)}"?`)) return;
+  delete capData[colKey]; delete spcData[colKey]; delete normData;
+  normData=null;
+  delete colNameMap[colKey];
+  // Re-render current view
+  const firstCap=Object.keys(capData)[0];
+  if(firstCap) renderCap(capData[firstCap]);
+  else showEmpty('🗑️','Dataset removed','Load a new file to continue.');
+  showToast(`Removed ${colKey}`);
+}
+
+// Override showNorm tabs to use makeColTab
+const _origShowNorm = typeof showNorm === 'function' ? showNorm : null;
+
+/* ── Fix 4: CAPA step wizard JS ── */
+let capaSelectedProc='Etch';
+
+function capaGoStep(n){
+  [1,2,3,4].forEach(s=>{
+    const panel=document.getElementById('capa-panel-'+s);
+    const pill=document.getElementById('capa-pill-'+s);
+    if(panel) panel.style.display=s===n?'block':'none';
+    if(pill){
+      if(s===n){ pill.style.background='rgba(45,212,160,0.15)';pill.style.color='var(--teal)';pill.style.border='1px solid rgba(45,212,160,0.3)'; }
+      else if(s<n){ pill.style.background='rgba(45,212,160,0.05)';pill.style.color='rgba(45,212,160,0.6)';pill.style.border='1px solid rgba(45,212,160,0.15)'; }
+      else{ pill.style.background='var(--bg3)';pill.style.color='var(--text3)';pill.style.border='1px solid var(--border2)'; }
+      if(s>1) pill.style.borderLeft='none';
+    }
+  });
+  if(n===2){ updateAttachStatus(); capaCheckPrereqs(); }
+  if(n===3){ autoPopulateCAPA(); populateOverrideList(); }
+  if(n===4){ updateAttachStatus(); }
+}
+
+function capaSelectProc(proc, el){
+  capaSelectedProc=proc;
+  document.querySelectorAll('.capa-proc-card').forEach(c=>{
+    c.style.border='1px solid var(--border2)';c.style.background='var(--bg3)';
+  });
+  el.style.border='1px solid rgba(45,212,160,0.4)';el.style.background='rgba(45,212,160,0.06)';
+  // Sync to old process-chip system
+  document.querySelectorAll('.process-chip').forEach(c=>c.classList.toggle('active',c.dataset.proc===proc));
+}
+
+function capaRunPrereq(tab){
+  switchAnalysis(tab);
+  showToast(`Run ${tab} analysis, then return to CAPA`);
+}
+
+function capaCheckPrereqs(){
+  const hasNorm=!!attachedNorm, hasCap=!!attachedCap;
+  const warn=document.getElementById('capa-data-warning');
+  if(warn) warn.style.display=(!hasNorm||!hasCap)?'block':'none';
+  // Update "Run →" labels to "✓ Done" if already run
+  const ns=document.getElementById('norm-attach-status');
+  const cs=document.getElementById('cap-attach-status');
+  const ss=document.getElementById('spc-attach-status');
+  const gs=document.getElementById('grr-attach-status');
+  if(ns) ns.textContent=attachedNorm?'✓ Done':'—';
+  if(cs) cs.textContent=attachedCap?'✓ Done':'—';
+  if(ss){ const k=Object.keys(spcData)[0]; ss.textContent=k?'✓ Done':'—'; }
+  if(gs){ const k=Object.keys(grrData)[0]; gs.textContent=k?'✓ Done':'—'; }
+}
+
+function populateOverrideList(){
+  // Load CAPA rule catalog for manual selection
+  fetch(`${API}/api/v1/capa/v2/catalog`)
+    .then(r=>r.json())
+    .then(d=>{
+      const list=document.getElementById('override-list');
+      if(!list||!d.rules) return;
+      list.innerHTML='';
+      d.rules.forEach(rule=>{
+        const el=document.createElement('div');
+        el.className='override-item';
+        el.dataset.ruleId=rule.id;
+        el.innerHTML=`<div class="oi-id">${rule.id}</div><div class="oi-name">${rule.name}</div>`;
+        el.onclick=()=>{ document.querySelectorAll('.override-item').forEach(x=>x.classList.remove('active')); el.classList.toggle('active'); selectedOverrideRule=el.classList.contains('active')?rule.id:null; };
+        list.appendChild(el);
+      });
+    }).catch(()=>{});
+}
+
+// Wire run-capa-btn to capaGoStep(4) after success
+document.addEventListener('DOMContentLoaded',()=>{
+  const runBtn=document.getElementById('run-capa-btn');
+  if(runBtn){
+    // Original click handler calls runCapa — after success we go to step 4
+    const origClick=runBtn.onclick;
+    runBtn.addEventListener('click',()=>{ setTimeout(()=>{ if(document.getElementById('capa-col-results')?.children.length>0) capaGoStep(4); },2000); });
+  }
+});
+
+// Init CAPA step 1 shown by default when switching to CAPA
+const _origSwitchAnalysis=switchAnalysis;
+
+/* ── Keyboard shortcuts: Ctrl+Z for back ── */
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){
+    // Only if not in a text input
+    if(['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
+    goBackAnalysis();e.preventDefault();
+  }
+});
+
+/* ── selectProcess compatibility shim ── */
+function selectProcess(el){
+  document.querySelectorAll('.process-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  // Also sync CAPA wizard proc cards
+  capaSelectedProc=el.dataset.proc||'';
+  document.querySelectorAll('.capa-proc-card').forEach(c=>{
+    const pid=c.id.replace('cpc-','');
+    c.style.border=pid===capaSelectedProc?'1px solid rgba(45,212,160,0.4)':'1px solid var(--border2)';
+    c.style.background=pid===capaSelectedProc?'rgba(45,212,160,0.06)':'var(--bg3)';
+  });
+}
+
 </script>
 </body>
 </html>

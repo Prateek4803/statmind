@@ -51,13 +51,32 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16
 /* Dropdown menu */
 .nav-dropdown{position:relative;}
 .nav-dropdown-menu{
-  display:none;position:absolute;top:calc(100% + 6px);left:0;
+  display:none;position:absolute;top:calc(100% + 2px);left:0;
   background:var(--bg2);border:1px solid var(--border2);border-radius:var(--card-r);
   min-width:220px;padding:6px;z-index:200;
   box-shadow:0 8px 32px rgba(0,0,0,0.4);
+  /* 8px transparent padding bridges the visual gap — cursor never leaves hover zone */
+  padding-top:10px;
+  margin-top:-8px;
 }
+/* Invisible hover bridge: fills gap between button and menu so diagonal
+   mouse movement never exits the hover region — pure CSS, zero JS needed */
+.nav-dropdown::before{
+  content:'';position:absolute;top:100%;left:0;right:0;
+  height:10px;z-index:199;display:none;
+}
+.nav-dropdown:hover::before{display:block;}
 .nav-dropdown:hover .nav-dropdown-menu,
 .nav-dropdown-menu:hover{display:block;}
+/* Smooth reveal instead of snap */
+.nav-dropdown-menu{
+  opacity:0;transform:translateY(-4px);transition:opacity .14s ease,transform .14s ease;
+  pointer-events:none;
+}
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown-menu:hover{
+  opacity:1;transform:translateY(0);pointer-events:auto;
+}
 .nav-dd-item{
   display:flex;align-items:center;gap:9px;
   padding:8px 11px;border-radius:8px;cursor:pointer;
@@ -677,24 +696,78 @@ textarea{resize:vertical;min-height:52px;}
       <button class="run-btn" id="run-mv-btn" disabled>Run Multi-Vari</button>
     </div>
 
-    <!-- E7: DOE -->
+    <!-- E7: DOE — Step-flow wizard -->
     <div id="sb-doe" style="display:none">
-      <div class="sl">Factors (2–8)</div>
-      <div id="doe-factors-list" style="display:flex;flex-direction:column;gap:6px"></div>
-      <button onclick="addDoeFactor()" style="margin-top:4px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;font-family:var(--font)">+ Add Factor</button>
-      <div class="ctrl-row" style="margin-top:8px"><label>Design</label>
-        <select id="doe-design-type" style="width:auto">
-          <option value="auto">Auto-select</option>
-          <option value="full">Full factorial</option>
-          <option value="half">Half fraction</option>
-          <option value="quarter">Quarter fraction</option>
-        </select>
+      <!-- Step indicator -->
+      <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">
+        <div id="doe-pill-1" onclick="doeGoStep(1)" style="flex:1;text-align:center;font-size:10px;font-weight:600;padding:4px 2px;cursor:pointer;border-radius:6px 0 0 6px;background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">1·DESIGN</div>
+        <div id="doe-pill-2" onclick="doeGoStep(2)" style="flex:1;text-align:center;font-size:10px;font-weight:600;padding:4px 2px;cursor:pointer;background:var(--bg3);color:var(--text3);border:1px solid var(--border2);border-left:none">2·FACTORS</div>
+        <div id="doe-pill-3" onclick="doeGoStep(3)" style="flex:1;text-align:center;font-size:10px;font-weight:600;padding:4px 2px;cursor:pointer;background:var(--bg3);color:var(--text3);border:1px solid var(--border2);border-left:none">3·MATRIX</div>
+        <div id="doe-pill-4" onclick="doeGoStep(4)" style="flex:1;text-align:center;font-size:10px;font-weight:600;padding:4px 2px;cursor:pointer;border-radius:0 6px 6px 0;background:var(--bg3);color:var(--text3);border:1px solid var(--border2);border-left:none">4·ANALYZE</div>
       </div>
-      <button class="run-btn" id="run-doe-generate-btn" style="margin-top:6px">Generate Run Matrix</button>
-      <div id="doe-response-section" style="display:none">
-        <div class="sl" style="margin-top:8px">Enter Responses</div>
-        <div id="doe-response-inputs" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto"></div>
-        <button class="run-btn" id="run-doe-analyze-btn" style="margin-top:6px">Analyze Effects</button>
+      <!-- Step 1: Design type -->
+      <div id="doe-panel-1">
+        <div class="sl">Design type</div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+          <div id="doe-dc-auto" onclick="doeSelectDesign('auto',this)" style="border:1px solid rgba(45,212,160,0.4);background:rgba(45,212,160,0.06);border-radius:8px;padding:8px 10px;cursor:pointer;transition:all .12s">
+            <div style="font-size:12px;font-weight:600;color:var(--teal)">Auto-select ✦</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">Best design for your factor count</div>
+          </div>
+          <div id="doe-dc-full" onclick="doeSelectDesign('full',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:8px 10px;cursor:pointer;transition:all .12s">
+            <div style="font-size:12px;font-weight:600;color:var(--text)">Full factorial</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">2ᵏ runs · all effects · ≤4 factors</div>
+          </div>
+          <div id="doe-dc-half" onclick="doeSelectDesign('half',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:8px 10px;cursor:pointer;transition:all .12s">
+            <div style="font-size:12px;font-weight:600;color:var(--text)">Half fraction</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">Resolution IV · 4–6 factors</div>
+          </div>
+          <div id="doe-dc-quarter" onclick="doeSelectDesign('quarter',this)" style="border:1px solid var(--border2);background:var(--bg3);border-radius:8px;padding:8px 10px;cursor:pointer;transition:all .12s">
+            <div style="font-size:12px;font-weight:600;color:var(--text)">Quarter fraction</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">Resolution III · 5–7 factors</div>
+          </div>
+        </div>
+        <input type="hidden" id="doe-design-type" value="auto">
+        <button class="run-btn" onclick="doeGoStep(2)" style="width:100%">Next: Define factors →</button>
+      </div>
+      <!-- Step 2: Factors -->
+      <div id="doe-panel-2" style="display:none">
+        <div class="sl">Factors (2–8)</div>
+        <div style="display:grid;grid-template-columns:1fr 52px 52px 20px;gap:3px;margin-bottom:3px">
+          <span style="font-size:10px;color:var(--text3)">Name</span>
+          <span style="font-size:10px;color:var(--text3);text-align:center">Low</span>
+          <span style="font-size:10px;color:var(--text3);text-align:center">High</span>
+          <span></span>
+        </div>
+        <div id="doe-factors-list" style="display:flex;flex-direction:column;gap:5px"></div>
+        <button onclick="addDoeFactor()" style="margin-top:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:5px 10px;border-radius:7px;font-size:11px;cursor:pointer;font-family:var(--font);width:100%">+ Add Factor</button>
+        <div style="margin-top:8px">
+          <div class="sl">Response variable name</div>
+          <input type="text" id="doe-response-name" value="Yield" style="width:100%;font-size:12px;margin-top:4px" placeholder="e.g. Yield, Thickness…">
+        </div>
+        <div id="doe-run-preview" style="margin-top:8px;font-size:11px;color:var(--teal);background:rgba(45,212,160,0.06);border:1px solid rgba(45,212,160,0.2);border-radius:7px;padding:7px 10px;display:none"></div>
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <button class="run-btn secondary" onclick="doeGoStep(1)" style="flex:1">← Back</button>
+          <button class="run-btn" id="run-doe-generate-btn" style="flex:2">Generate →</button>
+        </div>
+      </div>
+      <!-- Step 3: Matrix controls -->
+      <div id="doe-panel-3" style="display:none">
+        <div id="doe-matrix-summary" style="font-size:11px;color:var(--text2);background:var(--bg3);border-radius:7px;padding:8px 10px;margin-bottom:10px;line-height:1.6"></div>
+        <div class="sl">Enter responses in matrix →</div>
+        <div id="doe-response-section">
+          <div id="doe-response-inputs" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;margin-top:4px"></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <button class="run-btn secondary" onclick="doeGoStep(2)" style="flex:1">← Back</button>
+          <button class="run-btn" id="run-doe-analyze-btn" style="flex:2">Analyze →</button>
+        </div>
+      </div>
+      <!-- Step 4: Post-analysis -->
+      <div id="doe-panel-4" style="display:none">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Analysis complete.</div>
+        <button class="run-btn secondary" onclick="doeGoStep(3)" style="width:100%;margin-bottom:6px">← Edit responses</button>
+        <button class="run-btn secondary" onclick="doeGoStep(2)" style="width:100%;margin-bottom:6px">⟳ Change factors</button>
+        <button class="run-btn" onclick="doeExportMatrix()" style="width:100%">⬇ Export run matrix</button>
       </div>
     </div>
 
@@ -2508,58 +2581,152 @@ function renderMultiVari(r){
 }
 
 // ══ E7: DOE ════════════════════════════════════════════════════════════════════
-let doeFactors=[], doeRunMatrix=null;
+let doeFactors=[], doeRunMatrix=null, doeCurrentStep=1;
+
+/* ── Step navigation ─────────────────────────────────── */
+function doeGoStep(n){
+  doeCurrentStep=n;
+  [1,2,3,4].forEach(s=>{
+    const panel=document.getElementById('doe-panel-'+s);
+    const pill=document.getElementById('doe-pill-'+s);
+    if(panel) panel.style.display=s===n?'block':'none';
+    if(pill){
+      if(s===n){
+        pill.style.background='rgba(45,212,160,0.15)';pill.style.color='var(--teal)';pill.style.border='1px solid rgba(45,212,160,0.3)';
+        if(s>1) pill.style.borderLeft='none';
+      } else if(s<n){
+        pill.style.background='rgba(45,212,160,0.05)';pill.style.color='rgba(45,212,160,0.6)';pill.style.border='1px solid rgba(45,212,160,0.15)';
+        if(s>1) pill.style.borderLeft='none';
+      } else {
+        pill.style.background='var(--bg3)';pill.style.color='var(--text3)';pill.style.border='1px solid var(--border2)';
+        if(s>1) pill.style.borderLeft='none';
+      }
+    }
+  });
+  if(n===2) doeUpdateRunPreview();
+}
+
+/* ── Design card selection ───────────────────────────── */
+function doeSelectDesign(type, el){
+  ['auto','full','half','quarter'].forEach(t=>{
+    const c=document.getElementById('doe-dc-'+t);
+    if(!c) return;
+    if(t===type){
+      c.style.border='1px solid rgba(45,212,160,0.4)';c.style.background='rgba(45,212,160,0.06)';
+    } else {
+      c.style.border='1px solid var(--border2)';c.style.background='var(--bg3)';
+    }
+  });
+  document.getElementById('doe-design-type').value=type;
+  doeUpdateRunPreview();
+}
+
+/* ── Run count preview ───────────────────────────────── */
+function doeUpdateRunPreview(){
+  const k=doeFactors.length;
+  const type=document.getElementById('doe-design-type')?.value||'auto';
+  const prev=document.getElementById('doe-run-preview');
+  if(!prev||k<2){if(prev)prev.style.display='none';return;}
+  let runs;
+  if(type==='full'||type==='auto') runs=Math.pow(2,k);
+  else if(type==='half') runs=Math.pow(2,k-1);
+  else runs=Math.pow(2,k-2);
+  runs=Math.max(4,Math.min(runs,64));
+  const warning=runs>32?' ⚠ Consider fractional design':'';
+  prev.style.display='block';
+  prev.textContent=`${k} factors → ${runs} runs (${type==='auto'?'auto':type} factorial)${warning}`;
+}
+
+/* ── Factor management ───────────────────────────────── */
 function addDoeFactor(){
   const idx=doeFactors.length;
   if(idx>=8){showToast('Maximum 8 factors supported',true);return;}
-  doeFactors.push({name:`Factor_${idx+1}`,low:'0',high:'1'});
+  doeFactors.push({name:`Factor_${String.fromCharCode(65+idx)}`,low:'0',high:'1'});
   renderDoeFactors();
+  doeUpdateRunPreview();
 }
+
 function renderDoeFactors(){
-  const list=document.getElementById('doe-factors-list');list.innerHTML='';
+  const list=document.getElementById('doe-factors-list');
+  if(!list) return;
+  list.innerHTML='';
   doeFactors.forEach((f,i)=>{
-    const el=document.createElement('div');el.style.cssText='display:grid;grid-template-columns:1fr 60px 60px 24px;gap:4px;align-items:center;';
-    el.innerHTML=`<input type="text" value="${f.name}" style="font-size:12px" onchange="doeFactors[${i}].name=this.value"/><input type="text" value="${f.low}" placeholder="Low" style="font-size:12px;text-align:center" onchange="doeFactors[${i}].low=this.value"/><input type="text" value="${f.high}" placeholder="High" style="font-size:12px;text-align:center" onchange="doeFactors[${i}].high=this.value"/><button onclick="doeFactors.splice(${i},1);renderDoeFactors()" style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer">×</button>`;
+    const el=document.createElement('div');
+    el.style.cssText='display:grid;grid-template-columns:1fr 52px 52px 20px;gap:3px;align-items:center;';
+    el.innerHTML=`<input type="text" value="${f.name}" style="font-size:12px" onchange="doeFactors[${i}].name=this.value;doeUpdateRunPreview()"/>`+
+      `<input type="text" value="${f.low}" placeholder="Low" style="font-size:12px;text-align:center" onchange="doeFactors[${i}].low=this.value"/>`+
+      `<input type="text" value="${f.high}" placeholder="High" style="font-size:12px;text-align:center" onchange="doeFactors[${i}].high=this.value"/>`+
+      `<button onclick="doeFactors.splice(${i},1);renderDoeFactors();doeUpdateRunPreview()" style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:0;line-height:1">×</button>`;
     list.appendChild(el);
   });
 }
-// Add 2 default factors
+
+/* ── Default factors ─────────────────────────────────── */
 doeFactors=[{name:'Factor_A',low:'Low',high:'High'},{name:'Factor_B',low:'Low',high:'High'}];
 renderDoeFactors();
 
+/* ── Generate run matrix ─────────────────────────────── */
 document.getElementById('run-doe-generate-btn').addEventListener('click',async()=>{
   if(doeFactors.length<2){showToast('Add at least 2 factors',true);return;}
   const factor_names=doeFactors.map(f=>f.name);
   const factor_levels=Object.fromEntries(doeFactors.map(f=>[f.name,[f.low,f.high]]));
   const design_type=document.getElementById('doe-design-type').value;
-  const btn=document.getElementById('run-doe-generate-btn');btn.disabled=true;btn.textContent='Generating…';
+  const btn=document.getElementById('run-doe-generate-btn');
+  btn.disabled=true;btn.textContent='Generating…';
   showContent(loadHtml('Generating run matrix…'));
   try{
     const r=await fetch(`${API}/api/v1/doe/generate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({factor_names,factor_levels,design_type})});
-    if(!r.ok)throw new Error((await r.json()).detail);
-    const data=await r.json();doeRunMatrix=data;renderDOEMatrix(data);
+    if(!r.ok) throw new Error((await r.json()).detail);
+    const data=await r.json();
+    doeRunMatrix=data;
+    renderDOEMatrix(data);
+    // Update step 3 summary
+    const sum=document.getElementById('doe-matrix-summary');
+    if(sum) sum.innerHTML=`<strong style="color:var(--teal)">${data.design_type}</strong><br>${data.n_runs} runs · ${data.n_factors} factors · ${data.generator||''}`;
+    doeGoStep(3);
+    showToast('✅ Run matrix generated');
   }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
-  finally{btn.disabled=false;btn.textContent='Generate Run Matrix';}
+  finally{btn.disabled=false;btn.textContent='Generate →';}
 });
 
+/* ── Analyze effects ─────────────────────────────────── */
 document.getElementById('run-doe-analyze-btn').addEventListener('click',async()=>{
-  if(!doeRunMatrix)return;
+  if(!doeRunMatrix){showToast('Generate a run matrix first',true);return;}
   const respInputs=document.querySelectorAll('.doe-resp-input');
   const responses=Array.from(respInputs).map(i=>parseFloat(i.value)||0);
   if(responses.every(r=>r===0)){showToast('Enter response values first',true);return;}
-  const btn=document.getElementById('run-doe-analyze-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  const btn=document.getElementById('run-doe-analyze-btn');
+  btn.disabled=true;btn.textContent='Analyzing…';
   showContent(loadHtml('Calculating main effects and interactions…'));
   try{
     const factor_names=doeFactors.map(f=>f.name);
     const factor_levels=Object.fromEntries(doeFactors.map(f=>[f.name,[f.low,f.high]]));
     const design_type=document.getElementById('doe-design-type').value;
     const r=await fetch(`${API}/api/v1/doe/analyze`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({factor_names,factor_levels,design_type,responses})});
-    if(!r.ok)throw new Error((await r.json()).detail);
-    renderDOEAnalysis(await r.json());showToast('✅ DOE analysis complete');
+    if(!r.ok) throw new Error((await r.json()).detail);
+    renderDOEAnalysis(await r.json());
+    doeGoStep(4);
+    showToast('✅ DOE analysis complete');
   }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
-  finally{btn.disabled=false;btn.textContent='Analyze Effects';}
+  finally{btn.disabled=false;btn.textContent='Analyze →';}
 });
 
+/* ── Export run matrix as CSV ────────────────────────── */
+function doeExportMatrix(){
+  if(!doeRunMatrix){showToast('No matrix to export',true);return;}
+  const cols=doeRunMatrix.factor_names;
+  const rows=doeRunMatrix.run_matrix;
+  const respName=document.getElementById('doe-response-name')?.value||'Response';
+  let csv='Run,'+cols.join(',')+','+respName+'\n';
+  rows.forEach(row=>{csv+=row.run+','+cols.map(c=>row[c]).join(',')+',\n';});
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='doe_run_matrix.csv';a.click();
+  showToast('✅ Run matrix exported');
+}
+
+
+/* ── Render DOE matrix output ────────────────────────── */
 function renderDOEMatrix(r){
   const cols=r.factor_names;
   const rows=r.run_matrix.slice(0,32);
@@ -2569,15 +2736,15 @@ function renderDOEMatrix(r){
     <div class="verdict-banner" style="background:rgba(45,212,160,0.05);border:1px solid rgba(45,212,160,0.25)">
       <div class="vi">🧫</div>
       <div><div class="vl" style="color:var(--teal)">${r.design_type}</div>
-      <div class="vd">${r.n_runs} runs · ${r.n_factors} factors · ${r.generator}</div></div>
+      <div class="vd">${r.n_runs} runs · ${r.n_factors} factors · ${r.generator||''}</div></div>
     </div>
     <div class="card"><div class="ch"><div class="ct">Run Matrix</div><div class="cs">Teal = High level · Orange = Low level</div></div><div class="cb" style="overflow-x:auto">
       <table class="alarm-table"><tr><th>Run</th>${headerCols}<th>Response</th></tr>${dataRows}</table>
     </div></div>
   `);
-  document.getElementById('doe-response-section').style.display='block';
 }
 
+/* ── Render DOE analysis output ──────────────────────── */
 function renderDOEAnalysis(r){
   destroyCharts();
   const gc='rgba(100,200,180,0.1)',tc='#b8c4bb';

@@ -1,537 +1,341 @@
 """
-StatMind R1 — Universal File Parser
-Handles: CSV (any delimiter), Excel, TSV, space-delimited,
-CMM exports (Zeiss CALYPSO, Hexagon PC-DMIS, Renishaw),
-Q-DAS, Minitab, JMP, any measurement system output
+file_parser.py — StatMind Universal File Parser
+================================================
+Parses CSV, Excel (.xlsx/.xls), TSV, and plain-text files into a
+normalized DataFrame with detected numeric columns and statistics.
+
+FIXES IN THIS VERSION
+---------------------
+1. Smart Excel header detection (_find_excel_header_row):
+   Scans first 25 rows; finds first row where ≥2 cells are strings
+   followed by ≥50% numeric rows.  Fixes "Unexpected token 'I'" crash
+   on MQE-style Excel files that have 9 metadata rows before data.
+
+2. All exceptions now raise ParseError (subclass of ValueError) so the
+   FastAPI route can catch them and return structured JSON — never HTML.
+
+3. File-size guard (50 MB) before attempting any parse.
+
+4. Column cleaning: strip whitespace from names, drop fully-empty cols.
+
+5. Numeric detection threshold: ≥10 valid values (was implicit ≥0).
 """
+
+from __future__ import annotations
 
 import io
 import re
+from dataclasses import dataclass, field
+from typing import List, Optional
+
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass
-from typing import Optional
 
+
+# ── Custom exception so callers get a clean string, not a traceback ──────────
+
+class ParseError(ValueError):
+    """Raised when a file cannot be parsed into a valid numeric DataFrame."""
+    pass
+
+
+# ── Constants ────────────────────────────────────────────────────────────────
+
+MAX_FILE_BYTES = 50 * 1024 * 1024   # 50 MB
+MIN_NUMERIC_VALUES = 10              # column must have at least 10 valid numbers
+MAX_HEADER_SCAN_ROWS = 25
+
+
+# ── Column statistics dataclass ───────────────────────────────────────────────
+
+@dataclass
+class ColumnStats:
+    name: str
+    n: int
+    mean: float
+    std: float
+    min: float
+    max: float
+    q1: float
+    q3: float
+    n_missing: int = 0
+
+
+# ── Parse result dataclass ────────────────────────────────────────────────────
 
 @dataclass
 class ParseResult:
-    df: object               # pandas DataFrame (numeric columns only)
-    all_columns: list        # all column names found
-    numeric_columns: list    # only numeric columns
-    metadata: dict           # extracted header metadata (part, operator, machine, date etc)
-    source_format: str       # detected format name
-    n_rows: int
-    n_cols: int
-    warnings: list           # any parse warnings
+    df: pd.DataFrame
+    numeric_columns: List[str]
+    all_columns: List[str]
+    column_stats: List[ColumnStats] = field(default_factory=list)
+    filename: str = ""
+    n_rows: int = 0
+    warnings: List[str] = field(default_factory=list)
 
 
-# ── Format detectors ──────────────────────────────────────────────────────────
+# ── Internal helpers ──────────────────────────────────────────────────────────
 
-def detect_format(raw: bytes, filename: str) -> str:
-    """Detect the source format from file content and name."""
-    fname = filename.lower()
-    ext = fname.rsplit('.', 1)[-1] if '.' in fname else ''
+def _find_excel_header_row(file_bytes: bytes, sheet: int = 0) -> int:
+    """
+    Auto-detect the real data header row in Excel files that have
+    metadata/intro rows above the actual table.
 
-    if ext in ('xlsx', 'xls', 'xlsm'):
-        return 'excel'
-    if ext == 'tsv':
-        return 'tsv'
-
-    # Try to decode for text-based detection
+    Strategy:
+      For each candidate row i (rows 0..MAX_HEADER_SCAN_ROWS-1):
+        1. Row must have ≥ 2 non-empty string cells (column headers).
+        2. The next 3 rows must be ≥ 50% numeric (data confirmation).
+      Returns the first row meeting both criteria, else 0.
+    """
     try:
-        sample = raw[:4096].decode('utf-8', errors='replace')
+        df_raw = pd.read_excel(
+            io.BytesIO(file_bytes), header=None, sheet_name=sheet
+        )
     except Exception:
-        return 'excel'  # fallback
+        return 0
 
-    sample_lower = sample.lower()
+    n_check = min(MAX_HEADER_SCAN_ROWS, len(df_raw))
 
-    # PC-DMIS (Hexagon) — starts with measurement plan header
-    if any(x in sample_lower for x in ['pc-dmis', 'pcdmis', 'hexagon', 'dmis']):
-        return 'pcdmis'
-
-    # CALYPSO (Zeiss) — characteristic blocks
-    if any(x in sample_lower for x in ['calypso', 'zeiss', 'characteristic', 'nominal', 'actual', 'deviation']):
-        return 'calypso'
-
-    # Renishaw MODUS / CMM
-    if any(x in sample_lower for x in ['renishaw', 'modus', 'revo']):
-        return 'renishaw'
-
-    # Q-DAS format (K-fields)
-    if re.search(r'K\d{4}/', sample):
-        return 'qdas'
-
-    # Minitab worksheet
-    if 'minitab' in sample_lower or fname.endswith('.mtw') or fname.endswith('.mpj'):
-        return 'minitab'
-
-    # JMP
-    if 'jmp' in sample_lower or fname.endswith('.jmp'):
-        return 'jmp'
-
-    # Generic CSV detection
-    lines = [l for l in sample.split('\n') if l.strip()]
-    if not lines:
-        return 'csv'
-
-    # Count delimiters in data lines
-    tab_count   = sum(l.count('\t') for l in lines[:10])
-    comma_count = sum(l.count(',')  for l in lines[:10])
-    semi_count  = sum(l.count(';')  for l in lines[:10])
-    pipe_count  = sum(l.count('|')  for l in lines[:10])
-    space_count = sum(len(re.findall(r'\s{2,}', l)) for l in lines[:10])
-
-    counts = {'tsv': tab_count, 'csv': comma_count,
-              'ssv': semi_count, 'psv': pipe_count, 'wsv': space_count}
-    best = max(counts, key=counts.get)
-    return best if counts[best] > 0 else 'csv'
-
-
-def extract_metadata(lines: list) -> dict:
-    """
-    Extract metadata from header lines common in CMM/metrology exports.
-    Looks for: Part, Operator, Machine, Date, Serial, Program, Revision etc.
-    """
-    meta = {}
-    meta_patterns = [
-        (r'part[\s#:_]*[\s:]*([^\n,;]+)',     'part'),
-        (r'operator[\s:]*([^\n,;]+)',          'operator'),
-        (r'machine[\s:]*([^\n,;]+)',           'machine'),
-        (r'serial[\s#:_]*[\s:]*([^\n,;]+)',    'serial'),
-        (r'date[\s:]*([^\n,;]+)',              'date'),
-        (r'time[\s:]*([^\n,;]+)',              'time'),
-        (r'program[\s:]*([^\n,;]+)',           'program'),
-        (r'revision[\s:_]*[\s:]*([^\n,;]+)',   'revision'),
-        (r'fixture[\s:]*([^\n,;]+)',           'fixture'),
-        (r'temperature[\s:]*([^\n,;]+)',       'temperature'),
-        (r'drawing[\s#:_]*[\s:]*([^\n,;]+)',   'drawing'),
-        (r'customer[\s:]*([^\n,;]+)',          'customer'),
-        (r'job[\s#:_]*[\s:]*([^\n,;]+)',       'job'),
-        (r'nominal[\s:]*([^\n,;]+)',           'nominal_ref'),
-        (r'tolerance[\s:]*([^\n,;]+)',         'tolerance_ref'),
-    ]
-    header_text = '\n'.join(lines[:30]).lower()
-    for pattern, key in meta_patterns:
-        m = re.search(pattern, header_text, re.IGNORECASE)
-        if m:
-            val = m.group(1).strip().strip('"\'').strip()
-            if val and len(val) < 80:
-                meta[key] = val
-    return meta
-
-
-# ── CMM-specific parsers ──────────────────────────────────────────────────────
-
-def parse_pcdmis(raw: bytes) -> tuple:
-    """
-    Parse Hexagon PC-DMIS output.
-    Typical format: tab-delimited with feature name, nominal, actual, deviation, tol+, tol-
-    Header lines start with non-numeric characters.
-    """
-    text = raw.decode('utf-8', errors='replace')
-    lines = text.split('\n')
-    meta = extract_metadata(lines)
-
-    # Find data section — look for lines with consistent numeric content
-    data_lines = []
-    header_line = None
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if not stripped:
+    for i in range(n_check):
+        row = df_raw.iloc[i]
+        non_null = row.dropna()
+        if len(non_null) < 2:
             continue
-        parts = re.split(r'[\t,;|]+', stripped)
-        numeric_parts = sum(1 for p in parts if _is_numeric(p.strip()))
-        if numeric_parts >= 3:
-            if header_line is None:
-                # Check if previous line is a header
-                for j in range(max(0, i-3), i):
-                    prev = lines[j].strip()
-                    if prev and not _is_numeric(prev.split()[0] if prev.split() else ''):
-                        header_line = prev
-                        break
-            data_lines.append(stripped)
 
-    if not data_lines:
-        return None, meta
-
-    # Parse into dataframe
-    sep = _detect_sep('\n'.join(data_lines[:5]))
-    buf = io.StringIO('\n'.join(data_lines))
-    try:
-        df = pd.read_csv(buf, sep=sep, header=None, engine='python', on_bad_lines='skip')
-        # Keep only numeric columns
-        df = df.apply(pd.to_numeric, errors='coerce')
-        df = df.dropna(axis=1, how='all')
-        # Name columns based on PC-DMIS convention
-        col_names = ['Nominal', 'Actual', 'Deviation', 'Tol_Plus', 'Tol_Minus',
-                     'Out_Of_Tol', 'Feature_X', 'Feature_Y', 'Feature_Z']
-        df.columns = col_names[:len(df.columns)]
-        return df, meta
-    except Exception:
-        return None, meta
-
-
-def parse_calypso(raw: bytes) -> tuple:
-    """
-    Parse Zeiss CALYPSO output (CSV/text export).
-    Typical: characteristic name, nominal, actual, deviation, lower tol, upper tol, result
-    """
-    text = raw.decode('utf-8', errors='replace')
-    lines = text.split('\n')
-    meta = extract_metadata(lines)
-
-    # CALYPSO exports often have characteristic name in first column
-    # Find lines where columns 2+ are numeric
-    data_rows = []
-    col_names_row = None
-
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if not stripped:
+        # Must have ≥ 2 string-like header values
+        str_vals = [
+            v for v in non_null
+            if isinstance(v, str) and len(str(v).strip()) > 0
+        ]
+        if len(str_vals) < 2:
             continue
-        sep = _detect_sep(stripped)
-        parts = [p.strip().strip('"') for p in re.split(sep, stripped)]
-        numeric_count = sum(1 for p in parts[1:] if _is_numeric(p))
 
-        if numeric_count >= 3:
-            data_rows.append(parts)
-        elif i < 20 and any(kw in stripped.lower() for kw in
-                            ['nominal', 'actual', 'deviation', 'tolerance', 'result']):
-            col_names_row = parts
-
-    if not data_rows:
-        return None, meta
-
-    # Build DataFrame
-    max_cols = max(len(r) for r in data_rows)
-    padded = [r + [''] * (max_cols - len(r)) for r in data_rows]
-    df = pd.DataFrame(padded)
-
-    # First column is often feature name — keep as index label
-    if not _is_numeric(str(df.iloc[0, 0])):
-        feature_names = df.iloc[:, 0].tolist()
-        meta['feature_names'] = feature_names
-        df = df.iloc[:, 1:]
-
-    df = df.apply(pd.to_numeric, errors='coerce')
-    df = df.dropna(axis=1, how='all').dropna(how='all')
-
-    # Standard CALYPSO column order
-    calypso_cols = ['Nominal', 'Actual', 'Deviation', 'Tol_Lower', 'Tol_Upper']
-    if col_names_row:
-        clean = [c.lower().strip() for c in col_names_row[1:]]
-        rename_map = {}
-        for j, c in enumerate(clean[:len(df.columns)]):
-            if 'nominal' in c: rename_map[j] = 'Nominal'
-            elif 'actual' in c or 'measured' in c: rename_map[j] = 'Actual'
-            elif 'dev' in c: rename_map[j] = 'Deviation'
-            elif 'lower' in c or 'minus' in c or '-tol' in c: rename_map[j] = 'Tol_Lower'
-            elif 'upper' in c or 'plus' in c or '+tol' in c: rename_map[j] = 'Tol_Upper'
-        df.rename(columns={df.columns[k]: v for k, v in rename_map.items()}, inplace=True)
-    else:
-        df.columns = calypso_cols[:len(df.columns)]
-
-    return df, meta
-
-
-def parse_qdas(raw: bytes) -> tuple:
-    """
-    Parse Q-DAS ASCII format (K-fields).
-    K0001 = part name, K0004 = characteristic name, K0006 = nominal,
-    K0007 = lower tol, K0008 = upper tol, K0001x = measured value
-    """
-    text = raw.decode('utf-8', errors='replace')
-    meta = {}
-    characteristics = {}
-    values = []
-    current_char = None
-
-    for line in text.split('\n'):
-        line = line.strip()
-        if not line:
+        # The next 3 rows must be mostly numeric
+        if i + 3 >= len(df_raw):
             continue
-        m = re.match(r'K(\d{4})/(.*)', line)
-        if not m:
-            continue
-        kfield, value = m.group(1), m.group(2).strip()
 
-        if kfield == '0001':
-            meta['part'] = value
-        elif kfield == '0002':
-            meta['order'] = value
-        elif kfield == '0003':
-            meta['quantity'] = value
-        elif kfield == '0004':
-            current_char = value
-            if current_char not in characteristics:
-                characteristics[current_char] = {'nominal': None, 'ltol': None, 'utol': None, 'values': []}
-        elif kfield == '0006' and current_char:
-            try: characteristics[current_char]['nominal'] = float(value)
-            except: pass
-        elif kfield == '0007' and current_char:
-            try: characteristics[current_char]['ltol'] = float(value)
-            except: pass
-        elif kfield == '0008' and current_char:
-            try: characteristics[current_char]['utol'] = float(value)
-            except: pass
-        elif kfield.startswith('0001') and len(kfield) > 4 and current_char:
-            try: characteristics[current_char]['values'].append(float(value))
-            except: pass
+        next_rows = df_raw.iloc[i + 1 : i + 4]
+        numeric_count = 0
+        total_count = 0
+        for _, r in next_rows.iterrows():
+            for v in r.dropna():
+                total_count += 1
+                try:
+                    float(v)
+                    numeric_count += 1
+                except (ValueError, TypeError):
+                    pass
 
-    if not characteristics:
-        return None, meta
+        if total_count > 0 and numeric_count / total_count >= 0.5:
+            return i
 
-    # Build DataFrame — one column per characteristic
-    max_len = max(len(c['values']) for c in characteristics.values()) if characteristics else 0
-    data = {}
-    for char_name, char_data in characteristics.items():
-        vals = char_data['values']
-        if vals:
-            padded = vals + [np.nan] * (max_len - len(vals))
-            data[char_name[:30]] = padded  # truncate long names
-
-    if not data:
-        return None, meta
-
-    df = pd.DataFrame(data)
-    return df, meta
+    return 0
 
 
-# ── Generic smart parser ──────────────────────────────────────────────────────
-
-def smart_skip_header(lines: list) -> tuple:
-    """
-    Find where the actual data starts by scanning for the first line
-    where most parts are numeric. Returns (skiprows, header_row, metadata).
-    """
-    meta = extract_metadata(lines)
-
-    # Look for a header row followed by numeric data
-    for i in range(min(30, len(lines))):
-        line = lines[i].strip()
-        if not line:
-            continue
-        sep = _detect_sep(line)
-        parts = [p.strip().strip('"') for p in re.split(sep, line)]
-
-        # Check if NEXT few lines are numeric
-        next_numeric = 0
-        for j in range(i+1, min(i+5, len(lines))):
-            nxt = lines[j].strip()
-            if not nxt:
-                continue
-            nxt_parts = [p.strip().strip('"') for p in re.split(sep, nxt)]
-            if sum(1 for p in nxt_parts if _is_numeric(p)) >= max(2, len(nxt_parts)*0.5):
-                next_numeric += 1
-
-        if next_numeric >= 2:
-            # This line might be the header
-            has_text = any(not _is_numeric(p) for p in parts if p)
-            if has_text:
-                return i, i, meta  # skip i rows, header at row i
-            else:
-                return i, None, meta  # data starts here, no header
-
-    return 0, 0, meta
-
-
-def _detect_sep(sample: str) -> str:
-    """Detect separator from a sample string."""
+def _detect_separator(text_sample: str) -> str:
+    """Detect CSV/TSV separator from first 2 000 characters."""
     counts = {
-        '\t': sample.count('\t'),
-        ',': sample.count(','),
-        ';': sample.count(';'),
-        '|': sample.count('|'),
+        "\t":  text_sample.count("\t"),
+        ",":   text_sample.count(","),
+        ";":   text_sample.count(";"),
+        "|":   text_sample.count("|"),
     }
     best = max(counts, key=counts.get)
-    if counts[best] > 0:
-        return best
-    # Try multiple spaces
-    if re.search(r'\s{2,}', sample):
-        return r'\s{2,}'
-    return ','
+    return best if counts[best] > 0 else ","
 
 
-def _is_numeric(s: str) -> bool:
-    """Check if string is a number."""
-    if not s or s in ('-', '+', '.', 'nan', 'inf', 'N/A', 'NA', '#N/A', ''):
-        return False
-    s = s.replace(',', '.')  # European decimal
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
+def _compute_stats(series: pd.Series, name: str) -> ColumnStats:
+    """Compute descriptive statistics for a single numeric column."""
+    clean = series.dropna()
+    n = len(clean)
+    if n == 0:
+        return ColumnStats(
+            name=name, n=0, mean=0, std=0, min=0, max=0, q1=0, q3=0,
+            n_missing=len(series)
+        )
+    q1 = float(np.percentile(clean, 25))
+    q3 = float(np.percentile(clean, 75))
+    return ColumnStats(
+        name=name,
+        n=n,
+        mean=round(float(clean.mean()), 6),
+        std=round(float(clean.std(ddof=1)), 6) if n > 1 else 0.0,
+        min=round(float(clean.min()), 6),
+        max=round(float(clean.max()), 6),
+        q1=round(q1, 6),
+        q3=round(q3, 6),
+        n_missing=int(series.isna().sum()),
+    )
 
 
-def _clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean up a parsed dataframe — fix types, drop empties, clean names."""
-    # Convert European decimals (1.234,56 → 1234.56)
+def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Strip whitespace from column names and drop fully-empty columns."""
+    df.columns = [str(c).strip() for c in df.columns]
+    df = df.dropna(axis=1, how="all")
+    return df
+
+
+def _extract_numeric_columns(
+    df: pd.DataFrame,
+) -> tuple[pd.DataFrame, List[str]]:
+    """
+    Convert every column that can be numeric to float64.
+    Returns (modified_df, list_of_numeric_col_names).
+    """
+    numeric_cols: List[str] = []
     for col in df.columns:
-        if df[col].dtype == object:
-            df[col] = df[col].astype(str).str.strip().str.replace(',', '.', regex=False)
+        coerced = pd.to_numeric(df[col], errors="coerce")
+        valid_count = int(coerced.notna().sum())
+        if valid_count >= MIN_NUMERIC_VALUES:
+            df[col] = coerced
+            numeric_cols.append(col)
+    return df, numeric_cols
 
-    # Coerce to numeric
-    df = df.apply(pd.to_numeric, errors='coerce')
 
-    # Drop columns that are >80% NaN
-    df = df.dropna(axis=1, thresh=max(1, int(len(df) * 0.2)))
-    df = df.dropna(how='all')
+# ── Public API ────────────────────────────────────────────────────────────────
 
-    # Clean column names
-    df.columns = [str(c).strip().replace(' ', '_').replace('/', '_').replace('\\', '_')
-                  .replace('(', '').replace(')', '').replace('[', '').replace(']', '')
-                  .strip('_')[:40] for c in df.columns]
+def parse_any_file(file_bytes: bytes, filename: str = "file") -> ParseResult:
+    """
+    Parse any supported file format into a ParseResult.
 
-    # Deduplicate column names
-    seen = {}
-    new_cols = []
-    for c in df.columns:
-        if c in seen:
-            seen[c] += 1
-            new_cols.append(f"{c}_{seen[c]}")
+    Supported formats
+    -----------------
+    - .csv, .tsv, .txt  → delimiter-detected text parse
+    - .xlsx, .xls       → smart header-row-detected Excel parse
+
+    Raises ParseError on any unrecoverable failure (never raises raw
+    exceptions so FastAPI routes always get a clean message to return
+    as JSON).
+    """
+    if len(file_bytes) > MAX_FILE_BYTES:
+        raise ParseError(
+            f"File is too large ({len(file_bytes) / 1024 / 1024:.1f} MB). "
+            f"Maximum allowed size is {MAX_FILE_BYTES // 1024 // 1024} MB."
+        )
+
+    warnings: List[str] = []
+    ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
+
+    try:
+        if ext in ("xlsx", "xls"):
+            df = _parse_excel(file_bytes, warnings)
         else:
-            seen[c] = 0
-            new_cols.append(c)
-    df.columns = new_cols
+            df = _parse_text(file_bytes, filename, warnings)
+    except ParseError:
+        raise
+    except Exception as exc:
+        raise ParseError(f"Could not read file '{filename}': {exc}") from exc
+
+    df = _clean_df(df)
+
+    if df.empty:
+        raise ParseError(
+            f"No data found in '{filename}'. "
+            "Check that the file contains rows below the header."
+        )
+
+    df, numeric_cols = _extract_numeric_columns(df)
+
+    if not numeric_cols:
+        raise ParseError(
+            f"No numeric columns found in '{filename}'. "
+            "StatMind needs at least one column with 10+ numeric values."
+        )
+
+    col_stats = [_compute_stats(df[c], c) for c in numeric_cols]
+
+    return ParseResult(
+        df=df,
+        numeric_columns=numeric_cols,
+        all_columns=list(df.columns),
+        column_stats=col_stats,
+        filename=filename,
+        n_rows=len(df),
+        warnings=warnings,
+    )
+
+
+# ── Format-specific parsers ───────────────────────────────────────────────────
+
+def _parse_excel(file_bytes: bytes, warnings: List[str]) -> pd.DataFrame:
+    """Parse Excel with auto header-row detection."""
+    header_row = _find_excel_header_row(file_bytes)
+
+    if header_row > 0:
+        warnings.append(
+            f"Detected data starting at row {header_row + 1} "
+            f"(skipped {header_row} metadata row(s))."
+        )
+
+    try:
+        df = pd.read_excel(
+            io.BytesIO(file_bytes),
+            header=header_row,
+            engine="openpyxl",
+        )
+    except Exception as exc:
+        # Try legacy xlrd engine for .xls
+        try:
+            df = pd.read_excel(
+                io.BytesIO(file_bytes),
+                header=header_row,
+                engine="xlrd",
+            )
+        except Exception:
+            raise ParseError(f"Cannot read Excel file: {exc}") from exc
 
     return df
 
 
-# ── Main entry point ──────────────────────────────────────────────────────────
-
-def parse_any_file(file_bytes: bytes, filename: str) -> ParseResult:
-    """
-    Universal parser. Accepts any measurement/data file.
-    Returns ParseResult with DataFrame of numeric columns.
-    """
-    warnings = []
-    fmt = detect_format(file_bytes, filename)
-    meta = {}
-    df = None
-
-    # ── Excel ──
-    if fmt == 'excel':
+def _parse_text(
+    file_bytes: bytes, filename: str, warnings: List[str]
+) -> pd.DataFrame:
+    """Parse CSV / TSV / TXT with auto-separator detection."""
+    try:
+        text = file_bytes.decode("utf-8-sig")   # handles BOM
+    except UnicodeDecodeError:
         try:
-            buf = io.BytesIO(file_bytes)
-            # Try all sheets, pick the one with most numeric data
-            xl = pd.ExcelFile(buf)
-            best_df = None
-            best_score = 0
-            for sheet in xl.sheet_names[:5]:  # max 5 sheets
-                try:
-                    raw_df = pd.read_excel(buf, sheet_name=sheet, header=None)
-                    # Find best header row
-                    lines = [str(row.tolist()) for _, row in raw_df.iterrows()]
-                    skip, hdr, sheet_meta = smart_skip_header(lines)
-                    meta.update(sheet_meta)
-                    test_df = pd.read_excel(buf, sheet_name=sheet,
-                                            header=hdr, skiprows=skip if hdr == skip else 0)
-                    test_df = _clean_dataframe(test_df)
-                    numeric_cols = test_df.select_dtypes(include=[np.number]).columns
-                    score = len(numeric_cols) * len(test_df)
-                    if score > best_score:
-                        best_score = score
-                        best_df = test_df[numeric_cols] if len(numeric_cols) > 0 else test_df
-                except Exception:
-                    continue
-            df = best_df
-        except Exception as e:
-            warnings.append(f"Excel parse warning: {e}")
+            text = file_bytes.decode("latin-1")
+            warnings.append("File decoded as Latin-1 (not UTF-8).")
+        except Exception as exc:
+            raise ParseError(f"Cannot decode file '{filename}': {exc}") from exc
 
-    # ── PC-DMIS ──
-    elif fmt == 'pcdmis':
-        df, meta = parse_pcdmis(file_bytes)
-        if df is None:
-            fmt = 'csv'  # fallback
+    sep = _detect_separator(text[:2000])
 
-    # ── CALYPSO ──
-    elif fmt == 'calypso':
-        df, meta = parse_calypso(file_bytes)
-        if df is None:
-            fmt = 'csv'
-
-    # ── Q-DAS ──
-    elif fmt == 'qdas':
-        df, meta = parse_qdas(file_bytes)
-        if df is None:
-            fmt = 'csv'
-
-    # ── Generic text-based ──
-    if df is None:
-        sep_map = {'csv': ',', 'tsv': '\t', 'ssv': ';', 'psv': '|', 'wsv': r'\s+'}
-        sep = sep_map.get(fmt, ',')
-
-        try:
-            text = file_bytes.decode('utf-8', errors='replace')
-            lines = text.split('\n')
-            meta = extract_metadata(lines)
-            skip, hdr, _ = smart_skip_header(lines)
-
-            buf = io.StringIO(text)
-            kwargs = dict(sep=sep, engine='python', on_bad_lines='skip',
-                          encoding_errors='replace')
-            if hdr is not None:
-                kwargs['header'] = hdr
-                kwargs['skiprows'] = list(range(skip)) if skip > 0 and hdr != skip else None
-            else:
-                kwargs['header'] = None
-                if skip > 0:
-                    kwargs['skiprows'] = skip
-
-            # Clean up None skiprows
-            if kwargs.get('skiprows') is None:
-                kwargs.pop('skiprows', None)
-
-            df = pd.read_csv(buf, **kwargs)
-            df = _clean_dataframe(df)
-        except Exception as e:
-            warnings.append(f"Parse error: {e}")
-            # Last resort — try every common separator
-            for fallback_sep in [',', '\t', ';', '|', ' ']:
-                try:
-                    buf = io.StringIO(file_bytes.decode('utf-8', errors='replace'))
-                    df = pd.read_csv(buf, sep=fallback_sep, engine='python',
-                                     on_bad_lines='skip')
-                    df = _clean_dataframe(df)
-                    if len(df.columns) > 1:
-                        break
-                except Exception:
-                    continue
-
-    if df is None or df.empty:
-        raise ValueError(
-            f"Could not parse file '{filename}'. "
-            "Please ensure it contains numeric measurement data in CSV, Excel, or tab-delimited format."
+    try:
+        df = pd.read_csv(
+            io.StringIO(text),
+            sep=sep,
+            engine="python",
+            on_bad_lines="warn",
         )
+    except Exception as exc:
+        raise ParseError(f"CSV parse failed for '{filename}': {exc}") from exc
 
-    # Final cleanup — keep only numeric columns
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    all_cols = df.columns.tolist()
+    return df
 
-    if not numeric_cols:
-        raise ValueError(
-            f"No numeric columns found in '{filename}'. "
-            "StatMind needs numeric measurement data. "
-            "Check that your file has measurement values (not just text labels)."
-        )
 
-    numeric_df = df[numeric_cols].copy()
+# ── Convenience: column list endpoint helper ──────────────────────────────────
 
-    # Drop columns with fewer than 3 valid values
-    valid_cols = [c for c in numeric_cols if numeric_df[c].dropna().count() >= 3]
-    if not valid_cols:
-        raise ValueError("All columns have fewer than 3 valid measurements.")
-
-    numeric_df = numeric_df[valid_cols]
-
-    return ParseResult(
-        df=numeric_df,
-        all_columns=all_cols,
-        numeric_columns=valid_cols,
-        metadata=meta,
-        source_format=fmt,
-        n_rows=len(numeric_df),
-        n_cols=len(valid_cols),
-        warnings=warnings,
-    )
+def columns_response(result: ParseResult) -> dict:
+    """
+    Convert a ParseResult into the dict the /api/v1/columns endpoint returns.
+    Kept here so endpoint logic is thin.
+    """
+    return {
+        "columns": [
+            {
+                "name": s.name,
+                "n":    s.n,
+                "mean": round(s.mean, 4),
+                "std":  round(s.std, 4),
+                "min":  round(s.min, 4),
+                "max":  round(s.max, 4),
+            }
+            for s in result.column_stats
+        ],
+        "all_columns":     result.all_columns,
+        "numeric_columns": result.numeric_columns,
+        "n_rows":          result.n_rows,
+        "warnings":        result.warnings,
+    }

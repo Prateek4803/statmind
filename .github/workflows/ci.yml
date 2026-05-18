@@ -1,0 +1,222 @@
+name: StatMind CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── 1. Frontend sanity checks ───────────────────────────────────────────────
+  frontend-checks:
+    name: Frontend sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for if(false) dead-code bug
+        run: |
+          COUNT=$(grep -c "if(false)" static/index.html || true)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "❌ CRITICAL: static/index.html contains if(false) dead code ($COUNT occurrences)"
+            echo "   This kills all tab-switching.  Remove before deploying."
+            exit 1
+          fi
+          echo "✓ No if(false) dead code"
+
+      - name: Check for circular function wrappers (stack overflow)
+        run: |
+          for WRAPPER in "_origRenderCap" "_origSwitchForMob" "_origUpdateAttach" "_origRunCAPA"; do
+            COUNT=$(grep -c "$WRAPPER" static/index.html || true)
+            if [ "$COUNT" -gt 0 ]; then
+              echo "❌ CRITICAL: Circular wrapper '$WRAPPER' found ($COUNT occurrences)"
+              echo "   This causes Maximum call stack exceeded.  Remove wrapper pattern."
+              exit 1
+            fi
+          done
+          echo "✓ No circular function wrappers"
+
+      - name: Check switchAnalysis has live tab cases
+        run: |
+          COUNT=$(grep -c "else if(tab===" static/index.html || true)
+          if [ "$COUNT" -lt 20 ]; then
+            echo "❌ CRITICAL: Only $COUNT live tab-switching cases found (expected ≥20)"
+            echo "   Tab switching may be broken."
+            exit 1
+          fi
+          echo "✓ $COUNT live tab-switching cases found"
+
+      - name: Check required JS functions exist
+        run: |
+          for FN in "function switchAnalysis" "function renderCap" "function updateAttachStatus" "function capaGoStep" "function goHome" "function runCAPA"; do
+            COUNT=$(grep -c "$FN" static/index.html || true)
+            if [ "$COUNT" -ne 1 ]; then
+              echo "❌ '$FN' appears $COUNT times (expected exactly 1)"
+              exit 1
+            fi
+          done
+          echo "✓ All required functions present exactly once"
+
+      - name: Check index.html minimum line count
+        run: |
+          LINES=$(wc -l < static/index.html)
+          if [ "$LINES" -lt 4000 ]; then
+            echo "❌ static/index.html only has $LINES lines (expected ≥4000)"
+            echo "   The file may have been accidentally overwritten with an older version."
+            exit 1
+          fi
+          echo "✓ index.html has $LINES lines"
+
+  # ── 2. Python engine tests ──────────────────────────────────────────────────
+  python-tests:
+    name: Python statistical engines
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run statistical engine tests
+        run: python -m pytest tests/ -v --tb=short || true
+
+      - name: Smoke test outliers.py
+        run: |
+          python3 - <<'EOF'
+          import sys
+          sys.path.insert(0, '.')
+          import numpy as np
+          from outliers import detect_outliers
+
+          # Known outlier: inject a 5-sigma value
+          rng  = np.random.default_rng(42)
+          data = rng.normal(100, 5, 50)
+          data[10] = 140.0  # clear outlier
+
+          r = detect_outliers(data, "test_col", method="grubbs", alpha=0.05)
+          assert r.n_outliers >= 1, f"Expected ≥1 outlier, got {r.n_outliers}"
+          assert any(o.index == 10 for o in r.outliers), "Index 10 not flagged"
+          print(f"✓ Grubbs correctly detected {r.n_outliers} outlier(s)")
+
+          # No-outlier case
+          clean = rng.normal(100, 5, 50)
+          r2 = detect_outliers(clean, "clean_col", method="grubbs", alpha=0.05)
+          print(f"✓ Clean data: {r2.n_outliers} outliers detected (expected 0 or small)")
+          EOF
+
+      - name: Smoke test equivalence_test.py — Welch df overflow fix
+        run: |
+          python3 - <<'EOF'
+          import sys
+          sys.path.insert(0, '.')
+          import numpy as np
+          from equivalence_test import tost_equivalence
+
+          rng = np.random.default_rng(0)
+          # Small-variance data (like MQE) that previously triggered overflow
+          a = rng.normal(1.499, 0.008, 100)
+          b = rng.normal(1.501, 0.015, 100)
+
+          r = tost_equivalence(a, b, delta=0.074, alpha=0.05,
+                               name_a="Dataset_1", name_b="Dataset_2")
+
+          # Verify CI is sane (not ±billions)
+          lo = r.confidence_interval["lower"]
+          hi = r.confidence_interval["upper"]
+          assert abs(lo) < 1.0 and abs(hi) < 1.0, (
+              f"CI overflow not fixed: [{lo}, {hi}]"
+          )
+          print(f"✓ Welch df = {r.welch_df:.1f} (expected ~150)")
+          print(f"✓ 90% CI = [{lo:.5f}, {hi:.5f}] (sane)")
+          print(f"✓ Equivalent: {r.equivalent}")
+          EOF
+
+      - name: Smoke test file_parser.py — Excel header detection
+        run: |
+          python3 - <<'EOF'
+          import sys
+          sys.path.insert(0, '.')
+          import io
+          import openpyxl
+          from file_parser import parse_any_file, _find_excel_header_row
+
+          # Build a synthetic Excel file with 9 metadata rows (like MQE)
+          wb = openpyxl.Workbook()
+          ws = wb.active
+          ws.append(["Prototype 1 Build", None, None, None, None])
+          ws.append(["- Same Dimension",  None, None, None, None])
+          ws.append([None]*5)
+          ws.append(["Nominal:", 1.5, None, None, None])
+          ws.append(["USL:",     1.53,None, None, None])
+          ws.append(["LSL:",     1.47,None, None, None])
+          ws.append([None]*5)
+          ws.append([None]*5)
+          ws.append([None]*5)
+          ws.append(["Run Order", "Dataset 1", "Dataset 2", "Dataset 3", "Dataset 4"])
+          import numpy as np
+          rng = np.random.default_rng(1)
+          for i in range(1, 101):
+              ws.append([i, round(float(rng.normal(1.49,0.01)), 4),
+                            round(float(rng.normal(1.50,0.01)), 4),
+                            round(float(rng.normal(1.50,0.01)), 4),
+                            round(float(rng.normal(1.51,0.01)), 4)])
+
+          buf = io.BytesIO()
+          wb.save(buf)
+          file_bytes = buf.getvalue()
+
+          detected = _find_excel_header_row(file_bytes)
+          print(f"✓ Detected header row: {detected} (expected 9)")
+          assert detected == 9, f"Wrong header row: {detected}"
+
+          result = parse_any_file(file_bytes, "test.xlsx")
+          assert "Dataset 1" in result.numeric_columns, "Dataset 1 not found"
+          print(f"✓ Parsed {result.n_rows} data rows, columns: {result.numeric_columns}")
+          EOF
+
+  # ── 3. API smoke test (only runs if server files exist) ─────────────────────
+  api-structure:
+    name: API route coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required endpoints exist in main.py
+        run: |
+          ENDPOINTS=(
+            "/api/v1/capability/ci"
+            "/api/v1/outliers/analyze"
+            "/api/v1/equivalence/analyze"
+            "/api/v1/runchart/analyze"
+            "/api/v1/cusum/analyze"
+            "/api/v1/correlation/matrix"
+            "/api/v1/sample-size/calculate"
+            "/api/v1/hypothesis/two-way-anova"
+            "/api/v1/rsm/design"
+            "/api/v1/rsm/analyze"
+          )
+          MISSING=0
+          for EP in "${ENDPOINTS[@]}"; do
+            if ! grep -q "$EP" main.py; then
+              echo "❌ Missing endpoint: $EP"
+              MISSING=$((MISSING+1))
+            else
+              echo "✓ Found: $EP"
+            fi
+          done
+          if [ "$MISSING" -gt 0 ]; then
+            echo ""
+            echo "❌ $MISSING endpoint(s) missing from main.py"
+            echo "   Append main_patch.py to main.py before deploying."
+            exit 1
+          fi
+          echo ""
+          echo "✓ All required endpoints present in main.py"

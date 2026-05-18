@@ -2616,7 +2616,7 @@ added to the live main.py.  Symptoms in production:
 ALSO adds:
   - Structured JSON error handling middleware (replaces HTML 500 pages)
   - /api/v1/health extended endpoint
-"""
+
 
 import dataclasses
 import itertools

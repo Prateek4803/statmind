@@ -1881,7 +1881,7 @@ function switchAnalysis(tab){
     // Show correct sidebar
     Object.values(tabMap).forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
     const sbId = tabMap[tab];
-    if(sbId){ const sb=document.getElementById(sbId); if(sb) sb.style.display='contents'; }
+    if(sbId){ const sb=document.getElementById(sbId); if(sb){ sb.style.display='flex'; sb.style.flexDirection='column'; sb.style.gap='12px'; } }
     // Mobile: show sidebar and Controls toggle
     if(window.innerWidth<=768){
       const body=document.getElementById('app-body');

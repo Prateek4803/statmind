@@ -1556,7 +1556,11 @@ async function loadWizardFile(file){
   const fd=new FormData(); fd.append('file',file);
   try{
     const r=await fetch(`${API}/api/v1/columns`,{method:'POST',body:fd});
-    if(!r.ok) throw new Error('Could not read file');
+    if(!r.ok){
+      let errMsg='Could not read file';
+      try{const ed=await r.clone().json();errMsg=ed.detail||errMsg;}catch(x){}
+      throw new Error(errMsg);
+    }
     const d=await r.json();
     wizardSelectedCols = d.columns.map(c=>c.name);
     globalColumns = d.columns;
@@ -2577,9 +2581,22 @@ function setupUpload(zoneId,inputId,titleId,handler){
   zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');if(e.dataTransfer.files[0])handler(e.dataTransfer.files[0]);});
   input.addEventListener('change',e=>{if(e.target.files[0])handler(e.target.files[0]);});
 }
-async function loadCols(file,cb){
+async function loadCols(file,cb,onError){
   const fd=new FormData();fd.append('file',file);
-  try{const r=await fetch(`${API}/api/v1/columns`,{method:'POST',body:fd});if(r.ok)cb((await r.json()).columns);}catch{}
+  try{
+    const r=await fetch(`${API}/api/v1/columns`,{method:'POST',body:fd});
+    if(r.ok){
+      cb((await r.json()).columns);
+    } else {
+      let msg='Could not read file';
+      try{const d=await r.clone().json();msg=d.detail||msg;}catch(x){}
+      showToast('Could not read file: '+msg,true);
+      if(onError) onError(msg);
+    }
+  }catch(e){
+    showToast('Upload failed: '+e.message,true);
+    if(onError) onError(e.message);
+  }
 }
 function buildColList(listId,cols,selectFn){
   const list=document.getElementById(listId);list.innerHTML='';

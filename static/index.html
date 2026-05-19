@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>StatMind — Process Statistics Platform</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <style>
 :root{
   --bg:#0f1117;--bg2:#161b24;--bg3:#1e2535;--bg4:#252e40;
@@ -13,7 +14,6 @@
   --accent:#2dd4a0;--accent2:#0fb888;
   --green:#34d980;--amber:#f0b429;--red:#f05c5c;--purple:#a78bfa;
   --teal:#2dd4a0;--coral:#f87171;--blue:#60a5fa;
-  --blue-dim:rgba(45,212,160,0.10);
   --card-r:12px;
   --font:'SF Pro Display','Inter','Segoe UI',system-ui,sans-serif;
   --mono:'SF Mono','Fira Code','Consolas',monospace;
@@ -1496,9 +1496,43 @@ textarea{resize:vertical;min-height:52px;}
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="chart-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; padding:50px;">
+    <button onclick="document.getElementById('chart-modal').style.display='none'" style="margin-bottom:20px; cursor:pointer;">Close</button>
+    <canvas id="modal-canvas"></canvas>
+</div>
 
 <script>
-
+  function recalculateCapability(data) {
+    if (data.length < 5) return;
+    const n = data.length;
+    const mean = data.reduce((a, b) => a + b, 0) / n;
+    const std = Math.sqrt(data.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / (n - 1));
+    
+    const usl = parseFloat(document.getElementById('usl-input').value);
+    const lsl = parseFloat(document.getElementById('lsl-input').value);
+    
+    const cpu = (usl - mean) / (3 * std);
+    const cpl = (mean - lsl) / (3 * std);
+    const cpk = Math.min(cpu, cpl);
+    
+    const el = document.querySelector('.iv'); 
+    if(el) el.innerText = cpk.toFixed(3);
+}
+function recalculateCapability(data) {
+    const n = data.length;
+    const mean = data.reduce((a, b) => a + b, 0) / n;
+    const std = Math.sqrt(data.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / (n - 1));
+    
+    // Assumes your inputs have these IDs
+    const usl = parseFloat(document.getElementById('usl-input').value);
+    const lsl = parseFloat(document.getElementById('lsl-input').value);
+    
+    const cpk = Math.min((usl - mean) / (3 * std), (mean - lsl) / (3 * std));
+    
+    // Update the UI
+    const el = document.querySelector('.iv'); // Adjust selector to your Cpk grid item
+    if(el) el.innerText = cpk.toFixed(3);
+}
 
 // ══ WIZARD & FILE LOADING ════════════════════════════════════════════════════
 let globalFile = null;
@@ -2439,21 +2473,61 @@ function renderCap(r){
     <div class="card"><div class="ch"><div class="ct">Capability Histogram</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button></div></div><div class="cb"><div class="chart-half"><canvas id="cap-hist"></canvas></div></div></div>
     <div class="card"><div class="ch"><div class="ct">Analysis Notes</div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
   `);
-  const hd=r.histogram_data,gc='rgba(100,200,180,0.1)',tc='#b8c4bb';
-  charts.ch=new Chart(document.getElementById('cap-hist').getContext('2d'),{
-    data:{datasets:[
-      {type:'bar',data:hd.bin_centers.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:hd.counts[i]})),backgroundColor:'rgba(45,212,160,0.3)',borderColor:'rgba(45,212,160,0.6)',borderWidth:1,barPercentage:.95,categoryPercentage:1,order:2},
-      {type:'line',data:hd.curve_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(hd.curve_within[i].toFixed(4))})),borderColor:'#2dd4a0',borderWidth:2,pointRadius:0,tension:.4,order:1},
+// ── Corrected Chart Initialization with Zoom & Modal ──────────────────────
+  const hd = r.histogram_data, gc = 'rgba(100,200,180,0.1)', tc = '#b8c4bb';
+  
+charts.ch = new Chart(document.getElementById('cap-hist').getContext('2d'), {
+    data: { datasets: [
+      { type: 'bar', data: hd.bin_centers.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:hd.counts[i]})), backgroundColor:'rgba(45,212,160,0.3)', borderColor:'rgba(45,212,160,0.6)', borderWidth:1, barPercentage:.95, categoryPercentage:1, order:2 },
+      { type: 'line', data: hd.curve_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(hd.curve_within[i].toFixed(4))})), borderColor:'#2dd4a0', borderWidth:2, pointRadius:0, tension:.4, order:1 },
     ]},
-    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{type:'linear',grid:{color:gc},ticks:{color:tc,font:{size:11},maxTicksLimit:8}},y:{grid:{color:gc},ticks:{color:tc,font:{size:11}}}}}
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      onClick: (e, elements, chart) => {
+        const modal = document.getElementById('chart-modal');
+        modal.style.display = 'flex';
+        const modalCtx = document.getElementById('modal-canvas').getContext('2d');
+        modalCtx.clearRect(0, 0, 800, 600);
+        const img = new Image();
+        img.onload = () => modalCtx.drawImage(img, 0, 0);
+        img.src = chart.toBase64Image();
+      },
+      plugins: {
+        legend: { display: false },
+        zoom: {
+          zoom: {
+            wheel: { enabled: true },
+            pinch: { enabled: true },
+            mode: 'x',
+            onZoomComplete: function({chart}) {
+              const min = chart.scales.x.min;
+              const max = chart.scales.x.max;
+              if(window.currentRawData) {
+                  const subset = window.currentRawData.filter(v => v >= min && v <= max);
+                  if(subset.length > 5) recalculateCapability(subset);
+              }
+            }
+          }
+        }
+      },
+      scales: { x: { type: 'linear', grid: { color: gc }, ticks: { color: tc, font: { size: 11 }, maxTicksLimit: 8 } }, y: { grid: { color: gc }, ticks: { color: tc, font: { size: 11 } } } }
+    }
   });
-  const cht=charts.ch;const orig=cht.draw.bind(cht);
-  cht.draw=function(){orig();const ctx=cht.ctx;const top=cht.chartArea?.top,bot=cht.chartArea?.bottom;if(!top)return;
+  const cht = charts.ch;
+ const cht = charts.ch;
+  cht.draw = function() {
+    Chart.controllers.bar.prototype.draw.apply(cht, arguments);
+    const ctx = cht.ctx;
+    const top = cht.chartArea?.top, bot = cht.chartArea?.bottom;
+    if(!top) return;
     [[hd.lsl,'#f05c5c','LSL'],[hd.usl,'#f05c5c','USL'],[hd.mean,'#f0b429','x̄']].forEach(([v,c,l])=>{
-      const x=cht.scales.x.getPixelForValue(v);ctx.save();ctx.strokeStyle=c;ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bot);ctx.stroke();ctx.fillStyle=c;ctx.font='11px SF Mono,monospace';ctx.textAlign='center';ctx.fillText(l,x,top-4);ctx.restore();
+       const x = cht.scales.x.getPixelForValue(v);
+       if(x < cht.chartArea.left || x > cht.chartArea.right) return;
+       ctx.save(); ctx.strokeStyle=c; ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.beginPath(); ctx.moveTo(x,top); ctx.lineTo(x,bot); ctx.stroke(); ctx.fillStyle=c; ctx.font='11px SF Mono,monospace'; ctx.textAlign='center'; ctx.fillText(l,x,top-4); ctx.restore();
     });
-  };cht.draw();
-  // Fetch Cpk CI (non-blocking, enhances display)
+  };
+  cht.draw();
+    // Fetch Cpk CI (non-blocking, enhances display)
   setTimeout(()=>{ if(typeof fetchAndShowCapCI==='function') fetchAndShowCapCI(r); },400);
 }
 
@@ -5488,5 +5562,9 @@ function goHome() {
 <input type="file" id="mob-file-input-global" accept=".csv,.xlsx,.xls,.tsv,.txt"
   style="position:fixed;left:-9999px;opacity:0;width:1px;height:1px"
   onchange="handleMobileFileSelect(this)"/>
+  <div id="chart-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; padding:50px;">
+    <button onclick="document.getElementById('chart-modal').style.display='none'" style="margin-bottom:20px; cursor:pointer;">Close</button>
+    <canvas id="modal-canvas"></canvas>
+</div>
 </body>
 </html>

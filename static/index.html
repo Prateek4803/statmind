@@ -69,7 +69,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16
 .nav-dropdown:hover .nav-dropdown-menu,
 .nav-dropdown-menu:hover{display:block;}
 /* Click-open support for after canvas renders */
-.nav-dropdown.open .nav-dropdown-menu{display:block !important;}
+.nav-dropdown.open .nav-dropdown-menu{display:block !important;opacity:1 !important;pointer-events:auto !important;transform:translateY(0) !important;}
 /* Smooth reveal instead of snap */
 .nav-dropdown-menu{
   opacity:0;transform:translateY(-4px);transition:opacity .14s ease,transform .14s ease;
@@ -1518,21 +1518,6 @@ textarea{resize:vertical;min-height:52px;}
     const el = document.querySelector('.iv'); 
     if(el) el.innerText = cpk.toFixed(3);
 }
-function recalculateCapability(data) {
-    const n = data.length;
-    const mean = data.reduce((a, b) => a + b, 0) / n;
-    const std = Math.sqrt(data.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / (n - 1));
-    
-    // Assumes your inputs have these IDs
-    const usl = parseFloat(document.getElementById('usl-input').value);
-    const lsl = parseFloat(document.getElementById('lsl-input').value);
-    
-    const cpk = Math.min((usl - mean) / (3 * std), (mean - lsl) / (3 * std));
-    
-    // Update the UI
-    const el = document.querySelector('.iv'); // Adjust selector to your Cpk grid item
-    if(el) el.innerText = cpk.toFixed(3);
-}
 
 // ══ WIZARD & FILE LOADING ════════════════════════════════════════════════════
 let globalFile = null;
@@ -2514,7 +2499,6 @@ charts.ch = new Chart(document.getElementById('cap-hist').getContext('2d'), {
     }
   });
   const cht = charts.ch;
- const cht = charts.ch;
   cht.draw = function() {
     Chart.controllers.bar.prototype.draw.apply(cht, arguments);
     const ctx = cht.ctx;
@@ -5562,9 +5546,5 @@ function goHome() {
 <input type="file" id="mob-file-input-global" accept=".csv,.xlsx,.xls,.tsv,.txt"
   style="position:fixed;left:-9999px;opacity:0;width:1px;height:1px"
   onchange="handleMobileFileSelect(this)"/>
-  <div id="chart-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; padding:50px;">
-    <button onclick="document.getElementById('chart-modal').style.display='none'" style="margin-bottom:20px; cursor:pointer;">Close</button>
-    <canvas id="modal-canvas"></canvas>
-</div>
 </body>
 </html>

@@ -72,6 +72,8 @@ class ParseResult:
     filename: str = ""
     n_rows: int = 0
     warnings: List[str] = field(default_factory=list)
+    source_format: str = "unknown"   # kept for API compatibility
+    metadata: dict = field(default_factory=dict)  # kept for API compatibility
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
@@ -244,6 +246,11 @@ def parse_any_file(file_bytes: bytes, filename: str = "file") -> ParseResult:
 
     col_stats = [_compute_stats(df[c], c) for c in numeric_cols]
 
+    ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else "csv"
+    fmt_map = {"xlsx": "Excel", "xls": "Excel (legacy)", "csv": "CSV",
+               "tsv": "TSV", "txt": "Text"}
+    source_fmt = fmt_map.get(ext, ext.upper())
+
     return ParseResult(
         df=df,
         numeric_columns=numeric_cols,
@@ -252,6 +259,8 @@ def parse_any_file(file_bytes: bytes, filename: str = "file") -> ParseResult:
         filename=filename,
         n_rows=len(df),
         warnings=warnings,
+        source_format=source_fmt,
+        metadata={},
     )
 
 

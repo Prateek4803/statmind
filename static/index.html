@@ -608,7 +608,7 @@ textarea{resize:vertical;min-height:52px;}
       <div class="nav-dropdown-menu">
         <div class="nav-dd-section">Distributions</div>
         <div class="nav-dd-item" onclick="switchAnalysis('normality')"><span class="nav-dd-icon">⚗️</span><span class="nav-dd-label">Normality Tests</span><span class="nav-dd-tag" id="dd-tag-normality"></span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('transformation')"><span class="nav-dd-icon">🔄</span><span class="nav-dd-label">Box-Cox Transformation</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('transformation')"><span class="nav-dd-icon">🔄</span><span class="nav-dd-label">Data Transformation</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Hypothesis Tests</div>
         <div class="nav-dd-item" onclick="switchAnalysis('hypothesis')"><span class="nav-dd-icon">🧪</span><span class="nav-dd-label">2-Sample t / ANOVA</span><span class="nav-dd-tag" id="dd-tag-hypothesis"></span></div>
@@ -698,7 +698,7 @@ textarea{resize:vertical;min-height:52px;}
     <div class="mob-nav-sep"></div>
     <div class="mob-section-label">Stat Tests</div>
     <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('normality')"><span class="mob-nav-icon">⚗️</span>Normality Tests</div>
-    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('transformation')"><span class="mob-nav-icon">🔄</span>Box-Cox Transform</div>
+    <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('transformation')"><span class="mob-nav-icon">🔄</span>Data Transformation</div>
     <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('hypothesis')"><span class="mob-nav-icon">🧪</span>Hypothesis Tests</div>
     <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('comparison')"><span class="mob-nav-icon">⚖️</span>Comparison</div>
     <div class="mob-nav-item" onclick="closeMobDrawer();switchAnalysis('correlation')"><span class="mob-nav-icon">🔗</span>Correlation Matrix</div>
@@ -1496,9 +1496,12 @@ textarea{resize:vertical;min-height:52px;}
 </div>
 
 <div class="toast" id="toast"></div>
-<div id="chart-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; padding:50px;">
-    <button onclick="document.getElementById('chart-modal').style.display='none'" style="margin-bottom:20px; cursor:pointer;">Close</button>
-    <canvas id="modal-canvas"></canvas>
+<div id="chart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px;backdrop-filter:blur(6px);">
+  <div style="display:flex;align-items:center;justify-content:space-between;width:min(900px,90vw);margin-bottom:4px">
+    <span style="font-size:13px;color:rgba(255,255,255,0.5)">Click anywhere outside to close · Scroll to zoom</span>
+    <button onclick="document.getElementById('chart-modal').style.display='none'" style="background:rgba(45,212,160,0.15);border:1px solid rgba(45,212,160,0.4);color:#2dd4a0;padding:6px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit;">✕ Close</button>
+  </div>
+  <canvas id="modal-canvas" style="max-width:min(900px,90vw);max-height:75vh;border-radius:12px;background:#141720;"></canvas>
 </div>
 
 <script>
@@ -1519,6 +1522,8 @@ textarea{resize:vertical;min-height:52px;}
     if(el) el.innerText = cpk.toFixed(3);
 }
 
+// Register zoom plugin globally
+if(typeof ChartZoom !== 'undefined') Chart.register(ChartZoom);
 // ══ WIZARD & FILE LOADING ════════════════════════════════════════════════════
 let globalFile = null;
 let globalProcType = '';
@@ -1844,11 +1849,83 @@ function showNewFileTable(){
 }
 
 const API=window.location.origin.includes('localhost')?'http://localhost:8010':'';
+
+// ── Universal chart modal + zoom helpers ─────────────────────────────────────
+function openChartModal(chartOrCanvas) {
+  const modal = document.getElementById('chart-modal');
+  if(!modal) return;
+  modal.style.display = 'flex';
+  modal.style.flexDirection = 'column';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
+  const mc = document.getElementById('modal-canvas');
+  if(!mc) return;
+  // Size the modal canvas to the chart's natural size * 2
+  const src = (chartOrCanvas && chartOrCanvas.toBase64Image) ? chartOrCanvas : 
+              (chartOrCanvas && chartOrCanvas.chart) ? chartOrCanvas.chart : null;
+  if(src) {
+    try {
+      const dataUrl = src.toBase64Image('image/png', 1.0);
+      mc.width  = Math.min(src.width  * 1.8, window.innerWidth  - 80);
+      mc.height = Math.min(src.height * 1.8, window.innerHeight - 120);
+      const img = new Image();
+      img.onload = () => {
+        const ctx = mc.getContext('2d');
+        ctx.clearRect(0, 0, mc.width, mc.height);
+        ctx.drawImage(img, 0, 0, mc.width, mc.height);
+      };
+      img.src = dataUrl;
+    } catch(e) {}
+  }
+}
+
+// Make any chart canvas clickable/zoomable after creation
+function makeChartInteractive(chartInstance, canvasEl) {
+  if(!canvasEl) return;
+  canvasEl.style.cursor = 'zoom-in';
+  canvasEl.title = 'Click to enlarge · Scroll to zoom';
+  canvasEl.onclick = () => openChartModal(chartInstance);
+  // Scroll zoom (wheel) if zoom plugin not available
+  if(typeof ChartZoom === 'undefined') {
+    canvasEl.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if(!chartInstance || !chartInstance.scales || !chartInstance.scales.x) return;
+      const scale = chartInstance.scales.x;
+      const range = scale.max - scale.min;
+      const delta = e.deltaY > 0 ? range * 0.1 : -range * 0.1;
+      try {
+        chartInstance.options.scales.x.min = scale.min + delta;
+        chartInstance.options.scales.x.max = scale.max - delta;
+        chartInstance.update('none');
+      } catch(err) {}
+    }, { passive: false });
+  }
+}
+
+// Click modal background to close
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('chart-modal');
+  if(modal) modal.addEventListener('click', (e) => {
+    if(e.target === modal || e.target.tagName === 'BUTTON') {
+      modal.style.display = 'none';
+      const mc = document.getElementById('modal-canvas');
+      if(mc) { const ctx = mc.getContext('2d'); ctx.clearRect(0, 0, mc.width, mc.height); }
+    }
+  });
+});
 let spcData={}, capData={}, normData=null, grrData={}, capaReports={};
 let spcFile=null, capFile=null, normFile=null;
 let colStatsSpc=[], colStatsCap=[];
 let selectedSpcCol=null, selectedCapCol=null, selectedProcess='';
 let charts={};
+// Auto-apply interactivity to every chart created
+const _origChart = Chart;
+function _wrapChartCreation(canvasId, chartInstance) {
+  setTimeout(() => {
+    const el = typeof canvasId === 'string' ? document.getElementById(canvasId) : canvasId;
+    if(el && chartInstance) makeChartInteractive(chartInstance, el);
+  }, 50);
+}
 let attachedNorm=null, attachedCap=null, attachedSpc=null, attachedGrr=null;
 
 // Brush state
@@ -1942,7 +2019,7 @@ else if(tab==='capability'){
     else if(tab==='pareto'){showEmpty('📊','Pareto Chart','Upload defect data with a category column. Automatically identifies the vital few causes driving 80% of problems.');}
     else if(tab==='sixpack'){showEmpty('6️⃣','Capability Sixpack','All 6 Minitab panels in one view. Upload data and enter spec limits to generate.');}
     else if(tab==='regression'){showEmpty('📈','Regression Analysis','Upload data and select input/output columns. Supports simple and multiple linear regression with residual plots.');}
-    else if(tab==='transformation'){showEmpty('🔄','Box-Cox Transformation','Upload non-normal data. Auto-finds the best λ and shows before/after probability plots.');}
+    else if(tab==='transformation'){showEmpty('🔄','Data Transformation','Upload non-normal data. Auto-finds the best λ and shows before/after probability plots.');}
     else if(tab==='multivari'){showEmpty('📉','Multi-Vari Chart','Upload data with measurement + part ID columns. Decomposes within-part, part-to-part, and time-to-time variation.');}
     else if(tab==='doe'){showEmpty('🧫','Design of Experiments','Use the 4-step wizard in the sidebar: pick design type, define factors, generate run matrix, analyze effects.');}
     else if(tab==='tolerance'){showEmpty('📏','Tolerance Intervals','Upload data and enter spec limits. Answers: what range covers 99% of future parts with 95% confidence?');}
@@ -2444,15 +2521,11 @@ function renderCap(r){
     <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${vcc}">${r.verdict}</div><div class="vd">${r.verdict_detail}</div></div></div>
     ${nonNormalBanner}
     <div class="indices-grid">
-      <div class="ic" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''}"><div class="in">Cp${isNonNormal?' ⚠':''}
-      </div><div class="iv" style="color:${r.cp>=1.33?'var(--green)':r.cp>=1?'var(--amber)':'var(--red)'}">${r.cp.toFixed(3)}</div></div>
-      <div class="ic" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''}"><div class="in">Cpk${isNonNormal?' ⚠':''}
-      </div><div class="iv" style="color:${r.cpk>=1.33?'var(--green)':r.cpk>=1?'var(--amber)':'var(--red)'}">${r.cpk.toFixed(3)}</div></div>
-      <div class="ic" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''}"><div class="in">Pp${isNonNormal?' ⚠':''}
-      </div><div class="iv" style="color:${r.pp>=1.33?'var(--green)':r.pp>=1?'var(--amber)':'var(--red)'}">${r.pp.toFixed(3)}</div></div>
-      <div class="ic" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''}"><div class="in">Ppk${isNonNormal?' ⚠':''}
-      </div><div class="iv" style="color:${r.ppk>=1.33?'var(--green)':r.ppk>=1?'var(--amber)':'var(--red)'}">${r.ppk.toFixed(3)}</div></div>
-      <div class="ic"><div class="in">σ Level</div><div class="iv">${r.sigma_level.toFixed(2)}σ</div></div>
+      <div class="ic cap-idx-card" data-metric="Cp" data-val="${r.cp.toFixed(3)}" data-is-non-normal="${isNonNormal}" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''};cursor:help;" title="Hover for Cp interpretation"><div class="in">Cp${isNonNormal?' ⚠':''}</div><div class="iv" style="color:${r.cp>=1.33?'var(--green)':r.cp>=1?'var(--amber)':'var(--red)'}">${r.cp.toFixed(3)}</div></div>
+      <div class="ic cap-idx-card" data-metric="Cpk" data-val="${r.cpk.toFixed(3)}" data-is-non-normal="${isNonNormal}" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''};cursor:help;" title="Hover for Cpk interpretation"><div class="in">Cpk${isNonNormal?' ⚠':''}</div><div class="iv" style="color:${r.cpk>=1.33?'var(--green)':r.cpk>=1?'var(--amber)':'var(--red)'}">${r.cpk.toFixed(3)}</div></div>
+      <div class="ic cap-idx-card" data-metric="Pp" data-val="${r.pp.toFixed(3)}" data-is-non-normal="${isNonNormal}" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''};cursor:help;" title="Hover for Pp interpretation"><div class="in">Pp${isNonNormal?' ⚠':''}</div><div class="iv" style="color:${r.pp>=1.33?'var(--green)':r.pp>=1?'var(--amber)':'var(--red)'}">${r.pp.toFixed(3)}</div></div>
+      <div class="ic cap-idx-card" data-metric="Ppk" data-val="${r.ppk.toFixed(3)}" data-is-non-normal="${isNonNormal}" style="${isNonNormal?'border:1px solid rgba(240,92,92,0.4)':''};cursor:help;" title="Hover for Ppk interpretation"><div class="in">Ppk${isNonNormal?' ⚠':''}</div><div class="iv" style="color:${r.ppk>=1.33?'var(--green)':r.ppk>=1?'var(--amber)':'var(--red)'}">${r.ppk.toFixed(3)}</div></div>
+      <div class="ic cap-idx-card" data-metric="σ" data-val="${r.sigma_level.toFixed(2)}" style="cursor:help;" title="Hover for sigma level interpretation"><div class="in">σ Level</div><div class="iv">${r.sigma_level.toFixed(2)}σ</div></div>
     </div>
     <div id="cap-ci-banner" style="display:none;margin-bottom:12px"></div>
     <div class="card"><div class="ch"><div class="ct">Capability Histogram</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button></div></div><div class="cb"><div class="chart-half"><canvas id="cap-hist"></canvas></div></div></div>
@@ -2460,7 +2533,8 @@ function renderCap(r){
   `);
 // ── Corrected Chart Initialization with Zoom & Modal ──────────────────────
   const hd = r.histogram_data, gc = 'rgba(100,200,180,0.1)', tc = '#b8c4bb';
-  
+  // Store raw data for zoom-recalc
+  window.currentRawData = (r.raw_values || []);
 charts.ch = new Chart(document.getElementById('cap-hist').getContext('2d'), {
     data: { datasets: [
       { type: 'bar', data: hd.bin_centers.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:hd.counts[i]})), backgroundColor:'rgba(45,212,160,0.3)', borderColor:'rgba(45,212,160,0.6)', borderWidth:1, barPercentage:.95, categoryPercentage:1, order:2 },
@@ -2468,30 +2542,38 @@ charts.ch = new Chart(document.getElementById('cap-hist').getContext('2d'), {
     ]},
     options: {
       responsive: true, maintainAspectRatio: false, animation: false,
-      onClick: (e, elements, chart) => {
-        const modal = document.getElementById('chart-modal');
-        modal.style.display = 'flex';
-        const modalCtx = document.getElementById('modal-canvas').getContext('2d');
-        modalCtx.clearRect(0, 0, 800, 600);
-        const img = new Image();
-        img.onload = () => modalCtx.drawImage(img, 0, 0);
-        img.src = chart.toBase64Image();
-      },
+      onClick: (e, elements, chart) => { openChartModal(chart); },
       plugins: {
         legend: { display: false },
-        zoom: {
-          zoom: {
-            wheel: { enabled: true },
-            pinch: { enabled: true },
-            mode: 'x',
+        zoom: (typeof ChartZoom !== 'undefined') ? {
+          zoom: { wheel:{enabled:true}, pinch:{enabled:true}, mode:'x',
             onZoomComplete: function({chart}) {
-              const min = chart.scales.x.min;
-              const max = chart.scales.x.max;
-              if(window.currentRawData) {
-                  const subset = window.currentRawData.filter(v => v >= min && v <= max);
-                  if(subset.length > 5) recalculateCapability(subset);
-              }
+              try {
+                const mn=chart.scales.x.min, mx=chart.scales.x.max;
+                if(window.currentRawData && window.currentRawData.length){
+                  const sub=window.currentRawData.filter(v=>v>=mn&&v<=mx);
+                  if(sub.length>5) recalculateCapability(sub);
+                }
+              } catch(e){}
             }
+          }
+        } : {},
+        capSpecLines: {
+          id:'capSpecLines',
+          afterDraw(chart) {
+            try {
+              const ctx=chart.ctx, ca=chart.chartArea;
+              if(!ca) return;
+              [[hd.lsl,'#f05c5c','LSL'],[hd.usl,'#f05c5c','USL'],[hd.mean,'#f0b429','x̄']].forEach(([v,c,l])=>{
+                if(v==null||isNaN(v)) return;
+                const x=chart.scales.x.getPixelForValue(v);
+                if(x<ca.left||x>ca.right) return;
+                ctx.save();ctx.strokeStyle=c;ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
+                ctx.beginPath();ctx.moveTo(x,ca.top);ctx.lineTo(x,ca.bottom);ctx.stroke();
+                ctx.setLineDash([]);ctx.fillStyle=c;ctx.font='11px SF Mono,monospace';
+                ctx.textAlign='center';ctx.fillText(l,x,ca.top-4);ctx.restore();
+              });
+            } catch(e){}
           }
         }
       },
@@ -2499,18 +2581,7 @@ charts.ch = new Chart(document.getElementById('cap-hist').getContext('2d'), {
     }
   });
   const cht = charts.ch;
-  cht.draw = function() {
-    Chart.controllers.bar.prototype.draw.apply(cht, arguments);
-    const ctx = cht.ctx;
-    const top = cht.chartArea?.top, bot = cht.chartArea?.bottom;
-    if(!top) return;
-    [[hd.lsl,'#f05c5c','LSL'],[hd.usl,'#f05c5c','USL'],[hd.mean,'#f0b429','x̄']].forEach(([v,c,l])=>{
-       const x = cht.scales.x.getPixelForValue(v);
-       if(x < cht.chartArea.left || x > cht.chartArea.right) return;
-       ctx.save(); ctx.strokeStyle=c; ctx.lineWidth=1.5; ctx.setLineDash([5,4]); ctx.beginPath(); ctx.moveTo(x,top); ctx.lineTo(x,bot); ctx.stroke(); ctx.fillStyle=c; ctx.font='11px SF Mono,monospace'; ctx.textAlign='center'; ctx.fillText(l,x,top-4); ctx.restore();
-    });
-  };
-  cht.draw();
+  makeChartInteractive(cht, document.getElementById('cap-hist'));
     // Fetch Cpk CI (non-blocking, enhances display)
   setTimeout(()=>{ if(typeof fetchAndShowCapCI==='function') fetchAndShowCapCI(r); },400);
 }
@@ -2566,7 +2637,9 @@ function showNorm(colName){
   `);
   const hd=r.histogram_data,pd=r.probability_plot_data,gc='rgba(100,200,180,0.1)',tc='#b8c4bb';
   charts.hist=new Chart(document.getElementById('hist-chart').getContext('2d'),{data:{datasets:[{type:'bar',data:hd.bin_centers.map((x,i)=>({x:x.toFixed(4),y:hd.counts[i]})),backgroundColor:'rgba(45,212,160,0.3)',borderColor:'rgba(45,212,160,0.6)',borderWidth:1,barPercentage:.95,categoryPercentage:1},{type:'line',data:hd.curve_x.map((x,i)=>({x:x.toFixed(4),y:hd.curve_y[i].toFixed(3)})),borderColor:'#2dd4a0',borderWidth:2,pointRadius:0,tension:.4}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:11},maxTicksLimit:8}},y:{grid:{color:gc},ticks:{color:tc,font:{size:11}}}}}});
+  makeChartInteractive(charts.hist, document.getElementById('hist-chart'));
   charts.prob=new Chart(document.getElementById('prob-chart').getContext('2d'),{data:{datasets:[{type:'scatter',data:pd.theoretical_quantiles.map((q,i)=>({x:parseFloat(q.toFixed(4)),y:parseFloat(pd.sample_values[i].toFixed(4))})),backgroundColor:'rgba(45,212,160,0.6)',pointRadius:3},{type:'line',data:pd.fit_line_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(pd.fit_line_y[i].toFixed(4))})),borderColor:'#f05c5c',borderWidth:1.5,pointRadius:0,borderDash:[4,3]}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:11}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:11}}}}}});
+  makeChartInteractive(charts.prob, document.getElementById('prob-chart'));
 }
 
 // ══ SESSION 4: GRR ═══════════════════════════════════════════════════════════
@@ -2691,7 +2764,37 @@ function buildNav(navId,dataObj,renderFn,verdictFn,metaFn){
 }
 function hlt(id,name){document.querySelectorAll(`#${id} .col-item`).forEach(el=>el.classList.toggle('active',el.dataset.col===name));}
 function destroyCharts(){Object.values(charts).forEach(c=>{try{c.destroy();}catch{}});charts={};}
-function showContent(html){document.getElementById('content').innerHTML=html;}
+function showContent(html){
+  const el = document.getElementById('content');
+  el.innerHTML = html;
+  // After rendering, wire click-to-zoom on every chart canvas
+  setTimeout(() => {
+    el.querySelectorAll('.chart-full canvas, .chart-half canvas, .chart-mini canvas, [style*="height:"] canvas').forEach(canvas => {
+      if(canvas.id === 'modal-canvas') return;
+      if(canvas.dataset.zoomWired) return;
+      canvas.dataset.zoomWired = '1';
+      canvas.style.cursor = 'zoom-in';
+      canvas.title = 'Click to enlarge · Scroll to zoom';
+      canvas.addEventListener('click', () => {
+        const chartInst = Object.values(charts).find(c => c && c.canvas === canvas);
+        if(chartInst) openChartModal(chartInst);
+      });
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const chartInst = Object.values(charts).find(c => c && c.canvas === canvas);
+        if(!chartInst || !chartInst.scales || !chartInst.scales.x) return;
+        const scale = chartInst.scales.x;
+        const range = scale.max - scale.min;
+        const pct = e.deltaY > 0 ? 0.12 : -0.12;
+        try {
+          chartInst.options.scales.x.min = scale.min + range * pct;
+          chartInst.options.scales.x.max = scale.max - range * pct;
+          chartInst.update('none');
+        } catch(err) {}
+      }, { passive: false });
+    });
+  }, 100);
+}
 function loadHtml(msg){return `<div class="loading"><div class="spinner"></div><div style="color:var(--text2);font-size:14px">${msg}</div></div>`;}
 function showEmpty(icon,title,sub){showContent(`<div class="empty-state"><div style="font-size:46px;opacity:.12">${icon}</div><div style="font-size:18px;font-weight:600;color:var(--text)">${title}</div><div style="font-size:14px;color:var(--text2);max-width:420px;line-height:1.8">${sub}</div></div>`);}
 function showToast(msg,isError=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(isError?' error':'');setTimeout(()=>t.className='toast',3500);}
@@ -3187,7 +3290,7 @@ function renderTransformation(r){
       <div class="card"><div class="ch"><div class="ct">Transformed Prob Plot</div></div><div class="cb"><div class="chart-half"><canvas id="trans-new-prob"></canvas></div></div></div>
     </div>
     <div class="card"><div class="ch"><div class="ct">All Transformations Tried</div></div><div class="cb" style="overflow-x:auto"><table class="alarm-table"><tr><th>Transformation</th><th>SW p-value</th><th>Normality</th></tr>${allRows}</table></div></div>
-    <div class="card"><div class="ch"><div class="ct">Recommendation</div></div><div class="cb"><div style="font-size:14px;margin-bottom:8px">${r.recommendation}</div>${r.back_transform_note?`<div style="font-size:12px;color:var(--text3);margin-top:8px;padding:7px 10px;background:var(--bg3);border-radius:7px">↩ ${r.back_transform_note}</div>`:''}</div></div>
+    <div class="card"><div class="ch"><div class="ct">Recommendation</div></div><div class="cb"><div style="font-size:14px;margin-bottom:8px">${r.recommendation}</div>${r.back_transform_note?`<div style="font-size:12px;color:var(--text3);margin-top:8px;padding:7px 10px;background:var(--bg3);border-radius:7px">↩ ${r.back_transform_note}</div>`:''}<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text)">Apply Transformed Data to Next Analysis</div><div style="font-size:12px;color:var(--text2);margin-bottom:10px">Download the transformed values (${r.transform_label}) or load them directly into the next analysis.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="downloadTransformedData(window._lastTransformResult,'csv')" style="padding:8px 16px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">⬇ Download CSV</button><button onclick="downloadTransformedData(window._lastTransformResult,'xlsx')" style="padding:8px 16px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:8px;font-size:13px;cursor:pointer">⬇ Download Excel</button><button onclick="applyTransformedDataToNextAnalysis(window._lastTransformResult)" style="padding:8px 16px;background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.35);color:var(--teal);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">⚡ Use in Next Analysis</button></div></div></div></div>
   `);
   function drawHistChart(canvasId,hd){
     return new Chart(document.getElementById(canvasId).getContext('2d'),{
@@ -4264,10 +4367,19 @@ function capaGoStep(n){
 
 function capaSelectProc(proc, el){
   capaSelectedProc=proc;
+  // Reset ALL cards fully - override any inline styles
   document.querySelectorAll('.capa-proc-card').forEach(c=>{
-    c.style.border='1px solid var(--border2)';c.style.background='var(--bg3)';
+    c.style.border='1px solid var(--border2)';
+    c.style.background='var(--bg3)';
+    // Reset inner text color
+    const inner = c.querySelector('div');
+    if(inner) inner.style.color='var(--text)';
   });
-  el.style.border='1px solid rgba(45,212,160,0.4)';el.style.background='rgba(45,212,160,0.06)';
+  // Activate selected card
+  el.style.border='1px solid rgba(45,212,160,0.4)';
+  el.style.background='rgba(45,212,160,0.06)';
+  const inner = el.querySelector('div');
+  if(inner) inner.style.color='var(--teal)';
   // Sync to old process-chip system
   document.querySelectorAll('.process-chip').forEach(c=>c.classList.toggle('active',c.dataset.proc===proc));
 }
@@ -4293,7 +4405,6 @@ function capaCheckPrereqs(){
 }
 
 function populateOverrideList(){
-  // Load CAPA rule catalog for manual selection
   fetch(`${API}/api/v1/capa/v2/catalog`)
     .then(r=>r.json())
     .then(d=>{
@@ -4301,14 +4412,27 @@ function populateOverrideList(){
       if(!list||!d.rules) return;
       list.innerHTML='';
       d.rules.forEach(rule=>{
+        // Catalog returns rule_id + fault_pattern (not rule.id / rule.name)
+        const ruleId   = rule.rule_id   || rule.id   || '—';
+        const ruleName = rule.fault_pattern || rule.name  || rule.fault || ruleId;
+        const severity = rule.severity || '';
+        const process  = rule.process  || '';
+        const sevColor = severity==='Critical'?'var(--red)':severity==='Major'?'var(--amber)':'var(--green)';
         const el=document.createElement('div');
         el.className='override-item';
-        el.dataset.ruleId=rule.id;
-        el.innerHTML=`<div class="oi-id">${rule.id}</div><div class="oi-name">${rule.name}</div>`;
-        el.onclick=()=>{ document.querySelectorAll('.override-item').forEach(x=>x.classList.remove('active')); el.classList.toggle('active'); selectedOverrideRule=el.classList.contains('active')?rule.id:null; };
+        el.dataset.ruleId=ruleId;
+        el.innerHTML=`
+          <div class="oi-id">${ruleId}</div>
+          <div class="oi-name">${ruleName}</div>
+          ${severity?`<div style="font-size:11px;color:${sevColor};margin-top:2px">${severity}${process?' · '+process:''}</div>`:''}`;
+        el.onclick=()=>{
+          document.querySelectorAll('.override-item').forEach(x=>x.classList.remove('active'));
+          el.classList.toggle('active');
+          window.selectedOverrideRule = el.classList.contains('active') ? ruleId : null;
+        };
         list.appendChild(el);
       });
-    }).catch(()=>{});
+    }).catch(err=>{ console.error('CAPA catalog load failed:', err); });
 }
 
 // capaGoStep(4) is called directly inside runCAPA on success — no duplicate listener needed
@@ -5477,6 +5601,41 @@ function loadSampleDataset() {
   toast.innerHTML = '<span style="font-size:18px">⚡</span><div><strong>Sample dataset loaded!</strong><br><span style="color:var(--text2);font-size:12px">40 etch measurements · 3 parameters · Semiconductor process. Set USL/LSL and run Capability →</span></div>';
   document.body.appendChild(toast);
   setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .4s'; setTimeout(() => toast.remove(), 500); }, 5000);
+}
+
+
+/* ── Transformation download / apply ─────────────────────────────────────── */
+function downloadTransformedData(r, fmt) {
+  if(!r || !r.transformed_values || !r.transformed_values.length){
+    showToast('No transformed data available', true); return;
+  }
+  const col = (r.column||'value').replace(/[^a-z0-9_]/gi,'_') + '_' + (r.best_transform||'tx').replace(/[^a-z0-9]/gi,'');
+  const rows = r.transformed_values.map((v,i) => (i+1) + ',' + v.toFixed(6));
+  const csv = [col, ...rows].join('\n');
+  const ext = fmt === 'xlsx' ? 'xlsx' : 'csv';
+  const mime = fmt === 'xlsx' ? 'application/vnd.ms-excel' : 'text/csv';
+  const blob = new Blob([csv], {type: mime});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = col + '.' + ext;
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Downloaded ' + col + '.' + ext);
+}
+
+function applyTransformedDataToNextAnalysis(r) {
+  if(!r || !r.transformed_values || !r.transformed_values.length){
+    showToast('No transformed data available', true); return;
+  }
+  const col = (r.column||'value') + '_transformed';
+  const csv = [col, ...r.transformed_values.map(v => v.toFixed(6))].join('\n');
+  const blob = new Blob([csv], {type: 'text/csv'});
+  globalFile = new File([blob], col + '.csv', {type: 'text/csv'});
+  autoLoadGlobalFile();
+  document.getElementById('ctx-filename').innerHTML = 'transformed <strong>' + col + '</strong>';
+  document.getElementById('context-bar').classList.add('visible');
+  document.getElementById('sidebar').style.display = 'flex';
+  showToast('Transformed data loaded. Run Normality to verify improvement.');
+  setTimeout(() => switchAnalysis('normality'), 200);
 }
 
 /* ── goHome: return to welcome screen ─────────────────────────────────── */

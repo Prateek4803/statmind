@@ -26,19 +26,19 @@ from reportlab.platypus import (
 from reportlab.platypus.flowables import BalancedColumns
 from reportlab.lib.colors import HexColor
 
-# ── Design tokens ─────────────────────────────────────────────────────────────
-BG_DARK    = HexColor('#0d0f14')
-BG_CARD    = HexColor('#141720')
-BG_CARD2   = HexColor('#1c2030')
-ACCENT     = HexColor('#4f7cff')
-ACCENT2    = HexColor('#7b4fff')
-GREEN      = HexColor('#2dd4a0')
-AMBER      = HexColor('#f5a623')
-RED        = HexColor('#f2525a')
-PURPLE     = HexColor('#b47aff')
-TEXT       = HexColor('#e8eaf2')
-TEXT2      = HexColor('#8b92b0')
-TEXT3      = HexColor('#5a607a')
+# ── Design tokens — light/print-friendly theme ────────────────────────────────
+BG_DARK    = HexColor('#f0f4f8')   # page background: very light grey
+BG_CARD    = HexColor('#e8edf3')   # card background: light grey
+BG_CARD2   = HexColor('#dde3ea')   # header row background: slightly darker
+ACCENT     = HexColor('#1a56db')   # primary accent: deep blue
+ACCENT2    = HexColor('#5521b5')   # secondary accent: deep purple
+GREEN      = HexColor('#057a55')   # green: dark enough to read on white
+AMBER      = HexColor('#b45309')   # amber: dark enough to read on white
+RED        = HexColor('#c81e1e')   # red: dark enough to read on white
+PURPLE     = HexColor('#6c2bd9')   # purple: readable
+TEXT       = HexColor('#111827')   # body text: near-black
+TEXT2      = HexColor('#374151')   # secondary text: dark grey
+TEXT3      = HexColor('#6b7280')   # tertiary text: medium grey
 WHITE      = colors.white
 BLACK      = colors.black
 
@@ -47,16 +47,16 @@ MARGIN = 18*mm
 
 # ── Matplotlib style ──────────────────────────────────────────────────────────
 CHART_STYLE = {
-    'figure.facecolor': '#141720',
-    'axes.facecolor':   '#1c2030',
-    'axes.edgecolor':   '#3a4060',
-    'axes.labelcolor':  '#8b92b0',
-    'xtick.color':      '#8b92b0',
-    'ytick.color':      '#8b92b0',
-    'grid.color':       '#252a3a',
+    'figure.facecolor': '#f8fafc',
+    'axes.facecolor':   '#ffffff',
+    'axes.edgecolor':   '#9ca3af',
+    'axes.labelcolor':  '#374151',
+    'xtick.color':      '#374151',
+    'ytick.color':      '#374151',
+    'grid.color':       '#e5e7eb',
     'grid.linestyle':   '--',
     'grid.alpha':       0.6,
-    'text.color':       '#e8eaf2',
+    'text.color':       '#111827',
     'font.family':      'sans-serif',
     'font.size':        9,
 }
@@ -98,7 +98,7 @@ def make_normality_charts(norm_result: dict, width_pt: float) -> list:
         mu = hd.get('mean', 0)
         ax.axvline(mu, color='#f5a623', linestyle='--', linewidth=1.2, label=f'Mean={mu:.4f}')
         ax.set_xlabel('Value'); ax.set_ylabel('Count')
-        ax.legend(fontsize=7, facecolor='#1c2030', edgecolor='#3a4060', labelcolor='#8b92b0')
+        ax.legend(fontsize=7, facecolor='#f8fafc', edgecolor='#9ca3af', labelcolor='#374151')
         ax.grid(True, alpha=0.4)
         fig.tight_layout()
         buf = chart_to_image(fig)
@@ -119,7 +119,7 @@ def make_normality_charts(norm_result: dict, width_pt: float) -> list:
         if fl:
             ax.plot(fl, fy, color='#f2525a', linewidth=1.5, linestyle='--', label=f'R²={r2:.5f}')
         ax.set_xlabel('Theoretical Quantiles'); ax.set_ylabel('Sample Values')
-        ax.legend(fontsize=7, facecolor='#1c2030', edgecolor='#3a4060', labelcolor='#8b92b0')
+        ax.legend(fontsize=7, facecolor='#f8fafc', edgecolor='#9ca3af', labelcolor='#374151')
         ax.grid(True, alpha=0.4)
         fig.tight_layout()
         buf = chart_to_image(fig)
@@ -156,7 +156,7 @@ def make_capability_chart(cap_result: dict, width_pt: float) -> Image:
         ax.axvline(usl, color='#f2525a', linewidth=1.5, linestyle='-.', label=f'USL={usl}')
     ax.axvline(mean, color='#f5a623', linewidth=1.2, label=f'Mean={mean:.4f}')
     ax.set_xlabel('Value'); ax.set_ylabel('Count')
-    ax.legend(fontsize=7, facecolor='#1c2030', edgecolor='#3a4060', labelcolor='#8b92b0', ncol=3)
+    ax.legend(fontsize=7, facecolor='#f8fafc', edgecolor='#9ca3af', labelcolor='#374151', ncol=3)
     ax.grid(True, alpha=0.4)
     fig.tight_layout()
     buf = chart_to_image(fig)
@@ -196,7 +196,7 @@ def make_spc_chart(spc_result: dict, width_pt: float) -> list:
     for mult, alpha in [(1, 0.06), (2, 0.04)]:
         ax.axhspan(cl_p - mult*sigma, cl_p + mult*sigma, alpha=alpha, color='#4f7cff')
     ax.set_xlabel('Subgroup'); ax.set_ylabel(pl)
-    ax.legend(fontsize=7, facecolor='#1c2030', edgecolor='#3a4060', labelcolor='#8b92b0', ncol=3)
+    ax.legend(fontsize=7, facecolor='#f8fafc', edgecolor='#9ca3af', labelcolor='#374151', ncol=3)
     ax.grid(True, alpha=0.35)
     fig.tight_layout()
     buf = chart_to_image(fig)
@@ -211,7 +211,7 @@ def make_spc_chart(spc_result: dict, width_pt: float) -> list:
         ax2.axhline(ucl_s, color='#f2525a', linestyle='--', linewidth=1, label=f'UCL={ucl_s:.4f}')
         ax2.axhline(cl_s,  color='#f5a623', linestyle='--', linewidth=1.2, label=f'CL={cl_s:.4f}')
         ax2.set_xlabel('Subgroup'); ax2.set_ylabel(sl)
-        ax2.legend(fontsize=7, facecolor='#1c2030', edgecolor='#3a4060', labelcolor='#8b92b0')
+        ax2.legend(fontsize=7, facecolor='#f8fafc', edgecolor='#9ca3af', labelcolor='#374151')
         ax2.grid(True, alpha=0.35)
         fig2.tight_layout()
         buf2 = chart_to_image(fig2)
@@ -238,10 +238,10 @@ def make_grr_chart(grr_result: dict, width_pt: float) -> Image:
     ax.axhline(30, color='#f2525a', linestyle='--', linewidth=1, label='30% threshold')
     for bar, val in zip(bars, values):
         ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
-                f'{val:.1f}%', ha='center', va='bottom', fontsize=8, color='#e8eaf2')
+                f'{val:.1f}%', ha='center', va='bottom', fontsize=8, color='#111827')
     ax.set_ylabel('% Study Variation')
     ax.set_ylim(0, max(max(values)+8, 35))
-    ax.legend(fontsize=7, facecolor='#1c2030', edgecolor='#3a4060', labelcolor='#8b92b0')
+    ax.legend(fontsize=7, facecolor='#f8fafc', edgecolor='#9ca3af', labelcolor='#374151')
     ax.grid(True, axis='y', alpha=0.35)
     fig.tight_layout()
     buf = chart_to_image(fig)
@@ -822,6 +822,11 @@ class StatMindDocTemplate(SimpleDocTemplate):
     def afterPage(self):
         canvas = self.canv
         w, h = A4
+        # Page background
+        canvas.saveState()
+        canvas.setFillColor(WHITE)
+        canvas.rect(0, 0, w, h, fill=1, stroke=0)
+        canvas.restoreState()
         # Header bar
         canvas.saveState()
         canvas.setFillColor(BG_CARD)

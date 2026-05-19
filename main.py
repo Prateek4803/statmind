@@ -310,8 +310,22 @@ _static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static_dir):
     app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
+def _serve_static_html(filename: str) -> HTMLResponse:
+    """Read and return an HTML file from the static directory."""
+    path = os.path.join(os.path.dirname(__file__), "static", filename)
+    if os.path.exists(path):
+        with open(path) as f:
+            return HTMLResponse(f.read())
+    return HTMLResponse(f"<h1>Not found: {filename}</h1>", status_code=404)
+
 @app.get("/", response_class=HTMLResponse)
+async def serve_landing():
+    """Marketing landing page."""
+    return _serve_static_html("landing.html")
+
+@app.get("/app", response_class=HTMLResponse)
 async def serve_frontend():
+    """The full analysis application."""
     html_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
     if os.path.exists(html_path):
         with open(html_path) as f:
@@ -324,9 +338,14 @@ async def serve_frontend():
         return HTMLResponse(content)
     return HTMLResponse(
         "<h1>StatMind v2.0</h1>"
-        "<p>Place statmind_r3.html in /static/index.html</p>"
+        "<p>Place index.html in /static/index.html</p>"
         "<p><a href='/api/docs'>API Docs</a></p>"
     )
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def serve_privacy():
+    """Privacy policy page."""
+    return _serve_static_html("privacy.html")
 
 # ── Dev runner ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":

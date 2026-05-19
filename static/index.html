@@ -672,6 +672,7 @@ textarea{resize:vertical;min-height:52px;}
 
   <!-- Right side -->
   <div class="nav-right">
+    <a href="/" style="font-size:11px;color:var(--text3);padding:4px 10px;border-radius:6px;border:1px solid var(--border);transition:all .15s;text-decoration:none;" onmouseover="this.style.color='var(--text2)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--text3)';this.style.borderColor='var(--border)'">← Home</a>
     <div class="api-dot checking" id="status-dot"></div>
     <span class="api-label" id="status-text">Checking…</span>
   </div>
@@ -1356,6 +1357,10 @@ textarea{resize:vertical;min-height:52px;}
       <div class="welcome-actions">
         <button class="wa-btn primary" onclick="openNewFileWizard()"><span class="wa-icon">📄</span> New File — Create Data</button>
         <button class="wa-btn secondary" onclick="openFileWizard()"><span class="wa-icon">📂</span> Open File — Upload Data</button>
+        <button class="wa-btn" style="background:rgba(45,212,160,0.08);border:1px solid rgba(45,212,160,0.25);color:var(--teal);" onclick="loadSampleDataset()"><span class="wa-icon">⚡</span> Try Sample Dataset</button>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--text3);">
+        New here? Hit <strong style="color:var(--teal)">Try Sample Dataset</strong> for an instant demo — no file needed.
       </div>
       <div class="feature-grid">
         <div class="feat-card" onclick="openFileWizard();setTimeout(()=>switchAnalysis('normality'),500)"><div class="feat-icon">⚗️</div><div class="feat-title">Normality Testing</div><div class="feat-desc">Shapiro-Wilk, Anderson-Darling, Ryan-Joiner</div></div>
@@ -5328,6 +5333,72 @@ if (_origApiCheck) {
   });
 }
 
+
+/* ── loadSampleDataset: one-click demo with realistic process data ─────── */
+function loadSampleDataset() {
+  // Realistic semiconductor etch depth measurements (nm) — 3 parameters
+  const sampleCSV = [
+    "EtchDepth_nm,Uniformity_pct,Selectivity",
+    "208.3,3.2,12.4","211.7,2.9,12.1","209.5,3.1,12.6","210.2,2.8,12.3",
+    "212.1,3.4,11.9","207.8,3.0,12.5","210.9,2.7,12.2","209.1,3.3,12.7",
+    "211.4,2.6,12.0","208.6,3.5,12.8","210.3,2.9,12.4","212.8,2.5,11.8",
+    "207.2,3.6,12.9","209.8,3.0,12.3","211.0,2.8,12.1","208.4,3.2,12.6",
+    "210.7,2.7,12.5","212.5,3.1,12.0","207.6,3.4,12.8","209.3,2.6,12.2",
+    "211.8,3.0,12.4","208.1,2.9,12.7","210.5,3.3,12.1","212.3,2.7,11.9",
+    "207.9,3.5,12.6","209.6,2.8,12.3","211.2,3.1,12.5","208.8,3.2,12.2",
+    "210.1,2.6,12.8","212.6,3.0,11.7","207.4,3.4,12.9","209.9,2.9,12.4",
+    "211.5,2.7,12.0","208.3,3.6,12.6","210.8,3.0,12.3","212.0,2.5,12.1",
+    "207.7,3.3,12.7","209.4,2.8,12.5","211.9,3.1,11.8","208.5,2.7,12.4"
+  ].join('\n');
+
+  // Parse inline — same path as universal parser but client-side for sample
+  const lines = sampleCSV.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim());
+  const rows = lines.slice(1).map(l => l.split(',').map(v => parseFloat(v.trim())));
+
+  // Build dataframe object matching the app's internal format
+  const df = {};
+  headers.forEach((h, i) => { df[h] = rows.map(r => r[i]); });
+
+  // Inject into global state
+  window._parsedData = { df, columns: headers, filename: 'sample_etch_data.csv' };
+  window._currentFilename = 'sample_etch_data.csv';
+  window._currentProcess = 'Semiconductor';
+
+  // Update context bar
+  const ctxFile = document.getElementById('ctx-file');
+  const ctxProc = document.getElementById('ctx-proc');
+  const ctxParam = document.getElementById('ctx-param');
+  if (ctxFile) ctxFile.textContent = 'sample_etch_data.csv';
+  if (ctxProc) ctxProc.textContent = 'Semiconductor';
+  if (ctxParam) ctxParam.textContent = '—';
+
+  // Show context bar
+  const ctxBar = document.getElementById('context-bar');
+  if (ctxBar) ctxBar.classList.add('visible');
+
+  // Hide welcome screen, show sidebar
+  const welcome = document.getElementById('welcome-screen');
+  if (welcome) welcome.style.display = 'none';
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) sidebar.style.display = '';
+
+  // Auto-navigate to capability analysis as the first demo
+  setTimeout(() => switchAnalysis('capability'), 100);
+
+  // Toast notification
+  const toast = document.createElement('div');
+  toast.style.cssText = [
+    'position:fixed','bottom:24px','left:50%','transform:translateX(-50%)',
+    'background:var(--bg3)','border:1px solid rgba(45,212,160,0.4)',
+    'color:var(--text)','padding:12px 20px','border-radius:10px',
+    'font-size:13px','z-index:9999','box-shadow:0 8px 24px rgba(0,0,0,0.4)',
+    'display:flex','align-items:center','gap:10px','max-width:380px'
+  ].join(';');
+  toast.innerHTML = '<span style="font-size:18px">⚡</span><div><strong>Sample dataset loaded!</strong><br><span style="color:var(--text2);font-size:12px">40 etch measurements · 3 parameters · Semiconductor process. Set USL/LSL and run Capability →</span></div>';
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .4s'; setTimeout(() => toast.remove(), 500); }, 5000);
+}
 
 /* ── goHome: return to welcome screen ─────────────────────────────────── */
 function goHome() {

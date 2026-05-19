@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>StatMind — Process Statistics Platform for Quality Engineers</title>
+<meta name="description" content="StatMind is the free, browser-based alternative to Minitab. Full SPC, capability analysis, DOE, Gauge R&R, and CAPA — no installation, no license fees.">
+<style>
+:root{
+  --bg:#0f1117;--bg2:#161b24;--bg3:#1e2535;--bg4:#252e40;
+  --border:rgba(100,200,180,0.12);--border2:rgba(100,200,180,0.28);
+  --text:#f0f2f0;--text2:#b8c4bb;--text3:#7a9080;
+  --accent:#2dd4a0;--accent2:#0fb888;
+  --green:#34d980;--amber:#f0b429;--red:#f05c5c;
+  --card-r:14px;
+  --font:'SF Pro Display','Inter','Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16px;line-height:1.6;min-height:100vh;overflow-x:hidden;}
+a{color:inherit;text-decoration:none;}
+
+/* ── NAV ── */
+.nav{
+  display:flex;align-items:center;justify-content:space-between;
+  height:56px;background:rgba(15,17,23,0.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border2);padding:0 32px;
+  position:sticky;top:0;z-index:100;
+}
+.nav-logo{display:flex;align-items:center;gap:10px;}
+.logo-mark{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#0f1117;flex-shrink:0;}
+.logo-name{font-size:17px;font-weight:700;}
+.nav-links{display:flex;align-items:center;gap:8px;}
+.nav-link{padding:6px 14px;border-radius:7px;font-size:13px;font-weight:500;color:var(--text2);transition:all .15s;cursor:pointer;}
+.nav-link:hover{background:var(--bg3);color:var(--text);}
+.nav-cta{padding:7px 18px;border-radius:8px;background:var(--accent);color:#0f1117;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;border:none;}
+.nav-cta:hover{background:var(--accent2);transform:translateY(-1px);}
+
+/* ── HERO ── */
+.hero{
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:96px 24px 80px;max-width:900px;margin:0 auto;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 14px;border-radius:20px;
+  background:rgba(45,212,160,0.1);border:1px solid rgba(45,212,160,0.3);
+  font-size:12px;font-weight:600;color:var(--accent);
+  margin-bottom:28px;letter-spacing:.4px;
+}
+.hero-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hero-title{
+  font-size:clamp(36px,6vw,68px);font-weight:800;line-height:1.1;
+  letter-spacing:-1.5px;margin-bottom:20px;
+}
+.hero-title span{
+  background:linear-gradient(135deg,var(--accent),#60a5fa 60%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero-sub{
+  font-size:clamp(16px,2.5vw,20px);color:var(--text2);max-width:620px;
+  margin-bottom:40px;line-height:1.7;
+}
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-bottom:56px;}
+.btn-primary{
+  padding:14px 32px;border-radius:10px;background:var(--accent);color:#0f1117;
+  font-size:15px;font-weight:700;cursor:pointer;border:none;
+  transition:all .2s;display:inline-flex;align-items:center;gap:8px;
+}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(45,212,160,0.3);}
+.btn-secondary{
+  padding:14px 32px;border-radius:10px;background:transparent;color:var(--text);
+  font-size:15px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border2);transition:all .2s;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.btn-secondary:hover{background:var(--bg3);border-color:var(--accent);}
+
+/* ── COMPARISON STRIP ── */
+.compare-strip{
+  display:flex;align-items:center;justify-content:center;gap:24px;
+  padding:0 24px 16px;flex-wrap:wrap;
+}
+.compare-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);}
+.compare-icon{font-size:16px;}
+.compare-val{font-weight:600;color:var(--text);}
+.compare-sep{width:1px;height:20px;background:var(--border2);}
+
+/* ── APP PREVIEW ── */
+.preview-wrap{
+  max-width:1100px;margin:0 auto;padding:0 24px 80px;
+}
+.preview-card{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:20px;
+  overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.5);
+}
+.preview-bar{
+  display:flex;align-items:center;gap:8px;padding:12px 18px;
+  background:var(--bg3);border-bottom:1px solid var(--border);
+}
+.preview-dot{width:10px;height:10px;border-radius:50%;}
+.preview-dots{display:flex;gap:6px;}
+.preview-url{
+  flex:1;background:var(--bg4);border-radius:6px;padding:4px 12px;
+  font-size:11px;color:var(--text3);text-align:center;
+}
+.preview-screen{
+  display:grid;grid-template-columns:240px 1fr;min-height:320px;
+}
+.preview-sidebar{
+  background:var(--bg3);border-right:1px solid var(--border);
+  padding:16px 12px;display:flex;flex-direction:column;gap:4px;
+}
+.ps-section{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;padding:8px 8px 4px;}
+.ps-item{
+  display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;
+  font-size:12px;color:var(--text2);cursor:pointer;transition:all .12s;
+}
+.ps-item:hover,.ps-item.active{background:var(--bg4);color:var(--text);}
+.ps-item.active{color:var(--accent);}
+.ps-icon{font-size:13px;width:18px;text-align:center;}
+.preview-main{
+  padding:24px;display:flex;flex-direction:column;gap:14px;
+}
+.pm-title{font-size:14px;font-weight:700;color:var(--text2);margin-bottom:4px;}
+/* Mini chart bars */
+.mini-chart{display:flex;align-items:flex-end;gap:3px;height:80px;}
+.mc-bar{background:var(--accent);border-radius:3px 3px 0 0;opacity:0.8;flex:1;transition:all .3s;}
+.mc-bar:hover{opacity:1;}
+.stat-row{display:flex;gap:10px;flex-wrap:wrap;}
+.stat-pill{
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:8px 14px;font-size:11px;
+}
+.stat-pill-label{color:var(--text3);margin-bottom:2px;}
+.stat-pill-val{font-size:16px;font-weight:700;color:var(--accent);}
+.status-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:10px;}
+.status-badge.pass{background:rgba(52,217,128,0.1);color:var(--green);}
+.status-badge.warn{background:rgba(240,180,41,0.1);color:var(--amber);}
+
+/* ── SECTION COMMON ── */
+section{padding:80px 24px;}
+.section-inner{max-width:1100px;margin:0 auto;}
+.section-label{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;}
+.section-title{font-size:clamp(28px,4vw,42px);font-weight:800;letter-spacing:-1px;margin-bottom:14px;line-height:1.15;}
+.section-sub{font-size:17px;color:var(--text2);max-width:560px;line-height:1.7;}
+
+/* ── FEATURES ── */
+.features-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:16px;margin-top:48px;
+}
+.feat-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);
+  padding:24px;cursor:pointer;transition:all .2s;
+}
+.feat-card:hover{border-color:var(--border2);background:var(--bg3);transform:translateY(-2px);}
+.feat-icon-wrap{
+  width:44px;height:44px;border-radius:11px;
+  background:rgba(45,212,160,0.1);border:1px solid rgba(45,212,160,0.2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;margin-bottom:14px;
+}
+.feat-name{font-size:15px;font-weight:700;margin-bottom:6px;}
+.feat-desc{font-size:13px;color:var(--text2);line-height:1.6;}
+.feat-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px;}
+.feat-tag{font-size:10px;padding:2px 8px;border-radius:6px;background:var(--bg4);color:var(--text3);}
+
+/* ── COMPARISON TABLE ── */
+.compare-table{
+  width:100%;margin-top:48px;border-collapse:collapse;
+  border:1px solid var(--border);border-radius:var(--card-r);overflow:hidden;
+}
+.compare-table th,.compare-table td{
+  padding:14px 20px;text-align:left;font-size:13px;
+  border-bottom:1px solid var(--border);
+}
+.compare-table th{
+  background:var(--bg3);font-weight:700;color:var(--text2);
+  font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+}
+.compare-table tr:last-child td{border-bottom:none;}
+.compare-table tr:hover td{background:var(--bg3);}
+.compare-table td:first-child{color:var(--text2);}
+.chk{color:var(--green);font-weight:700;}
+.cross{color:var(--text3);}
+.partial{color:var(--amber);}
+.highlight-col{background:rgba(45,212,160,0.04)!important;}
+.col-header-sm{color:var(--accent)!important;}
+
+/* ── INDUSTRIES ── */
+.industries-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+  gap:12px;margin-top:48px;
+}
+.ind-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);
+  padding:20px;text-align:center;transition:all .2s;cursor:default;
+}
+.ind-card:hover{border-color:var(--border2);background:var(--bg3);}
+.ind-icon{font-size:32px;margin-bottom:10px;}
+.ind-name{font-size:14px;font-weight:700;margin-bottom:4px;}
+.ind-desc{font-size:11px;color:var(--text3);}
+.ind-badge{
+  display:inline-block;margin-top:8px;
+  font-size:9px;font-weight:700;padding:2px 8px;border-radius:8px;
+  background:rgba(45,212,160,0.1);color:var(--accent);letter-spacing:.4px;
+}
+
+/* ── HOW IT WORKS ── */
+.steps{display:flex;flex-direction:column;gap:2px;margin-top:48px;max-width:680px;}
+.step{
+  display:flex;gap:20px;align-items:flex-start;
+  padding:24px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--card-r);position:relative;
+}
+.step-num{
+  width:36px;height:36px;border-radius:10px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:14px;color:#0f1117;flex-shrink:0;
+}
+.step-content{}
+.step-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+.step-desc{font-size:13px;color:var(--text2);}
+
+/* ── PRICING ── */
+.pricing-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:16px;margin-top:48px;
+}
+.price-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--card-r);
+  padding:28px;position:relative;transition:all .2s;
+}
+.price-card.featured{
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(45,212,160,0.3),0 12px 40px rgba(45,212,160,0.08);
+}
+.price-badge{
+  position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+  background:var(--accent);color:#0f1117;font-size:10px;font-weight:800;
+  padding:3px 14px;border-radius:10px;letter-spacing:.5px;white-space:nowrap;
+}
+.price-tier{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;}
+.price-amount{font-size:40px;font-weight:800;letter-spacing:-1.5px;margin-bottom:4px;}
+.price-amount span{font-size:18px;font-weight:500;color:var(--text2);}
+.price-desc{font-size:13px;color:var(--text2);margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.price-features{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:28px;}
+.price-features li{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--text2);}
+.price-features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0;}
+.price-cta{
+  display:block;text-align:center;padding:11px;border-radius:9px;
+  font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;border:none;width:100%;
+}
+.price-cta.primary{background:var(--accent);color:#0f1117;}
+.price-cta.primary:hover{background:var(--accent2);}
+.price-cta.outline{background:transparent;color:var(--text);border:1px solid var(--border2);}
+.price-cta.outline:hover{background:var(--bg3);border-color:var(--accent);}
+
+/* ── CTA SECTION ── */
+.cta-section{
+  text-align:center;padding:80px 24px;
+  background:radial-gradient(ellipse at center top,rgba(45,212,160,0.06) 0%,transparent 70%);
+  border-top:1px solid var(--border);
+}
+.cta-title{font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-1px;margin-bottom:16px;}
+.cta-sub{font-size:17px;color:var(--text2);max-width:480px;margin:0 auto 36px;}
+
+/* ── FOOTER ── */
+footer{
+  background:var(--bg2);border-top:1px solid var(--border);
+  padding:40px 24px;
+}
+.footer-inner{
+  max-width:1100px;margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:20px;
+}
+.footer-logo{display:flex;align-items:center;gap:9px;}
+.footer-logo-name{font-size:14px;font-weight:700;}
+.footer-tagline{font-size:11px;color:var(--text3);margin-top:2px;}
+.footer-links{display:flex;gap:20px;flex-wrap:wrap;}
+.footer-link{font-size:12px;color:var(--text3);transition:color .15s;}
+.footer-link:hover{color:var(--text2);}
+.footer-copy{font-size:11px;color:var(--text3);}
+
+/* ── MOBILE ── */
+@media(max-width:700px){
+  .nav{padding:0 16px;}
+  .nav-links .nav-link{display:none;}
+  .preview-screen{grid-template-columns:1fr;}
+  .preview-sidebar{display:none;}
+  .hero{padding:56px 16px 48px;}
+  .compare-sep{display:none;}
+  section{padding:56px 16px;}
+  .compare-table{display:block;overflow-x:auto;}
+  .footer-inner{flex-direction:column;align-items:flex-start;}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <a class="nav-logo" href="/">
+    <div class="logo-mark">S</div>
+    <div class="logo-name">StatMind</div>
+  </a>
+  <div class="nav-links">
+    <a class="nav-link" href="#features">Features</a>
+    <a class="nav-link" href="#compare">vs Minitab</a>
+    <a class="nav-link" href="#industries">Industries</a>
+    <a class="nav-link" href="/privacy">Privacy</a>
+  </div>
+  <a class="nav-cta" href="/app">Open App →</a>
+</nav>
+
+<!-- HERO -->
+<section style="padding:0;">
+  <div class="hero">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      Free · Browser-Based · No Installation Required
+    </div>
+    <h1 class="hero-title">
+      The Quality Engineer's<br><span>Statistics Engine</span>
+    </h1>
+    <p class="hero-sub">
+      Everything Minitab does — SPC, capability analysis, Gauge R&R, DOE, CAPA — 
+      free in your browser. No license. No install. No IT ticket.
+    </p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="/app">
+        <span>🚀</span> Start Analyzing Free
+      </a>
+      <a class="btn-secondary" href="#features">
+        <span>📊</span> See All Features
+      </a>
+    </div>
+    <div class="compare-strip">
+      <div class="compare-item">
+        <span class="compare-icon">💰</span>
+        <span>Minitab license</span>
+        <span class="compare-val">$2,000–$4,000/seat/yr</span>
+      </div>
+      <div class="compare-sep"></div>
+      <div class="compare-item">
+        <span class="compare-icon">✅</span>
+        <span>StatMind</span>
+        <span class="compare-val" style="color:var(--accent)">Free to start</span>
+      </div>
+      <div class="compare-sep"></div>
+      <div class="compare-item">
+        <span class="compare-icon">⚡</span>
+        <span>Ready in</span>
+        <span class="compare-val">0 seconds</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- APP PREVIEW -->
+<div class="preview-wrap">
+  <div class="preview-card">
+    <div class="preview-bar">
+      <div class="preview-dots">
+        <div class="preview-dot" style="background:#f05c5c"></div>
+        <div class="preview-dot" style="background:#f0b429"></div>
+        <div class="preview-dot" style="background:#34d980"></div>
+      </div>
+      <div class="preview-url">statmind-production.up.railway.app/app</div>
+    </div>
+    <div class="preview-screen">
+      <div class="preview-sidebar">
+        <div class="ps-section">Quality</div>
+        <div class="ps-item active"><span class="ps-icon">📐</span>Capability (Cp/Cpk)</div>
+        <div class="ps-item"><span class="ps-icon">📈</span>SPC Control Charts</div>
+        <div class="ps-item"><span class="ps-icon">6️⃣</span>Capability Sixpack</div>
+        <div class="ps-section">Stat Tests</div>
+        <div class="ps-item"><span class="ps-icon">⚗️</span>Normality Tests</div>
+        <div class="ps-item"><span class="ps-icon">🧪</span>Hypothesis Tests</div>
+        <div class="ps-section">Advanced</div>
+        <div class="ps-item"><span class="ps-icon">🔬</span>Gauge R&R (MSA)</div>
+        <div class="ps-item"><span class="ps-icon">🧫</span>Design of Experiments</div>
+        <div class="ps-item"><span class="ps-icon">🗄️</span>CAPA Engine</div>
+      </div>
+      <div class="preview-main">
+        <div class="pm-title">Process Capability — Etch Depth (nm)</div>
+        <div class="stat-row">
+          <div class="stat-pill"><div class="stat-pill-label">Cp</div><div class="stat-pill-val">1.48</div></div>
+          <div class="stat-pill"><div class="stat-pill-label">Cpk</div><div class="stat-pill-val" style="color:var(--green)">1.32</div></div>
+          <div class="stat-pill"><div class="stat-pill-label">Pp</div><div class="stat-pill-val">1.41</div></div>
+          <div class="stat-pill"><div class="stat-pill-label">Ppk</div><div class="stat-pill-val">1.29</div></div>
+          <div class="stat-pill"><div class="stat-pill-label">σ Level</div><div class="stat-pill-val">3.96</div></div>
+          <div class="stat-pill"><div class="stat-pill-label">Status</div><div class="stat-pill-val"><span class="status-badge pass">CAPABLE</span></div></div>
+        </div>
+        <div class="mini-chart" style="margin-top:12px;">
+          <div class="mc-bar" style="height:20%"></div>
+          <div class="mc-bar" style="height:35%"></div>
+          <div class="mc-bar" style="height:55%"></div>
+          <div class="mc-bar" style="height:75%"></div>
+          <div class="mc-bar" style="height:95%"></div>
+          <div class="mc-bar" style="height:100%"></div>
+          <div class="mc-bar" style="height:88%"></div>
+          <div class="mc-bar" style="height:72%"></div>
+          <div class="mc-bar" style="height:50%"></div>
+          <div class="mc-bar" style="height:30%"></div>
+          <div class="mc-bar" style="height:15%"></div>
+          <div class="mc-bar" style="height:8%"></div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);display:flex;justify-content:space-between;">
+          <span>LSL 180nm</span><span>Mean 210.4nm</span><span>USL 240nm</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features" style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  <div class="section-inner">
+    <div class="section-label">Full Feature Suite</div>
+    <h2 class="section-title">Everything in one tool</h2>
+    <p class="section-sub">Built for quality engineers at semiconductor, automotive, aerospace, and medical device firms. Not a toy — a real engine.</p>
+    <div class="features-grid">
+      <div class="feat-card">
+        <div class="feat-icon-wrap">⚗️</div>
+        <div class="feat-name">Normality Testing</div>
+        <div class="feat-desc">Test your data for normality before applying parametric methods. Essential for valid capability studies.</div>
+        <div class="feat-tags"><span class="feat-tag">Shapiro-Wilk</span><span class="feat-tag">Anderson-Darling</span><span class="feat-tag">Ryan-Joiner</span></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-wrap">📐</div>
+        <div class="feat-name">Process Capability</div>
+        <div class="feat-desc">Compute Cp, Cpk, Pp, Ppk with confidence intervals. Includes the full Capability Sixpack view.</div>
+        <div class="feat-tags"><span class="feat-tag">Cp / Cpk</span><span class="feat-tag">Pp / Ppk</span><span class="feat-tag">Sixpack</span><span class="feat-tag">Tolerance Intervals</span></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-wrap">📈</div>
+        <div class="feat-name">SPC Control Charts</div>
+        <div class="feat-desc">Real-time and historical control charts with full Western Electric rule detection and alarm flagging.</div>
+        <div class="feat-tags"><span class="feat-tag">I-MR</span><span class="feat-tag">Xbar-R</span><span class="feat-tag">Xbar-S</span><span class="feat-tag">CUSUM</span><span class="feat-tag">EWMA</span></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-wrap">🧪</div>
+        <div class="feat-name">Hypothesis Testing</div>
+        <div class="feat-desc">Compare means, detect shifts, and validate process changes with the right statistical test every time.</div>
+        <div class="feat-tags"><span class="feat-tag">t-test</span><span class="feat-tag">ANOVA</span><span class="feat-tag">Mann-Whitney</span><span class="feat-tag">Kruskal-Wallis</span></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-wrap">🔬</div>
+        <div class="feat-name">Gauge R&R (MSA)</div>
+        <div class="feat-desc">Full Measurement System Analysis — ANOVA and Xbar/R methods — to qualify your measurement tools.</div>
+        <div class="feat-tags"><span class="feat-tag">ANOVA</span><span class="feat-tag">Xbar/R</span><span class="feat-tag">Attribute Agreement</span></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-wrap">🧫</div>
+        <div class="feat-name">Design of Experiments</div>
+        <div class="feat-desc">Full/half/quarter factorial designs and Response Surface Methodology — auto-selects the right design.</div>
+        <div class="feat-tags"><span class="feat-tag">Full Factorial</span><span class="feat-tag">Fractional</span><span class="feat-tag">RSM / CCD</span><span class="feat-tag">Box-Behnken</span></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-wrap">🗄️</div>
+        <div class="feat-name">CAPA Engine</div>
+        <div class="feat-desc">Automatically synthesizes your analysis results into a structured CAPA report with corrective actions.</div>
+        <div class="feat-tags"><span class="feat-tag">Root Cause</span><span class="feat-tag">8D Logic</span><span class="feat-tag">PDF Export</span></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-wrap">🚦</div>
+        <div class="feat-name">Process Dashboard</div>
+        <div class="feat-desc">Traffic-light executive view of all parameters at once — green/amber/red by Cpk threshold.</div>
+        <div class="feat-tags"><span class="feat-tag">Multi-param</span><span class="feat-tag">Traffic Light</span><span class="feat-tag">Live Stream</span></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-wrap">📄</div>
+        <div class="feat-name">PDF Reporting</div>
+        <div class="feat-desc">One-click PDF export of your full analysis session — normality, capability, SPC, and CAPA combined.</div>
+        <div class="feat-tags"><span class="feat-tag">Auto-layout</span><span class="feat-tag">All analyses</span><span class="feat-tag">Branded</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- VS MINITAB -->
+<section id="compare">
+  <div class="section-inner">
+    <div class="section-label">Comparison</div>
+    <h2 class="section-title">StatMind vs Minitab</h2>
+    <p class="section-sub">Same analyses. No seat licenses. No IT bottleneck. Works anywhere a browser does.</p>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Capability</th>
+          <th class="col-header-sm highlight-col">StatMind</th>
+          <th>Minitab</th>
+          <th>Excel + plugins</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Normality Tests (Shapiro-Wilk, AD)</td><td class="chk highlight-col">✓</td><td class="chk">✓</td><td class="partial">Partial</td></tr>
+        <tr><td>Process Capability (Cp/Cpk/Pp/Ppk)</td><td class="chk highlight-col">✓</td><td class="chk">✓</td><td class="partial">Plugin needed</td></tr>
+        <tr><td>Capability Sixpack</td><td class="chk highlight-col">✓</td><td class="chk">✓</td><td class="cross">✗</td></tr>
+        <tr><td>SPC Control Charts (I-MR, Xbar-R/S)</td><td class="chk highlight-col">✓</td><td class="chk">✓</td><td class="partial">Manual</td></tr>
+        <tr><td>CUSUM / EWMA charts</td><td class="chk highlight-col">✓</td><td class="chk">✓</td><td class="cross">✗</td></tr>
+        <tr><td>Gauge R&R / MSA</td><td class="chk highlight-col">✓</td><td class="chk">✓</td><td class="cross">✗</td></tr>
+        <tr><td>Design of Experiments (DOE)</td><td class="chk highlight-col">✓</td><td class="chk">✓</td><td class="cross">✗</td></tr>
+        <tr><td>Response Surface Methodology</td><td class="chk highlight-col">✓</td><td class="chk">✓</td><td class="cross">✗</td></tr>
+        <tr><td>CAPA Report Generation</td><td class="chk highlight-col">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+        <tr><td>PDF Report Export</td><td class="chk highlight-col">✓</td><td class="chk">✓</td><td class="partial">Partial</td></tr>
+        <tr><td>Browser-based (no install)</td><td class="chk highlight-col">✓</td><td class="cross">✗</td><td class="cross">✗</td></tr>
+        <tr><td>Price</td><td class="highlight-col" style="color:var(--accent);font-weight:700">Free to start</td><td style="color:var(--red)">$2,000–$4,000/seat/yr</td><td style="color:var(--amber)">$150/yr + plugins</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- INDUSTRIES -->
+<section id="industries" style="background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  <div class="section-inner">
+    <div class="section-label">Industry Coverage</div>
+    <h2 class="section-title">Built for your vertical</h2>
+    <p class="section-sub">StatMind pre-configures CAPA rules, defaults, and context for your specific industry and regulatory framework.</p>
+    <div class="industries-grid">
+      <div class="ind-card">
+        <div class="ind-icon">⚡</div>
+        <div class="ind-name">Semiconductor</div>
+        <div class="ind-desc">Etch, CMP, Litho, Diffusion, Deposition</div>
+        <div class="ind-badge">SEMI E10 / E35</div>
+      </div>
+      <div class="ind-card">
+        <div class="ind-icon">🚗</div>
+        <div class="ind-name">Automotive</div>
+        <div class="ind-desc">PPAP, Control Plans, Process Audits</div>
+        <div class="ind-badge">IATF 16949</div>
+      </div>
+      <div class="ind-card">
+        <div class="ind-icon">✈️</div>
+        <div class="ind-name">Aerospace</div>
+        <div class="ind-desc">Flight-critical, NDT, Surface Integrity</div>
+        <div class="ind-badge">AS9100</div>
+      </div>
+      <div class="ind-card">
+        <div class="ind-icon">🏥</div>
+        <div class="ind-name">Medical Device</div>
+        <div class="ind-desc">Implant tolerances, Sterile process</div>
+        <div class="ind-badge">ISO 13485 / FDA</div>
+      </div>
+      <div class="ind-card">
+        <div class="ind-icon">📏</div>
+        <div class="ind-name">CMM / GD&T</div>
+        <div class="ind-desc">Dimensional inspection, Flatness, Position</div>
+        <div class="ind-badge">ASME Y14.5</div>
+      </div>
+      <div class="ind-card">
+        <div class="ind-icon">🔬</div>
+        <div class="ind-name">General / Lab</div>
+        <div class="ind-desc">R&D, Metrology, Any measurement system</div>
+        <div class="ind-badge">ISO 17025</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="section-inner">
+    <div class="section-label">How It Works</div>
+    <h2 class="section-title">First result in 60 seconds</h2>
+    <p class="section-sub">No account. No setup. Upload your CSV or use our sample dataset.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Open StatMind — no account needed</div>
+          <div class="step-desc">Hit "Open App" above. Runs entirely in your browser. Your data never leaves your machine.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Upload a CSV, Excel, or use the sample dataset</div>
+          <div class="step-desc">Supports CSV, Excel (.xlsx), TSV, CMM exports, and Q-DAS. Or click "Try Sample Dataset" for an instant demo.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Pick your analysis and run it</div>
+          <div class="step-desc">Select from the nav: Normality, Capability, SPC, DOE, and more. Results render instantly.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Generate a PDF report or CAPA</div>
+          <div class="step-desc">The CAPA engine reads your analysis session and writes a structured corrective action report. Export as PDF in one click.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2 class="cta-title">Start your first analysis now</h2>
+  <p class="cta-sub">No account. No credit card. Your data stays in your browser. Takes 60 seconds.</p>
+  <a class="btn-primary" href="/app" style="margin:0 auto;display:inline-flex;">
+    <span>🚀</span> Open StatMind Free
+  </a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div>
+      <div class="footer-logo">
+        <div class="logo-mark">S</div>
+        <div class="footer-logo-name">StatMind</div>
+      </div>
+      <div class="footer-tagline">Process statistics for quality engineers</div>
+    </div>
+    <div class="footer-links">
+      <a class="footer-link" href="/app">Open App</a>
+      <a class="footer-link" href="/privacy">Privacy Policy</a>
+      <a class="footer-link" href="mailto:hello@statmind.io">Contact</a>
+    </div>
+    <div class="footer-copy">© 2025 StatMind. All rights reserved.</div>
+  </div>
+</footer>
+
+</body>
+</html>

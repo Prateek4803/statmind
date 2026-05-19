@@ -1749,11 +1749,13 @@ async def equiv_analyze(
     if col_a not in r.df.columns or col_b not in r.df.columns:
         raise HTTPException(404, f"Columns not found. Available: {r.numeric_columns}")
     import dataclasses as dc
-    from equivalence_test import equivalence_test
+    from equivalence_test import tost_equivalence
     try:
-        res = equivalence_test(r.df[col_a].dropna().values.astype(float),
+        delta_abs = (delta_pct / 100.0) * abs(float(r.df[col_a].mean()))
+        res = tost_equivalence(r.df[col_a].dropna().values.astype(float),
                                r.df[col_b].dropna().values.astype(float),
-                               col_a, col_b, delta_pct=delta_pct, alpha=alpha, usl=usl, lsl=lsl)
+                               delta=delta_abs, alpha=alpha,
+                               name_a=col_a, name_b=col_b)
         return jd(dc.asdict(res))
     except Exception as e: raise HTTPException(400, str(e))
 
@@ -1761,12 +1763,13 @@ async def equiv_analyze(
 async def equiv_from_lists(request: Request):
     b = await request.json()
     import dataclasses as dc
-    from equivalence_test import equivalence_test
+    from equivalence_test import tost_equivalence
     try:
-        res = equivalence_test(np.array(b["data_a"]), np.array(b["data_b"]),
-                               b.get("name_a","A"), b.get("name_b","B"),
-                               delta_pct=b.get("delta_pct",5.0), alpha=b.get("alpha",0.05),
-                               usl=b.get("usl"), lsl=b.get("lsl"))
+        mean_a = float(np.mean(b["data_a"]))
+        delta_abs = (b.get("delta_pct", 5.0) / 100.0) * abs(mean_a)
+        res = tost_equivalence(np.array(b["data_a"]), np.array(b["data_b"]),
+                               delta=delta_abs, alpha=b.get("alpha",0.05),
+                               name_a=b.get("name_a","A"), name_b=b.get("name_b","B"))
         return jd(dc.asdict(res))
     except Exception as e: raise HTTPException(400, str(e))
 
@@ -2121,8 +2124,8 @@ async def correlation_matrix(
         raise HTTPException(400, str(e))
     import dataclasses as dc
     try:
-        from correlation import correlation_heatmap
-        r = correlation_heatmap(result.df[result.numeric_columns], method=method, alpha=alpha)
+        from correlation import correlation_matrix as _corr_matrix
+        r = _corr_matrix(result.df[result.numeric_columns], alpha=alpha)
         return jd(dc.asdict(r))
     except Exception as e:
         raise HTTPException(400, str(e))

@@ -1656,6 +1656,11 @@ function showQuickAnalysisBar(){
     colStatsCap=cols;
     buildColList('cap-col-list',cols,c=>{selectedCapCol=c.name;hlt('cap-col-list',c.name);document.getElementById('spec-form').style.display='flex';document.getElementById('spec-hint').innerHTML=`x̄=${c.mean} · σ=${c.std} · [${c.min},${c.max}]`;document.getElementById('usl-input').value=(c.mean+3*c.std).toFixed(4);document.getElementById('lsl-input').value=(c.mean-3*c.std).toFixed(4);});
     document.getElementById('cap-col-section').style.display='block';
+    // Auto-select the first column so the USL/LSL form appears automatically
+    setTimeout(() => {
+        const firstCol = document.querySelector('#cap-col-list .col-item');
+        if(firstCol) firstCol.click();
+    }, 50);
     document.getElementById('cap-upload-title').textContent=globalFile.name;
     document.getElementById('norm-upload-title').textContent=globalFile.name;
     document.getElementById('run-norm-btn').disabled=false;
@@ -1901,7 +1906,16 @@ function switchAnalysis(tab){
     // ── Content area: restore previous result or show empty state ──────────
     if(tab==='spc'){const k=Object.keys(spcData)[0];if(k)renderSPC(spcData[k]);else showEmpty('📈','SPC Control Charts','Upload process data and select a column. Detects Western Electric and Nelson rule violations.');}
     else if(tab==='capa'){autoPopulateCAPA();updateAttachStatus();setTimeout(()=>{capaGoStep(1);const k=Object.keys(capaReports)[0];if(k){renderCAPA(capaReports[k]);capaGoStep(4);}else showEmpty('🗄️','CAPA Engine','Select process type in the sidebar → link data → generate report. Use the 4-step wizard on the left.');},20);}
-    else if(tab==='capability'){const k=Object.keys(capData)[0];if(k)renderCap(capData[k]);else showEmpty('📐','Capability Analysis (Cp/Cpk)','Upload process data, select a column, enter USL and LSL, then run.');}
+else if(tab==='capability'){
+    const k=Object.keys(capData)[0];
+    if(k) renderCap(capData[k]);
+    else {
+        const desc = (globalFile || window._parsedData) 
+            ? 'File loaded successfully! Select a column in the sidebar, enter USL and LSL, then run.' 
+            : 'Upload process data, select a column, enter USL and LSL, then run.';
+        showEmpty('📐','Capability Analysis (Cp/Cpk)', desc);
+    }
+}
     else if(tab==='normality'){if(normData&&normData.results[0])showNorm(normData.results[0].column);else showEmpty('⚗️','Normality Tests','Upload data and run. Shapiro-Wilk, Anderson-Darling, Ryan-Joiner tests with probability plot.');}
     else if(tab==='grr'){const k=Object.keys(grrData)[0];if(k)renderGRR(grrData[k]);else showEmpty('🔬','Gauge R&R (MSA)','Upload a GRR study file with Part, Operator, Measurement columns.');}
     else if(tab==='report'){autoPopulateCAPA();updateReportStatus();showEmpty('📄','Generate PDF Report','All completed sessions are included automatically. Enter parameter name and click Generate.');}
@@ -5384,6 +5398,13 @@ function loadSampleDataset() {
   if (sidebar) sidebar.style.display = '';
 
   // Auto-navigate to capability analysis as the first demo
+  // Trick the app into treating the sample data like a real file upload
+  const blob = new Blob([sampleCSV], {type: 'text/csv'});
+  globalFile = new File([blob], 'sample_etch_data.csv', {type: 'text/csv'});
+  
+  // Trigger the sidebar pipeline
+  autoLoadGlobalFile();
+
   setTimeout(() => switchAnalysis('capability'), 100);
 
   // Toast notification

@@ -583,6 +583,58 @@ textarea{resize:vertical;min-height:52px;}
   .mob-sidebar-toggle { display:none !important; }
 }
 
+/* ── Capability index tooltip ── */
+.cap-tooltip {
+  position: fixed;
+  z-index: 9000;
+  display: none;
+  max-width: 320px;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.cap-tooltip .ct-verdict {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+.cap-tooltip .ct-desc {
+  font-size: 11px;
+  color: var(--text2);
+  margin-bottom: 4px;
+}
+.cap-tooltip .ct-thresholds {
+  font-size: 11px;
+  color: var(--text3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.cap-tooltip .ct-th-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* ── Chart modal canvas — crisp rendering ── */
+#chart-modal {
+  cursor: zoom-out;
+}
+#modal-canvas {
+  border-radius: 10px;
+  cursor: default;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
 </style>
 </head>
 <body>
@@ -599,6 +651,21 @@ textarea{resize:vertical;min-height:52px;}
     <button class="nav-btn" onclick="openFileWizard()"><span class="nav-icon">📂</span> Open File</button>
   </div>
 
+  <div class="nav-sep"></div>
+  <!-- Data group -->
+  <div class="nav-group">
+    <div class="nav-dropdown">
+      <button class="nav-btn" id="nav-data" data-group="data"><span class="nav-icon">🗃️</span> Data <span style="font-size:9px;margin-left:2px">▾</span></button>
+      <div class="nav-dropdown-menu">
+        <div class="nav-dd-section">Transform</div>
+        <div class="nav-dd-item" onclick="switchAnalysis('datastudio')"><span class="nav-dd-icon">🛠️</span><span class="nav-dd-label">Data Studio</span><span class="nav-dd-tag">Excel/JMP</span></div>
+        <div class="nav-dd-sep"></div>
+        <div class="nav-dd-section">Advanced Regression</div>
+        <div class="nav-dd-item" onclick="switchAnalysis('logistic')"><span class="nav-dd-icon">📈</span><span class="nav-dd-label">Logistic Regression</span><span class="nav-dd-tag">JMP</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('stepwise')"><span class="nav-dd-icon">🪜</span><span class="nav-dd-label">Stepwise Regression</span><span class="nav-dd-tag">JMP</span></div>
+      </div>
+    </div>
+  </div>
   <div class="nav-sep"></div>
 
   <!-- Statistical Tests dropdown -->
@@ -620,6 +687,11 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-item" onclick="switchAnalysis('equivalence')"><span class="nav-dd-icon">⚖️</span><span class="nav-dd-label">Equivalence Test (TOST)</span></div>
         <div class="nav-dd-item" onclick="switchAnalysis('outliers')"><span class="nav-dd-icon">🎯</span><span class="nav-dd-label">Outlier Detection</span></div>
         <div class="nav-dd-item" onclick="switchAnalysis('samplesize')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">Sample Size Calculator</span></div>
+        <div class="nav-dd-sep"></div>
+        <div class="nav-dd-section">Multivariate</div>
+        <div class="nav-dd-item" onclick="switchAnalysis('pca')"><span class="nav-dd-icon">🔭</span><span class="nav-dd-label">Principal Component Analysis</span><span class="nav-dd-tag">JMP</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('scattermatrix')"><span class="nav-dd-icon">🔲</span><span class="nav-dd-label">Scatter Plot Matrix</span><span class="nav-dd-tag">JMP</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('boxplot')"><span class="nav-dd-icon">📦</span><span class="nav-dd-label">Box Plot / Violin</span><span class="nav-dd-tag">SigmaPlot</span></div>
       </div>
     </div>
 
@@ -641,6 +713,11 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-section">Measurement Systems</div>
         <div class="nav-dd-item" onclick="switchAnalysis('grr')"><span class="nav-dd-icon">🔬</span><span class="nav-dd-label">Gauge R&amp;R (MSA)</span><span class="nav-dd-tag" id="dd-tag-grr"></span></div>
         <div class="nav-dd-item" onclick="switchAnalysis('aaa')"><span class="nav-dd-icon">✅</span><span class="nav-dd-label">Attribute Agreement</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('attrchart')"><span class="nav-dd-icon">📊</span><span class="nav-dd-label">Attribute Charts (p/np/u/c)</span><span class="nav-dd-tag">JMP</span></div>
+        <div class="nav-dd-sep"></div>
+        <div class="nav-dd-section">Reliability</div>
+        <div class="nav-dd-item" onclick="switchAnalysis('weibull')"><span class="nav-dd-icon">📉</span><span class="nav-dd-label">Weibull / Reliability</span><span class="nav-dd-tag">JMP</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('linearity')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">MSA Linearity &amp; Bias</span><span class="nav-dd-tag">JMP</span></div>
       </div>
     </div>
 
@@ -1347,6 +1424,143 @@ textarea{resize:vertical;min-height:52px;}
       </div>
     </div>
 
+    <!-- Attribute Control Charts sidebar -->
+    <div id="sb-attrchart" style="display:none">
+      <div class="sl">Chart Type</div>
+      <select id="attr-chart-type" style="margin-bottom:8px">
+        <option value="p">p Chart — proportion defective (variable n)</option>
+        <option value="np">np Chart — number defective (constant n)</option>
+        <option value="u">u Chart — defects per unit (variable n)</option>
+        <option value="c">c Chart — count of defects (constant n)</option>
+      </select>
+      <div class="upload-zone" id="attr-upload"><input type="file" id="attr-file-input" accept=".csv,.xlsx,.xls"/><div style="font-size:20px;margin-bottom:5px">📊</div><div style="font-size:13px;font-weight:600" id="attr-upload-title">Drop file or click</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Columns: Subgroup, Defects, [SampleSize]</div></div>
+      <div id="attr-col-section" style="display:none">
+        <div class="sl">Defects/Failures Column</div>
+        <div class="col-list" id="attr-def-list" style="max-height:100px"></div>
+        <div class="sl" style="margin-top:6px">Sample Size Column <span style="color:var(--text3);font-weight:400">(if variable)</span></div>
+        <div class="col-list" id="attr-n-list" style="max-height:80px"></div>
+        <div class="ctrl-row"><label>Const. sample size n</label><input type="number" id="attr-const-n" value="100" style="width:80px"/></div>
+      </div>
+      <button class="run-btn" id="run-attr-btn" disabled>Run Attribute Chart</button>
+    </div>
+
+    <!-- Weibull / Reliability sidebar -->
+    <div id="sb-weibull" style="display:none">
+      <div class="sl">Analysis Type</div>
+      <select id="weibull-type" style="margin-bottom:8px">
+        <option value="weibull2">Weibull 2-parameter</option>
+        <option value="weibull3">Weibull 3-parameter</option>
+        <option value="lognormal">Lognormal</option>
+        <option value="exponential">Exponential</option>
+      </select>
+      <div class="upload-zone" id="weibull-upload"><input type="file" id="weibull-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">📉</div><div style="font-size:13px;font-weight:600" id="weibull-upload-title">Drop lifetime data</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Time-to-failure or censored data</div></div>
+      <div id="weibull-col-section" style="display:none">
+        <div class="sl">Time / Cycles Column</div>
+        <div class="col-list" id="weibull-col-list" style="max-height:100px"></div>
+        <div class="ctrl-row"><label>Censored column (optional)</label></div>
+        <div class="col-list" id="weibull-cens-list" style="max-height:80px"></div>
+        <div class="ctrl-row"><label>Confidence</label><select id="weibull-conf" style="width:auto"><option value="0.95" selected>95%</option><option value="0.90">90%</option></select></div>
+      </div>
+      <button class="run-btn" id="run-weibull-btn" disabled>Run Reliability Analysis</button>
+    </div>
+
+    <!-- MSA Linearity & Bias sidebar -->
+    <div id="sb-linearity" style="display:none">
+      <div class="upload-zone" id="lin-upload"><input type="file" id="lin-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">📏</div><div style="font-size:13px;font-weight:600" id="lin-upload-title">Drop file</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Columns: Reference, Measurement</div></div>
+      <div id="lin-col-section" style="display:none">
+        <div class="sl">Reference (master) value</div>
+        <div class="col-list" id="lin-ref-list" style="max-height:90px"></div>
+        <div class="sl" style="margin-top:6px">Gauge Measurement</div>
+        <div class="col-list" id="lin-meas-list" style="max-height:90px"></div>
+        <div class="field"><label>Process Variation (optional)</label><input type="number" id="lin-pv" step="any" placeholder="e.g. 0.5"/></div>
+      </div>
+      <button class="run-btn" id="run-lin-btn" disabled>Run Linearity &amp; Bias</button>
+    </div>
+
+    <!-- PCA sidebar -->
+    <div id="sb-pca" style="display:none">
+      <div class="upload-zone" id="pca-upload"><input type="file" id="pca-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">🔭</div><div style="font-size:13px;font-weight:600" id="pca-upload-title">Drop multi-column data</div><div style="font-size:11px;color:var(--text2);margin-top:2px">All numeric columns used as variables</div></div>
+      <div id="pca-options" style="display:none;flex-direction:column;gap:8px">
+        <div class="ctrl-row"><label>Components to retain</label><input type="number" id="pca-n-comp" value="3" min="2" max="10" style="width:60px"/></div>
+        <div class="ctrl-row"><label>Scaling</label><select id="pca-scale" style="width:auto"><option value="standardize">Standardize (Z-score)</option><option value="none">None (covariance)</option></select></div>
+      </div>
+      <button class="run-btn" id="run-pca-btn" disabled>Run PCA</button>
+    </div>
+
+    <!-- Scatter Matrix sidebar -->
+    <div id="sb-scattermatrix" style="display:none">
+      <div class="upload-zone" id="smat-upload"><input type="file" id="smat-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">🔲</div><div style="font-size:13px;font-weight:600" id="smat-upload-title">Drop multi-column data</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Shows all pairwise scatter plots</div></div>
+      <div class="ctrl-row" style="margin-top:6px"><label>Color by column (optional)</label></div>
+      <div id="smat-col-section" style="display:none">
+        <div class="col-list" id="smat-color-list" style="max-height:100px"></div>
+      </div>
+      <button class="run-btn" id="run-smat-btn" disabled>Build Scatter Matrix</button>
+    </div>
+
+    <!-- Box Plot / Violin sidebar -->
+    <div id="sb-boxplot" style="display:none">
+      <div class="upload-zone" id="bp-upload"><input type="file" id="bp-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">📦</div><div style="font-size:13px;font-weight:600" id="bp-upload-title">Drop file</div><div style="font-size:11px;color:var(--text2);margin-top:2px">One or more numeric columns</div></div>
+      <div id="bp-col-section" style="display:none">
+        <div class="sl">Columns to plot (select multiple)</div>
+        <div class="col-list" id="bp-col-list" style="max-height:160px"></div>
+      </div>
+      <div class="ctrl-row"><label>Chart type</label><select id="bp-type" style="width:auto"><option value="box">Box plot</option><option value="violin">Violin plot</option><option value="both">Both</option></select></div>
+      <div class="ctrl-row"><label>Show outliers</label><input type="checkbox" id="bp-outliers" checked/></div>
+      <button class="run-btn" id="run-bp-btn" disabled>Build Box Plot</button>
+    </div>
+
+    <!-- Data Studio sidebar -->
+    <div id="sb-datastudio" style="display:none">
+      <div class="sl">Data Operations</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:600;margin-bottom:4px">Stack Columns</div>
+          <div style="font-size:10px;color:var(--text3)">Wide → long format (multiple cols → one col + group)</div>
+          <div class="upload-zone" style="padding:10px;margin-top:6px"><input type="file" id="ds-stack-input" accept=".csv,.xlsx"/><div style="font-size:11px">Drop file to stack</div></div>
+          <button onclick="dsOperation('stack')" class="run-btn secondary" style="margin-top:6px;font-size:12px;padding:7px">Stack →</button>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:600;margin-bottom:4px">Unstack Column</div>
+          <div style="font-size:10px;color:var(--text3)">Long → wide (value + group col → separate cols)</div>
+          <div class="upload-zone" style="padding:10px;margin-top:6px"><input type="file" id="ds-unstack-input" accept=".csv,.xlsx"/><div style="font-size:11px">Drop file to unstack</div></div>
+          <button onclick="dsOperation('unstack')" class="run-btn secondary" style="margin-top:6px;font-size:12px;padding:7px">Unstack →</button>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:600;margin-bottom:4px">Formula Column</div>
+          <div style="font-size:10px;color:var(--text3)">Add calculated column (e.g. A+B, log(A), A/B)</div>
+          <input type="text" id="ds-formula" placeholder="e.g. col1 + col2 * 2" style="margin-top:6px;font-size:12px"/>
+          <input type="text" id="ds-formula-name" placeholder="New column name" style="margin-top:4px;font-size:12px"/>
+          <button onclick="dsAddFormulaColumn()" class="run-btn" style="margin-top:6px;font-size:12px;padding:7px">Add Column →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logistic Regression sidebar -->
+    <div id="sb-logistic" style="display:none">
+      <div class="upload-zone" id="logit-upload"><input type="file" id="logit-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">📈</div><div style="font-size:13px;font-weight:600" id="logit-upload-title">Drop file</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Binary outcome (0/1) + predictor columns</div></div>
+      <div id="logit-col-section" style="display:none">
+        <div class="sl">Binary Response Y (0/1)</div>
+        <div class="col-list" id="logit-y-list" style="max-height:80px"></div>
+        <div class="sl" style="margin-top:6px">Predictor(s) X</div>
+        <div class="col-list" id="logit-x-list" style="max-height:130px"></div>
+      </div>
+      <button class="run-btn" id="run-logit-btn" disabled>Run Logistic Regression</button>
+    </div>
+
+    <!-- Stepwise Regression sidebar -->
+    <div id="sb-stepwise" style="display:none">
+      <div class="upload-zone" id="sw-upload"><input type="file" id="sw-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">🪜</div><div style="font-size:13px;font-weight:600" id="sw-upload-title">Drop file</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Auto-selects significant predictors</div></div>
+      <div id="sw-col-section" style="display:none">
+        <div class="sl">Response Y</div>
+        <div class="col-list" id="sw-y-list" style="max-height:80px"></div>
+        <div class="sl" style="margin-top:6px">Candidate Predictors X (select all)</div>
+        <div class="col-list" id="sw-x-list" style="max-height:130px"></div>
+      </div>
+      <div class="ctrl-row"><label>Method</label><select id="sw-method" style="width:auto"><option value="forward">Forward</option><option value="backward">Backward</option><option value="both">Both</option></select></div>
+      <div class="ctrl-row"><label>Entry α</label><input type="number" id="sw-alpha-in" value="0.05" step="0.01" style="width:70px"/></div>
+      <button class="run-btn" id="run-sw-btn" disabled>Run Stepwise</button>
+    </div>
+
   </aside>
   <main class="content" id="content">
     <!-- Welcome screen — shown until file is loaded -->
@@ -1854,28 +2068,61 @@ const API=window.location.origin.includes('localhost')?'http://localhost:8010':'
 function openChartModal(chartOrCanvas) {
   const modal = document.getElementById('chart-modal');
   if(!modal) return;
-  modal.style.display = 'flex';
-  modal.style.flexDirection = 'column';
-  modal.style.alignItems = 'center';
-  modal.style.justifyContent = 'center';
-  const mc = document.getElementById('modal-canvas');
-  if(!mc) return;
-  // Size the modal canvas to the chart's natural size * 2
-  const src = (chartOrCanvas && chartOrCanvas.toBase64Image) ? chartOrCanvas : 
+
+  const src = (chartOrCanvas && chartOrCanvas.toBase64Image) ? chartOrCanvas :
               (chartOrCanvas && chartOrCanvas.chart) ? chartOrCanvas.chart : null;
-  if(src) {
-    try {
+  if(!src) return;
+
+  // ── Render at full device pixel ratio for crisp display ─────────────
+  try {
+    const mc = document.getElementById('modal-canvas');
+    if(!mc) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    // Target display size: 88vw × 76vh max
+    const maxW = Math.floor(window.innerWidth  * 0.88);
+    const maxH = Math.floor(window.innerHeight * 0.76);
+
+    // Source canvas logical size
+    const srcW = src.canvas ? src.canvas.clientWidth  || src.width  : src.width;
+    const srcH = src.canvas ? src.canvas.clientHeight || src.height : src.height;
+
+    // Scale to fill the modal while keeping aspect ratio
+    const scaleW = maxW / srcW;
+    const scaleH = maxH / srcH;
+    const scale  = Math.min(scaleW, scaleH, 3.0); // cap at 3×
+
+    const dispW = Math.round(srcW * scale);
+    const dispH = Math.round(srcH * scale);
+
+    // Set CSS display size
+    mc.style.width  = dispW + 'px';
+    mc.style.height = dispH + 'px';
+    // Set actual pixel buffer at DPR for sharpness
+    mc.width  = Math.round(dispW * dpr);
+    mc.height = Math.round(dispH * dpr);
+
+    const ctx = mc.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    // Draw at high quality using the chart's own canvas
+    if(src.canvas) {
+      ctx.drawImage(src.canvas, 0, 0, dispW, dispH);
+    } else {
+      // Fallback: base64 image
       const dataUrl = src.toBase64Image('image/png', 1.0);
-      mc.width  = Math.min(src.width  * 1.8, window.innerWidth  - 80);
-      mc.height = Math.min(src.height * 1.8, window.innerHeight - 120);
       const img = new Image();
-      img.onload = () => {
-        const ctx = mc.getContext('2d');
-        ctx.clearRect(0, 0, mc.width, mc.height);
-        ctx.drawImage(img, 0, 0, mc.width, mc.height);
-      };
+      img.onload = () => { ctx.drawImage(img, 0, 0, dispW, dispH); };
       img.src = dataUrl;
-    } catch(e) {}
+    }
+
+    // Store reference for scroll-zoom in modal
+    modal._chartRef = src;
+    modal.style.display = 'flex';
+  } catch(err) {
+    console.warn('Chart modal error:', err);
   }
 }
 
@@ -1935,7 +2182,10 @@ let currentSpcResult=null;
 // health check defined above
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
-const tabMap={spc:'sb-spc',capa:'sb-capa',capability:'sb-cap',normality:'sb-norm',grr:'sb-grr',report:'sb-report',hypothesis:'sb-hypothesis',pareto:'sb-pareto',sixpack:'sb-sixpack',regression:'sb-regression',transformation:'sb-transformation',multivari:'sb-multivari',doe:'sb-doe',tolerance:'sb-tolerance',aaa:'sb-aaa',comparison:'sb-comparison',livestream:'sb-livestream',processdash:'sb-processdash',cusum:'sb-cusum',runchart:'sb-runchart',correlation:'sb-correlation',equivalence:'sb-equivalence',outliers:'sb-outliers',samplesize:'sb-samplesize',twoway_anova:'sb-twoway_anova',rsm:'sb-rsm'};
+const tabMap={spc:'sb-spc',capa:'sb-capa',capability:'sb-cap',normality:'sb-norm',grr:'sb-grr',report:'sb-report',hypothesis:'sb-hypothesis',pareto:'sb-pareto',sixpack:'sb-sixpack',regression:'sb-regression',transformation:'sb-transformation',multivari:'sb-multivari',doe:'sb-doe',tolerance:'sb-tolerance',aaa:'sb-aaa',comparison:'sb-comparison',livestream:'sb-livestream',processdash:'sb-processdash',cusum:'sb-cusum',runchart:'sb-runchart',correlation:'sb-correlation',equivalence:'sb-equivalence',outliers:'sb-outliers',samplesize:'sb-samplesize',twoway_anova:'sb-twoway_anova',rsm:'sb-rsm',
+    attrchart:'sb-attrchart',weibull:'sb-weibull',linearity:'sb-linearity',
+    pca:'sb-pca',scattermatrix:'sb-scattermatrix',boxplot:'sb-boxplot',
+    datastudio:'sb-datastudio',logistic:'sb-logistic',stepwise:'sb-stepwise'};
 
 // Analysis history for back navigation
 let analysisHistory=[];
@@ -2035,6 +2285,15 @@ else if(tab==='capability'){
     else if(tab==='samplesize'){showEmpty('📏','Sample Size Calculator','Select study type and parameters. Calculates required n with power curve.');}
     else if(tab==='twoway_anova'){showEmpty('🔢','Two-Way ANOVA','Upload data with Response, Factor A, Factor B columns. Tests main effects and interaction.');}
     else if(tab==='rsm'){showEmpty('🏔️','Response Surface Methodology','Use the sidebar wizard: pick CCD or Box-Behnken design, define factors, generate matrix, fit model.');}
+    else if(tab==='attrchart'){showEmpty('📊','Attribute Control Charts (p/np/u/c)','Upload subgroup defect counts. Select p, np, u, or c chart in the sidebar and run — JMP equivalent.');}
+    else if(tab==='weibull'){showEmpty('📉','Weibull / Reliability Analysis','Upload time-to-failure data. Fits Weibull 2P/3P, lognormal, or exponential — reports B10/B50 life, hazard rate, probability plot.');}
+    else if(tab==='linearity'){showEmpty('📏','MSA Linearity & Bias','Upload reference vs measured value pairs. Evaluates whether gauge bias changes across the measurement range.');}
+    else if(tab==='pca'){showEmpty('🔭','Principal Component Analysis','Upload multi-column process data. PCA identifies the dominant sources of variation — essential for process fingerprinting and data reduction.');}
+    else if(tab==='scattermatrix'){showEmpty('🔲','Scatter Plot Matrix','Upload multi-column data. Shows all pairwise scatter plots with correlation coefficients — equivalent to JMP Graph Builder.');}
+    else if(tab==='boxplot'){showEmpty('📦','Box Plot / Violin','Upload data with numeric columns. Compare distributions, identify outliers, check spread — standard in SigmaPlot and MATLAB.');}
+    else if(tab==='datastudio'){showEmpty('🛠️','Data Studio','Stack/unstack columns, add formula columns — equivalent to JMP Tables menu and Excel Power Query.');}
+    else if(tab==='logistic'){showEmpty('📈','Logistic Regression','Upload data with a binary outcome (0/1) and numeric predictors. Reports odds ratios, ROC curve, and model fit.');}
+    else if(tab==='stepwise'){showEmpty('🪜','Stepwise Regression','Upload data and select a response + candidate predictors. Auto-selects the most significant variables using forward/backward entry.');}
     else{ showEmpty('📊', tab.charAt(0).toUpperCase()+tab.slice(1), 'Select options in the sidebar and run the analysis.'); }
 }
 
@@ -2643,6 +2902,214 @@ function showNorm(colName){
 }
 
 // ══ SESSION 4: GRR ═══════════════════════════════════════════════════════════
+// ── New analysis upload zones ─────────────────────────────────────────────────
+setupUpload('attr-upload','attr-file-input','attr-upload-title', f=>{
+  loadCols(f, cols=>{
+    document.getElementById('attr-col-section').style.display='flex';
+    document.getElementById('attr-col-section').style.flexDirection='column';
+    buildColList('attr-def-list', cols.filter(c=>c.n>0), c=>{ document.querySelectorAll('#attr-def-list .col-item').forEach(x=>x.classList.remove('selected')); event.target.closest('.col-item').classList.add('selected'); });
+    buildColList('attr-n-list', cols.filter(c=>c.n>0), c=>{ document.querySelectorAll('#attr-n-list .col-item').forEach(x=>x.classList.remove('selected')); event.target.closest('.col-item').classList.add('selected'); });
+    document.getElementById('run-attr-btn').disabled=false;
+  });
+});
+
+setupUpload('weibull-upload','weibull-file-input','weibull-upload-title', f=>{
+  loadCols(f, cols=>{
+    document.getElementById('weibull-col-section').style.display='flex';
+    document.getElementById('weibull-col-section').style.flexDirection='column';
+    buildColList('weibull-col-list', cols.filter(c=>c.n>0), c=>{ document.querySelectorAll('#weibull-col-list .col-item').forEach(x=>x.classList.remove('selected')); event.target.closest('.col-item').classList.add('selected'); });
+    document.getElementById('run-weibull-btn').disabled=false;
+  });
+});
+
+setupUpload('lin-upload','lin-file-input','lin-upload-title', f=>{
+  loadCols(f, cols=>{
+    document.getElementById('lin-col-section').style.display='flex';
+    document.getElementById('lin-col-section').style.flexDirection='column';
+    buildColList('lin-ref-list', cols.filter(c=>c.n>0), c=>{});
+    buildColList('lin-meas-list', cols.filter(c=>c.n>0), c=>{});
+    document.getElementById('run-lin-btn').disabled=false;
+  });
+});
+
+setupUpload('pca-upload','pca-file-input','pca-upload-title', f=>{
+  loadCols(f, cols=>{ document.getElementById('pca-options').style.display='flex'; document.getElementById('run-pca-btn').disabled=false; });
+});
+
+setupUpload('smat-upload','smat-file-input','smat-upload-title', f=>{
+  loadCols(f, cols=>{
+    document.getElementById('smat-col-section').style.display='block';
+    buildColList('smat-color-list', cols, c=>{});
+    document.getElementById('run-smat-btn').disabled=false;
+  });
+});
+
+setupUpload('bp-upload','bp-file-input','bp-upload-title', f=>{
+  loadCols(f, cols=>{
+    document.getElementById('bp-col-section').style.display='block';
+    buildColList('bp-col-list', cols.filter(c=>c.n>0), c=>{
+      event.target.closest('.col-item').classList.toggle('selected');
+    });
+    document.getElementById('run-bp-btn').disabled=false;
+  });
+});
+
+setupUpload('logit-upload','logit-file-input','logit-upload-title', f=>{
+  loadCols(f, cols=>{
+    document.getElementById('logit-col-section').style.display='block';
+    buildColList('logit-y-list', cols.filter(c=>c.n>0), c=>{});
+    buildColList('logit-x-list', cols.filter(c=>c.n>0), c=>{ event.target.closest('.col-item').classList.toggle('selected'); });
+    document.getElementById('run-logit-btn').disabled=false;
+  });
+});
+
+setupUpload('sw-upload','sw-file-input','sw-upload-title', f=>{
+  loadCols(f, cols=>{
+    document.getElementById('sw-col-section').style.display='block';
+    buildColList('sw-y-list', cols.filter(c=>c.n>0), c=>{});
+    buildColList('sw-x-list', cols.filter(c=>c.n>0), c=>{ event.target.closest('.col-item').classList.toggle('selected'); });
+    document.getElementById('run-sw-btn').disabled=false;
+  });
+});
+
+// ── Run handlers for new analyses ─────────────────────────────────────────────
+document.getElementById('run-attr-btn').addEventListener('click', async () => {
+  const f = document.querySelector('#attr-upload input[type=file]').files[0];
+  if(!f) return;
+  const chartType = document.getElementById('attr-chart-type').value;
+  const defCol = document.querySelector('#attr-def-list .col-item.selected')?.dataset?.col || '';
+  const nCol = document.querySelector('#attr-n-list .col-item.selected')?.dataset?.col || '';
+  const constN = parseInt(document.getElementById('attr-const-n').value) || 100;
+  const fd = new FormData(); fd.append('file', f);
+  const btn = document.getElementById('run-attr-btn'); btn.disabled=true; btn.textContent='Running…';
+  showContent(loadHtml('Building attribute control chart…'));
+  try {
+    const r = await fetch(`${API}/api/v1/attrchart/analyze?chart_type=${chartType}&defect_col=${encodeURIComponent(defCol)}&n_col=${encodeURIComponent(nCol)}&const_n=${constN}`, {method:'POST', body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
+    renderAttrChart(await r.json());
+  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
+  finally { btn.disabled=false; btn.textContent='Run Attribute Chart'; }
+});
+
+document.getElementById('run-weibull-btn').addEventListener('click', async () => {
+  const f = document.querySelector('#weibull-upload input[type=file]').files[0];
+  if(!f) return;
+  const col = document.querySelector('#weibull-col-list .col-item.selected')?.dataset?.col || '';
+  const dist = document.getElementById('weibull-type').value;
+  const conf = document.getElementById('weibull-conf').value;
+  const fd = new FormData(); fd.append('file', f);
+  const btn = document.getElementById('run-weibull-btn'); btn.disabled=true; btn.textContent='Running…';
+  showContent(loadHtml('Fitting reliability model…'));
+  try {
+    const r = await fetch(`${API}/api/v1/weibull/analyze?column=${encodeURIComponent(col)}&distribution=${dist}&confidence=${conf}`, {method:'POST', body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
+    renderWeibull(await r.json());
+  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
+  finally { btn.disabled=false; btn.textContent='Run Reliability Analysis'; }
+});
+
+document.getElementById('run-lin-btn').addEventListener('click', async () => {
+  const f = document.querySelector('#lin-upload input[type=file]').files[0];
+  if(!f) return;
+  const refCol = document.querySelector('#lin-ref-list .col-item.selected')?.dataset?.col || '';
+  const measCol = document.querySelector('#lin-meas-list .col-item.selected')?.dataset?.col || '';
+  const pv = parseFloat(document.getElementById('lin-pv').value) || null;
+  const fd = new FormData(); fd.append('file', f);
+  const btn = document.getElementById('run-lin-btn'); btn.disabled=true; btn.textContent='Running…';
+  showContent(loadHtml('Analyzing linearity and bias…'));
+  try {
+    let url = `${API}/api/v1/msa/linearity?ref_col=${encodeURIComponent(refCol)}&meas_col=${encodeURIComponent(measCol)}`;
+    if(pv) url += `&process_variation=${pv}`;
+    const r = await fetch(url, {method:'POST', body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
+    renderLinearity(await r.json());
+  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
+  finally { btn.disabled=false; btn.textContent='Run Linearity & Bias'; }
+});
+
+document.getElementById('run-pca-btn').addEventListener('click', async () => {
+  const f = document.querySelector('#pca-upload input[type=file]').files[0];
+  if(!f) return;
+  const nComp = parseInt(document.getElementById('pca-n-comp').value) || 3;
+  const scale = document.getElementById('pca-scale').value;
+  const fd = new FormData(); fd.append('file', f);
+  const btn = document.getElementById('run-pca-btn'); btn.disabled=true; btn.textContent='Running…';
+  showContent(loadHtml('Computing principal components…'));
+  try {
+    const r = await fetch(`${API}/api/v1/pca/analyze?n_components=${nComp}&scaling=${scale}`, {method:'POST', body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
+    renderPCA(await r.json());
+  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
+  finally { btn.disabled=false; btn.textContent='Run PCA'; }
+});
+
+document.getElementById('run-smat-btn').addEventListener('click', async () => {
+  const f = document.querySelector('#smat-upload input[type=file]').files[0];
+  if(!f) return;
+  const colorCol = document.querySelector('#smat-color-list .col-item.selected')?.dataset?.col || '';
+  const fd = new FormData(); fd.append('file', f);
+  const btn = document.getElementById('run-smat-btn'); btn.disabled=true; btn.textContent='Building…';
+  showContent(loadHtml('Building scatter matrix…'));
+  try {
+    const r = await fetch(`${API}/api/v1/scattermatrix/build?color_col=${encodeURIComponent(colorCol)}`, {method:'POST', body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
+    renderScatterMatrix(await r.json());
+  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
+  finally { btn.disabled=false; btn.textContent='Build Scatter Matrix'; }
+});
+
+document.getElementById('run-bp-btn').addEventListener('click', async () => {
+  const f = document.querySelector('#bp-upload input[type=file]').files[0];
+  if(!f) return;
+  const cols = [...document.querySelectorAll('#bp-col-list .col-item.selected')].map(x=>x.dataset.col);
+  const chartType = document.getElementById('bp-type').value;
+  const showOutliers = document.getElementById('bp-outliers').checked;
+  const fd = new FormData(); fd.append('file', f);
+  const btn = document.getElementById('run-bp-btn'); btn.disabled=true; btn.textContent='Building…';
+  showContent(loadHtml('Building box plot…'));
+  try {
+    const r = await fetch(`${API}/api/v1/boxplot/build?columns=${cols.map(encodeURIComponent).join(',')}&chart_type=${chartType}&show_outliers=${showOutliers}`, {method:'POST', body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
+    renderBoxPlot(await r.json());
+  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
+  finally { btn.disabled=false; btn.textContent='Build Box Plot'; }
+});
+
+document.getElementById('run-logit-btn').addEventListener('click', async () => {
+  const f = document.querySelector('#logit-upload input[type=file]').files[0];
+  if(!f) return;
+  const yCol = document.querySelector('#logit-y-list .col-item.selected')?.dataset?.col || '';
+  const xCols = [...document.querySelectorAll('#logit-x-list .col-item.selected')].map(x=>x.dataset.col);
+  const fd = new FormData(); fd.append('file', f);
+  const btn = document.getElementById('run-logit-btn'); btn.disabled=true; btn.textContent='Running…';
+  showContent(loadHtml('Fitting logistic model…'));
+  try {
+    const r = await fetch(`${API}/api/v1/regression/logistic?y_col=${encodeURIComponent(yCol)}&x_cols=${xCols.map(encodeURIComponent).join(',')}`, {method:'POST', body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
+    renderLogistic(await r.json());
+  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
+  finally { btn.disabled=false; btn.textContent='Run Logistic Regression'; }
+});
+
+document.getElementById('run-sw-btn').addEventListener('click', async () => {
+  const f = document.querySelector('#sw-upload input[type=file]').files[0];
+  if(!f) return;
+  const yCol = document.querySelector('#sw-y-list .col-item.selected')?.dataset?.col || '';
+  const xCols = [...document.querySelectorAll('#sw-x-list .col-item.selected')].map(x=>x.dataset.col);
+  const method = document.getElementById('sw-method').value;
+  const alphaIn = parseFloat(document.getElementById('sw-alpha-in').value) || 0.05;
+  const fd = new FormData(); fd.append('file', f);
+  const btn = document.getElementById('run-sw-btn'); btn.disabled=true; btn.textContent='Running…';
+  showContent(loadHtml('Running stepwise selection…'));
+  try {
+    const r = await fetch(`${API}/api/v1/regression/stepwise?y_col=${encodeURIComponent(yCol)}&x_cols=${xCols.map(encodeURIComponent).join(',')}&method=${method}&alpha_in=${alphaIn}`, {method:'POST', body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
+    renderStepwise(await r.json());
+  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
+  finally { btn.disabled=false; btn.textContent='Run Stepwise'; }
+});
+
+// ── GRR upload zone ─────────────────────────────────────────────────────────
 setupUpload('grr-upload','grr-file-input','grr-upload-title',async f=>{
   document.getElementById('grr-upload-title').textContent=f.name;showToast(`📂 ${f.name}`);
   const fd=new FormData();fd.append('file',f);
@@ -4243,42 +4710,120 @@ function sigmaLabel(sigma){
   return `<span style="color:${color}">${label}</span>`;
 }
 
-// Tooltip on hover for capability cards
-document.addEventListener('mouseover', e=>{
+// ── Capability index card hover tooltips ──────────────────────────────────────
+const _CAP_DESCS = {
+  Cp:  { what: 'Process spread vs spec width (centered assumption)',
+         formula: 'Cp = (USL − LSL) / 6σ_within',
+         note:  'Cp ignores centering. A high Cp with low Cpk means the process is capable but shifted off-target.' },
+  Cpk: { what: 'Actual process performance (accounts for centering)',
+         formula: 'Cpk = min(CPU, CPL) = min((USL−x̄)/3σ, (x̄−LSL)/3σ)',
+         note:  'Cpk is the primary supplier qualification index. Apple/IATF/AS9100: ≥1.33. Six Sigma: ≥1.67.' },
+  Pp:  { what: 'Long-term spread vs spec width (overall sigma)',
+         formula: 'Pp = (USL − LSL) / 6σ_overall',
+         note:  'Pp uses overall sigma including all shifts/drifts. Similar to Cp but reflects true production variation.' },
+  Ppk: { what: 'Long-term actual performance (overall sigma, centered)',
+         formula: 'Ppk = min((USL−x̄)/3σ_overall, (x̄−LSL)/3σ_overall)',
+         note:  'Ppk ≈ Cpk means process is stable. Large Cpk − Ppk gap indicates significant drift or shifts.' },
+  'σ': { what: 'Sigma level — defects per million (PPM)',
+         formula: 'σ = Cpk × 3  (short-term estimate)',
+         note:  '3σ = 66,807 PPM | 4σ = 6,210 PPM | 5σ = 233 PPM | 6σ = 3.4 PPM. Apple MQE target ≥4σ.' },
+};
+const _CAP_GRADES = [
+  { min: 1.67, label: 'Excellent',    color: 'var(--green)',  note: 'Meets Six Sigma supplier requirements (AIAG/IATF)' },
+  { min: 1.33, label: 'Capable',      color: 'var(--green)',  note: 'Meets Apple/automotive/aerospace standard' },
+  { min: 1.00, label: 'Marginal',     color: 'var(--amber)',  note: 'Barely capable — improvement strongly recommended' },
+  { min: 0.67, label: 'Lean',         color: 'var(--red)',    note: 'High defect risk — immediate process attention needed' },
+  { min: -Infinity, label: 'Not Capable', color: 'var(--red)', note: 'Defects actively produced — stop shipment and investigate' },
+];
+
+function _getCapGrade(val) {
+  return _CAP_GRADES.find(g => val >= g.min) || _CAP_GRADES[_CAP_GRADES.length-1];
+}
+
+document.addEventListener('mouseover', e => {
   const card = e.target.closest('.cap-idx-card');
   if(!card) return;
+
   let tip = document.getElementById('cap-tooltip');
-  if(!tip){ tip=document.createElement('div'); tip.id='cap-tooltip'; tip.className='cap-tooltip'; document.body.appendChild(tip); }
-  const metric = card.dataset.metric;
-  const val = parseFloat(card.dataset.val);
-  const isNN = card.dataset.isNonNormal==='true';
-  const descs = {
-    Cp:'Cp measures process spread relative to spec width (assumes centered). Target ≥1.33 for Apple/automotive suppliers.',
-    Cpk:'Cpk measures actual process performance accounting for centering. Industry standard: ≥1.33 for capable, ≥1.67 for excellent.',
-    Pp:'Pp uses overall (long-term) sigma. Reflects true production spread including shifts and drifts.',
-    Ppk:'Ppk is the long-term capability index. Should be close to Cpk — large gap indicates process drift.',
-    'σ':'Sigma level: 3σ = 66,807 PPM, 4σ = 6,210 PPM, 6σ = 3.4 PPM. Apple MQE target: ≥4σ.'
-  };
-  let verdict='', verdictColor='var(--text2)';
-  if(metric!=='σ'){
-    if(val>=1.67){verdict='Excellent — meets Six Sigma supplier requirements';verdictColor='var(--green)';}
-    else if(val>=1.33){verdict='Capable — meets Apple/automotive standard';verdictColor='var(--green)';}
-    else if(val>=1.0){verdict='Marginal — barely capable, improvement recommended';verdictColor='var(--amber)';}
-    else if(val>=0.67){verdict='Lean — high defect risk, process improvement required';verdictColor='var(--red)';}
-    else{verdict='Not Capable — process must be improved before production';verdictColor='var(--red)';}
+  if(!tip) {
+    tip = document.createElement('div');
+    tip.id = 'cap-tooltip';
+    tip.className = 'cap-tooltip';
+    document.body.appendChild(tip);
   }
-  const nnWarn = (isNN&&metric!=='σ') ? '<div style="margin-top:7px;font-size:11px;color:var(--amber)">⚠️ Non-normal data detected — these values assume normality and may not be accurate. Use non-normal capability analysis for reliable results.</div>' : '';
-  tip.innerHTML = `<div style="font-weight:600;margin-bottom:5px;color:var(--text)">${metric} = ${val}</div><div style="color:${verdictColor};font-weight:600;margin-bottom:5px">${verdict}</div><div style="color:var(--text2);font-size:11px">${descs[metric]||''}</div>${nnWarn}`;
-  tip.style.display='block';
-  tip.style.left=(e.clientX+12)+'px';
-  tip.style.top=(e.clientY-10)+'px';
+
+  const metric = card.dataset.metric;
+  const val    = parseFloat(card.dataset.val);
+  const isNN   = card.dataset.isNonNormal === 'true';
+  const desc   = _CAP_DESCS[metric] || { what:'', formula:'', note:'' };
+
+  let gradeHTML = '';
+  if(metric !== 'σ' && !isNaN(val)) {
+    const grade = _getCapGrade(val);
+    gradeHTML = `
+      <div class="ct-verdict" style="color:${grade.color}">
+        ${metric} = ${val.toFixed(3)} — ${grade.label}
+      </div>
+      <div style="font-size:11px;color:${grade.color};margin-bottom:6px">${grade.note}</div>`;
+  } else if(metric === 'σ' && !isNaN(val)) {
+    const ppm = val >= 6 ? 3.4 : val >= 5 ? 233 : val >= 4 ? 6210 : val >= 3 ? 66807 : 308537;
+    gradeHTML = `<div class="ct-verdict" style="color:var(--teal)">${val.toFixed(2)}σ — ~${ppm.toLocaleString()} PPM</div>`;
+  }
+
+  const thresholds = metric !== 'σ' ? `
+    <div class="ct-thresholds">
+      <div class="ct-th-row"><span>≥ 1.67</span><span style="color:var(--green)">Excellent (6σ)</span></div>
+      <div class="ct-th-row"><span>≥ 1.33</span><span style="color:var(--green)">Capable (AIAG/Apple)</span></div>
+      <div class="ct-th-row"><span>≥ 1.00</span><span style="color:var(--amber)">Marginal</span></div>
+      <div class="ct-th-row"><span>&lt; 1.00</span><span style="color:var(--red)">Not Capable</span></div>
+    </div>` : '';
+
+  const nnWarn = (isNN && metric !== 'σ') ? `
+    <div style="margin-top:8px;padding:6px 8px;background:rgba(240,180,41,0.08);border:1px solid rgba(240,180,41,0.25);border-radius:6px;font-size:11px;color:var(--amber)">
+      ⚠️ Non-normal data — these indices assume normality and may be misleading
+    </div>` : '';
+
+  tip.innerHTML = `
+    ${gradeHTML}
+    <div class="ct-desc"><strong>${metric}:</strong> ${desc.what}</div>
+    <div style="font-size:10px;color:var(--teal);font-family:var(--mono);margin:4px 0 4px">${desc.formula}</div>
+    <div class="ct-desc">${desc.note}</div>
+    ${thresholds}
+    ${nnWarn}`;
+
+  tip.style.display = 'block';
+  // Position: prefer right of cursor, flip left if near right edge
+  const tipW = 320, tipH = 220;
+  let left = e.clientX + 16;
+  let top  = e.clientY - 20;
+  if(left + tipW > window.innerWidth  - 10) left = e.clientX - tipW - 8;
+  if(top  + tipH > window.innerHeight - 10) top  = window.innerHeight - tipH - 10;
+  tip.style.left = left + 'px';
+  tip.style.top  = top  + 'px';
 });
-document.addEventListener('mousemove', e=>{
-  const tip=document.getElementById('cap-tooltip');
-  if(tip&&tip.style.display==='block'){ tip.style.left=(e.clientX+12)+'px'; tip.style.top=(e.clientY-10)+'px'; }
+
+document.addEventListener('mousemove', e => {
+  const tip = document.getElementById('cap-tooltip');
+  if(!tip || tip.style.display !== 'block') return;
+  const tipW = 320, tipH = tip.offsetHeight || 220;
+  let left = e.clientX + 16;
+  let top  = e.clientY - 20;
+  if(left + tipW > window.innerWidth  - 10) left = e.clientX - tipW - 8;
+  if(top  + tipH > window.innerHeight - 10) top  = window.innerHeight - tipH - 10;
+  tip.style.left = left + 'px';
+  tip.style.top  = top  + 'px';
 });
-document.addEventListener('mouseout', e=>{
-  if(!e.target.closest('.cap-idx-card')){ const tip=document.getElementById('cap-tooltip'); if(tip) tip.style.display='none'; }
+
+document.addEventListener('mouseleave', () => {
+  const tip = document.getElementById('cap-tooltip');
+  if(tip) tip.style.display = 'none';
+}, true);
+
+document.addEventListener('mouseout', e => {
+  if(!e.relatedTarget || !e.relatedTarget.closest('.cap-idx-card')) {
+    const tip = document.getElementById('cap-tooltip');
+    if(tip && !e.target.closest('.cap-idx-card')) tip.style.display = 'none';
+  }
 });
 
 /* ── Fix 2+5: Column / dataset renaming ── */
@@ -5603,6 +6148,326 @@ function loadSampleDataset() {
   setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .4s'; setTimeout(() => toast.remove(), 500); }, 5000);
 }
 
+
+/* ── Render functions for new JMP/MATLAB/SigmaPlot analyses ──────────────── */
+
+function renderAttrChart(r) {
+  const inCtrl = r.in_control;
+  const alarms = r.alarm_count || 0;
+  const chartName = {p:'p Chart',np:'np Chart',u:'u Chart',c:'c Chart'}[r.chart_type] || 'Attribute Chart';
+  showContent(`
+    <div class="results-header">
+      <div class="rh-title">${chartName}</div>
+      <div class="verdict-badge ${inCtrl?'vb-ok':'vb-bad'}">${inCtrl?'In Control':'Out of Control — '+alarms+' alarm(s)'}</div>
+    </div>
+    <div class="stats-grid">
+      <div class="sg-item"><div class="sg-label">UCL</div><div class="sg-val">${(r.ucl||0).toFixed(4)}</div></div>
+      <div class="sg-item"><div class="sg-label">Center</div><div class="sg-val">${(r.center_line||0).toFixed(4)}</div></div>
+      <div class="sg-item"><div class="sg-label">LCL</div><div class="sg-val">${(r.lcl||0).toFixed(4)}</div></div>
+      <div class="sg-item"><div class="sg-label">Alarms</div><div class="sg-val" style="color:${alarms>0?'var(--red)':'var(--green)'}">${alarms}</div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">${chartName}</div></div>
+      <div class="cb" style="height:260px"><canvas id="attr-chart-canvas"></canvas></div>
+    </div>
+    ${r.alarm_details && r.alarm_details.length ? `
+    <div class="card"><div class="ch"><div class="ct">Alarm Points</div></div>
+      <div class="cb"><table class="alarm-table">
+        <tr><th>Subgroup</th><th>Value</th><th>UCL</th><th>LCL</th></tr>
+        ${r.alarm_details.slice(0,10).map(a=>`<tr><td>${a.subgroup}</td><td style="color:var(--red)">${a.value.toFixed(4)}</td><td>${(r.ucl||0).toFixed(4)}</td><td>${(r.lcl||0).toFixed(4)}</td></tr>`).join('')}
+      </table></div>
+    </div>` : ''}
+  `);
+  const pts = r.points || [];
+  const alarmSet = new Set((r.alarm_details||[]).map(a=>a.subgroup));
+  charts['attr'] = new Chart(document.getElementById('attr-chart-canvas').getContext('2d'), {
+    type:'line',
+    data:{ datasets:[
+      {label:'Statistic', data:pts.map((v,i)=>({x:i+1,y:v})), borderColor:'#2dd4a0', borderWidth:1.5, pointRadius:pts.map((v,i)=>alarmSet.has(i+1)?5:3), pointBackgroundColor:pts.map((v,i)=>alarmSet.has(i+1)?'#f05c5c':'#2dd4a0'), fill:false, tension:0},
+      {label:'UCL', data:pts.map((_,i)=>({x:i+1,y:r.ucl})), borderColor:'#f05c5c', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false},
+      {label:'LCL', data:pts.map((_,i)=>({x:i+1,y:r.lcl||0})), borderColor:'#f05c5c', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false},
+      {label:'CL', data:pts.map((_,i)=>({x:i+1,y:r.center_line})), borderColor:'#f0b429', borderWidth:1, borderDash:[3,3], pointRadius:0, fill:false},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:true,labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}}}}}
+  });
+}
+
+function renderWeibull(r) {
+  const b10 = r.b10_life, b50 = r.b50_life, beta = r.beta, eta = r.eta;
+  showContent(`
+    <div class="results-header">
+      <div class="rh-title">Weibull / Reliability Analysis</div>
+      <div class="verdict-badge vb-ok">${r.distribution} Fit</div>
+    </div>
+    <div class="stats-grid">
+      <div class="sg-item"><div class="sg-label">β (Shape)</div><div class="sg-val">${(beta||0).toFixed(3)}</div></div>
+      <div class="sg-item"><div class="sg-label">η (Scale)</div><div class="sg-val">${(eta||0).toFixed(2)}</div></div>
+      <div class="sg-item"><div class="sg-label">B10 Life</div><div class="sg-val">${b10?(b10.toFixed(2)):'—'}</div></div>
+      <div class="sg-item"><div class="sg-label">B50 Life (Median)</div><div class="sg-val">${b50?(b50.toFixed(2)):'—'}</div></div>
+      <div class="sg-item"><div class="sg-label">Mean Life</div><div class="sg-val">${r.mean_life?(r.mean_life.toFixed(2)):'—'}</div></div>
+      <div class="sg-item"><div class="sg-label">R² (fit)</div><div class="sg-val">${r.r_squared?(r.r_squared.toFixed(4)):'—'}</div></div>
+    </div>
+    <div class="cb" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="card"><div class="ch"><div class="ct">Weibull Probability Plot</div></div><div class="cb" style="height:240px"><canvas id="weibull-prob-canvas"></canvas></div></div>
+      <div class="card"><div class="ch"><div class="ct">Hazard Rate</div></div><div class="cb" style="height:240px"><canvas id="weibull-hz-canvas"></canvas></div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Interpretation</div></div><div class="cb">
+      <div style="font-size:13px;color:var(--text2)">
+        ${beta<1?'<strong style="color:var(--amber)">β &lt; 1: Infant mortality</strong> — Failure rate decreasing. Burn-in testing recommended.':beta<1.5?'<strong style="color:var(--green)">β ≈ 1: Random failures</strong> — Constant failure rate. Exponential distribution fits equally well.':'<strong style="color:var(--red)">β &gt; 1: Wear-out failures</strong> — Failure rate increasing with age. Preventive maintenance or design improvement needed.'}
+        <br><br>B10 life (10% have failed) = ${b10?b10.toFixed(2):'—'} | B50 life (median) = ${b50?b50.toFixed(2):'—'}
+      </div>
+    </div></div>
+  `);
+  if(r.prob_x && r.prob_y) {
+    charts['wb1'] = new Chart(document.getElementById('weibull-prob-canvas').getContext('2d'), {
+      type:'scatter', data:{datasets:[{label:'Data',data:r.prob_x.map((x,i)=>({x,y:r.prob_y[i]})),pointRadius:4,pointBackgroundColor:'#2dd4a0'},{label:'Fit',data:r.fit_x.map((x,i)=>({x,y:r.fit_y[i]})),type:'line',borderColor:'#4f7cff',borderWidth:2,pointRadius:0,fill:false}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'ln(time)',color:'#8b92b0',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'ln(-ln(1-F))',color:'#8b92b0',font:{size:10}}}}}
+    });
+  }
+  if(r.hz_x && r.hz_y) {
+    charts['wb2'] = new Chart(document.getElementById('weibull-hz-canvas').getContext('2d'), {
+      type:'line', data:{datasets:[{label:'Hazard Rate',data:r.hz_x.map((x,i)=>({x,y:r.hz_y[i]})),borderColor:'#f05c5c',borderWidth:2,pointRadius:0,fill:true,backgroundColor:'rgba(240,92,92,0.08)'}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}}}}}
+    });
+  }
+}
+
+function renderLinearity(r) {
+  const bias = r.overall_bias, linR2 = r.linearity_r2, verdict = r.verdict;
+  showContent(`
+    <div class="results-header">
+      <div class="rh-title">MSA Linearity &amp; Bias</div>
+      <div class="verdict-badge ${verdict==='Acceptable'?'vb-ok':'vb-warn'}">${verdict}</div>
+    </div>
+    <div class="stats-grid">
+      <div class="sg-item"><div class="sg-label">Overall Bias</div><div class="sg-val" style="color:${Math.abs(bias||0)<0.05?'var(--green)':'var(--red)'}">${(bias||0).toFixed(4)}</div></div>
+      <div class="sg-item"><div class="sg-label">Linearity R²</div><div class="sg-val">${(linR2||0).toFixed(4)}</div></div>
+      <div class="sg-item"><div class="sg-label">Slope</div><div class="sg-val">${(r.slope||0).toFixed(4)}</div></div>
+      <div class="sg-item"><div class="sg-label">p-value (slope)</div><div class="sg-val" style="color:${(r.slope_p||1)<0.05?'var(--red)':'var(--green)'}">${(r.slope_p||1).toFixed(4)}</div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Linearity Plot (Bias vs Reference)</div></div><div class="cb" style="height:260px"><canvas id="lin-chart"></canvas></div></div>
+    <div class="card"><div class="ch"><div class="ct">Interpretation</div></div><div class="cb">
+      <div style="font-size:13px;color:var(--text2)">
+        ${r.slope_p<0.05?'<strong style="color:var(--red)">Significant linearity detected</strong> — Bias changes across the measurement range. Gauge calibration needed at multiple reference points.':'<strong style="color:var(--green)">Linearity is acceptable</strong> — Bias is consistent across the range.'}
+        ${Math.abs(bias||0)>0.05?' <br><strong style="color:var(--amber)">Overall bias is significant</strong> — Single-point recalibration may correct this.':''}
+      </div>
+    </div></div>
+  `);
+  if(r.ref_values && r.bias_values) {
+    charts['lin'] = new Chart(document.getElementById('lin-chart').getContext('2d'), {
+      type:'scatter',
+      data:{datasets:[
+        {label:'Bias',data:r.ref_values.map((x,i)=>({x,y:r.bias_values[i]})),pointRadius:5,pointBackgroundColor:'#2dd4a0'},
+        {label:'Fit line',data:r.fit_x.map((x,i)=>({x,y:r.fit_y[i]})),type:'line',borderColor:'#4f7cff',borderWidth:2,pointRadius:0,fill:false},
+        {label:'Zero',data:r.ref_values.map(x=>({x,y:0})),type:'line',borderColor:'rgba(255,255,255,0.3)',borderWidth:1,borderDash:[4,4],pointRadius:0,fill:false},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'Reference Value',color:'#8b92b0',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'Bias',color:'#8b92b0',font:{size:10}}}}}
+    });
+  }
+}
+
+function renderPCA(r) {
+  const expVar = r.explained_variance_ratio || [];
+  const cumVar = expVar.reduce((acc,v,i)=>{ acc.push((acc[i-1]||0)+v); return acc; }, []);
+  showContent(`
+    <div class="results-header">
+      <div class="rh-title">Principal Component Analysis</div>
+      <div class="verdict-badge vb-ok">${r.n_components} components, ${(cumVar[r.n_components-1]*100||0).toFixed(1)}% variance explained</div>
+    </div>
+    <div class="cb" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="card"><div class="ch"><div class="ct">Scree Plot (Variance Explained)</div></div><div class="cb" style="height:220px"><canvas id="pca-scree"></canvas></div></div>
+      <div class="card"><div class="ch"><div class="ct">PC1 vs PC2 Score Plot</div></div><div class="cb" style="height:220px"><canvas id="pca-scores"></canvas></div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Loadings Table (PC1–PC${Math.min(3,r.n_components)})</div></div><div class="cb"><table class="alarm-table">
+      <tr><th>Variable</th>${Array.from({length:Math.min(3,r.n_components)},(_,i)=>`<th>PC${i+1} (${(expVar[i]*100||0).toFixed(1)}%)</th>`).join('')}</tr>
+      ${(r.feature_names||[]).map((name,fi)=>`<tr><td>${name}</td>${Array.from({length:Math.min(3,r.n_components)},(_,ci)=>{const load=(r.loadings||[])[ci]?.[fi]||0;const col=Math.abs(load)>0.4?'var(--teal)':Math.abs(load)>0.2?'var(--amber)':'var(--text2)';return `<td style="color:${col};font-weight:${Math.abs(load)>0.3?600:400}">${load.toFixed(3)}</td>`}).join('')}</tr>`).join('')}
+    </table></div></div>
+    <div class="card"><div class="ch"><div class="ct">Interpretation</div></div><div class="cb">
+      <div style="font-size:13px;color:var(--text2)">
+        PC1 explains ${(expVar[0]*100||0).toFixed(1)}% of variance. 
+        ${cumVar[1]?(cumVar[1]*100).toFixed(1):'—'}% explained by first 2 components.
+        Strong loadings (|load| &gt; 0.4) indicate variables with high contribution to that PC.
+      </div>
+    </div></div>
+  `);
+  charts['pca1'] = new Chart(document.getElementById('pca-scree').getContext('2d'), {
+    data:{datasets:[
+      {type:'bar',label:'Individual',data:expVar.map((v,i)=>({x:i+1,y:v*100})),backgroundColor:'rgba(45,212,160,0.5)',borderColor:'rgba(45,212,160,0.8)',borderWidth:1},
+      {type:'line',label:'Cumulative',data:cumVar.map((v,i)=>({x:i+1,y:v*100})),borderColor:'#4f7cff',borderWidth:2,pointRadius:4,fill:false,yAxisID:'y2'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'Component',color:'#8b92b0',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'% Variance',color:'#8b92b0',font:{size:10}}},y2:{position:'right',grid:{display:false},ticks:{color:'#4f7cff',font:{size:9}},title:{display:true,text:'Cumulative %',color:'#4f7cff',font:{size:9}}}}}
+  });
+  if(r.scores && r.scores[0] && r.scores[1]) {
+    charts['pca2'] = new Chart(document.getElementById('pca-scores').getContext('2d'), {
+      type:'scatter',
+      data:{datasets:[{label:'Observations',data:r.scores[0].map((x,i)=>({x,y:r.scores[1][i]})),pointRadius:4,pointBackgroundColor:'rgba(45,212,160,0.7)',pointBorderColor:'transparent'}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'PC1',color:'#8b92b0',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'PC2',color:'#8b92b0',font:{size:10}}}}}
+    });
+  }
+}
+
+function renderScatterMatrix(r) {
+  const cols = r.columns || [];
+  const n = cols.length;
+  if(!n) { showContent('<div class="empty-state">No data returned</div>'); return; }
+  const cellSize = Math.min(160, Math.floor((window.innerWidth - 200) / n));
+  const gridHTML = cols.map((c1,i) => cols.map((c2,j) => {
+    if(i===j) return `<div style="width:${cellSize}px;height:${cellSize}px;background:var(--bg3);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--teal);text-align:center;padding:4px">${c1}</div>`;
+    const corr = (r.correlations||{})[c1+'__'+c2] || 0;
+    const col = corr>0.7?'rgba(45,212,160,0.7)':corr>0.4?'rgba(45,212,160,0.3)':corr<-0.7?'rgba(240,92,92,0.7)':corr<-0.4?'rgba(240,92,92,0.3)':'transparent';
+    return `<div style="width:${cellSize}px;height:${cellSize}px;position:relative;border-radius:6px;overflow:hidden;background:var(--bg3)">
+      <canvas id="smat-${i}-${j}" width="${cellSize}" height="${cellSize}"></canvas>
+      <div style="position:absolute;bottom:2px;right:4px;font-size:9px;color:var(--text3)">r=${corr.toFixed(2)}</div>
+    </div>`;
+  }).join('')).join('');
+  showContent(`
+    <div class="results-header"><div class="rh-title">Scatter Plot Matrix</div></div>
+    <div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat(${n},${cellSize}px);gap:4px;padding:10px">${gridHTML}</div></div>
+  `);
+  // Draw each scatter plot
+  cols.forEach((c1,i) => cols.forEach((c2,j) => {
+    if(i===j) return;
+    const canvas = document.getElementById(`smat-${i}-${j}`);
+    if(!canvas) return;
+    const xs = r.data?.[c2] || [], ys = r.data?.[c1] || [];
+    charts[`smat_${i}_${j}`] = new Chart(canvas.getContext('2d'), {
+      type:'scatter',
+      data:{datasets:[{data:xs.map((x,k)=>({x,y:ys[k]})),pointRadius:2,pointBackgroundColor:'rgba(45,212,160,0.5)',pointBorderColor:'transparent'}]},
+      options:{responsive:false,animation:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(100,200,180,0.05)'},ticks:{display:false}},y:{grid:{color:'rgba(100,200,180,0.05)'},ticks:{display:false}}}}
+    });
+  }));
+}
+
+function renderBoxPlot(r) {
+  const cols = r.columns || [];
+  const rows = (r.box_stats || []).map(s =>
+    `<tr><td>${s.column}</td><td>${s.min.toFixed(3)}</td><td>${s.q1.toFixed(3)}</td>
+     <td style="font-weight:600">${s.median.toFixed(3)}</td><td>${s.mean.toFixed(3)}</td>
+     <td>${s.q3.toFixed(3)}</td><td>${s.max.toFixed(3)}</td>
+     <td style="color:${s.n_outliers>0?'var(--amber)':'var(--text2)'}">${s.n_outliers}</td></tr>`
+  ).join('');
+  showContent(`
+    <div class="results-header"><div class="rh-title">Box Plot / Violin</div></div>
+    <div class="card"><div class="ch"><div class="ct">Box Plot</div></div><div class="cb" style="height:300px"><canvas id="bp-chart"></canvas></div></div>
+    <div class="card"><div class="ch"><div class="ct">Summary Statistics</div></div><div class="cb">
+      <table class="alarm-table">
+        <tr><th>Column</th><th>Min</th><th>Q1</th><th>Median</th><th>Mean</th><th>Q3</th><th>Max</th><th>Outliers</th></tr>
+        ${rows}
+      </table>
+    </div></div>
+  `);
+  const bs = r.box_stats || [];
+  const COLORS = ['rgba(45,212,160,0.7)','rgba(79,124,255,0.7)','rgba(240,180,41,0.7)','rgba(180,122,255,0.7)','rgba(240,92,92,0.7)'];
+  charts['bp'] = new Chart(document.getElementById('bp-chart').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels: bs.map(s=>s.column),
+      datasets:[
+        {label:'Min-Q1',data:bs.map(s=>[s.min,s.q1]),backgroundColor:'rgba(0,0,0,0)',borderColor:'rgba(100,200,180,0.4)',borderWidth:1,barPercentage:0.4,categoryPercentage:0.8},
+        {label:'Q1-Median',data:bs.map((s,i)=>[s.q1,s.median]),backgroundColor:COLORS.map(c=>c.replace('0.7','0.3')),borderColor:COLORS,borderWidth:2,barPercentage:0.4,categoryPercentage:0.8},
+        {label:'Median-Q3',data:bs.map((s,i)=>[s.median,s.q3]),backgroundColor:COLORS,borderColor:COLORS,borderWidth:2,barPercentage:0.4,categoryPercentage:0.8},
+        {label:'Q3-Max',data:bs.map(s=>[s.q3,s.max]),backgroundColor:'rgba(0,0,0,0)',borderColor:'rgba(100,200,180,0.4)',borderWidth:1,barPercentage:0.4,categoryPercentage:0.8},
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{stacked:false,grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb'}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb'}}}}
+  });
+}
+
+function renderLogistic(r) {
+  const roc = r.roc_auc || 0;
+  const coefs = r.coefficients || [];
+  showContent(`
+    <div class="results-header">
+      <div class="rh-title">Logistic Regression</div>
+      <div class="verdict-badge ${roc>0.8?'vb-ok':roc>0.6?'vb-warn':'vb-bad'}">AUC = ${roc.toFixed(3)}</div>
+    </div>
+    <div class="stats-grid">
+      <div class="sg-item"><div class="sg-label">ROC-AUC</div><div class="sg-val">${roc.toFixed(3)}</div></div>
+      <div class="sg-item"><div class="sg-label">Accuracy</div><div class="sg-val">${((r.accuracy||0)*100).toFixed(1)}%</div></div>
+      <div class="sg-item"><div class="sg-label">Log-Likelihood</div><div class="sg-val">${(r.log_likelihood||0).toFixed(2)}</div></div>
+      <div class="sg-item"><div class="sg-label">AIC</div><div class="sg-val">${(r.aic||0).toFixed(2)}</div></div>
+    </div>
+    <div class="cb" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="card"><div class="ch"><div class="ct">ROC Curve</div></div><div class="cb" style="height:240px"><canvas id="logit-roc"></canvas></div></div>
+      <div class="card"><div class="ch"><div class="ct">Odds Ratios</div></div><div class="cb" style="height:240px"><canvas id="logit-or"></canvas></div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Coefficients Table</div></div><div class="cb"><table class="alarm-table">
+      <tr><th>Variable</th><th>Coef (β)</th><th>Odds Ratio</th><th>Std Err</th><th>p-value</th><th>Sig</th></tr>
+      ${coefs.map(c=>`<tr><td>${c.name}</td><td>${(c.coef||0).toFixed(4)}</td><td style="font-weight:600">${(c.odds_ratio||0).toFixed(3)}</td><td>${(c.std_err||0).toFixed(4)}</td><td style="color:${(c.p_value||1)<0.05?'var(--red)':'var(--text2)'}">${(c.p_value||1).toFixed(4)}</td><td>${(c.p_value||1)<0.001?'***':(c.p_value||1)<0.01?'**':(c.p_value||1)<0.05?'*':''}</td></tr>`).join('')}
+    </table></div></div>
+  `);
+  if(r.roc_fpr && r.roc_tpr) {
+    charts['lr1'] = new Chart(document.getElementById('logit-roc').getContext('2d'), {
+      type:'line',
+      data:{datasets:[
+        {label:`ROC (AUC=${roc.toFixed(3)})`,data:r.roc_fpr.map((x,i)=>({x,y:r.roc_tpr[i]})),borderColor:'#2dd4a0',borderWidth:2,pointRadius:0,fill:false},
+        {label:'Random',data:[{x:0,y:0},{x:1,y:1}],borderColor:'rgba(255,255,255,0.2)',borderWidth:1,borderDash:[4,4],pointRadius:0,fill:false}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{type:'linear',min:0,max:1,grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'FPR',color:'#8b92b0',font:{size:10}}},y:{min:0,max:1,grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'TPR',color:'#8b92b0',font:{size:10}}}}}
+    });
+  }
+  if(coefs.length) {
+    charts['lr2'] = new Chart(document.getElementById('logit-or').getContext('2d'), {
+      type:'bar',
+      data:{labels:coefs.map(c=>c.name),datasets:[{label:'Odds Ratio',data:coefs.map(c=>c.odds_ratio||1),backgroundColor:coefs.map(c=>(c.p_value||1)<0.05?'rgba(45,212,160,0.7)':'rgba(100,120,140,0.4)'),borderColor:'transparent',borderWidth:0}]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}}},y:{grid:{display:false},ticks:{color:'#b8c4bb',font:{size:10}}}}}
+    });
+  }
+}
+
+function renderStepwise(r) {
+  const steps = r.steps || [];
+  const finalCols = r.selected_variables || [];
+  showContent(`
+    <div class="results-header">
+      <div class="rh-title">Stepwise Regression</div>
+      <div class="verdict-badge vb-ok">${finalCols.length} variable(s) selected</div>
+    </div>
+    <div class="stats-grid">
+      <div class="sg-item"><div class="sg-label">R²</div><div class="sg-val">${(r.r_squared||0).toFixed(4)}</div></div>
+      <div class="sg-item"><div class="sg-label">Adj R²</div><div class="sg-val">${(r.r_squared_adj||0).toFixed(4)}</div></div>
+      <div class="sg-item"><div class="sg-label">AIC</div><div class="sg-val">${(r.aic||0).toFixed(2)}</div></div>
+      <div class="sg-item"><div class="sg-label">RMSE</div><div class="sg-val">${(r.rmse||0).toFixed(4)}</div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Final Model Coefficients</div></div><div class="cb"><table class="alarm-table">
+      <tr><th>Variable</th><th>Coefficient</th><th>Std Error</th><th>t-stat</th><th>p-value</th><th>Sig</th></tr>
+      ${(r.coefficients||[]).map(c=>`<tr><td style="font-weight:${c.name==='Intercept'?400:600}">${c.name}</td><td>${(c.coef||0).toFixed(4)}</td><td>${(c.std_err||0).toFixed(4)}</td><td>${(c.t_stat||0).toFixed(3)}</td><td style="color:${(c.p_value||1)<0.05?'var(--red)':'var(--text2)'}">${(c.p_value||1).toFixed(4)}</td><td style="color:var(--green)">${(c.p_value||1)<0.001?'***':(c.p_value||1)<0.01?'**':(c.p_value||1)<0.05?'*':''}</td></tr>`).join('')}
+    </table></div></div>
+    <div class="card"><div class="ch"><div class="ct">Selection Steps</div></div><div class="cb"><table class="alarm-table">
+      <tr><th>Step</th><th>Action</th><th>Variable</th><th>AIC</th><th>R²</th></tr>
+      ${steps.map(s=>`<tr><td>${s.step}</td><td style="color:${s.action==='add'?'var(--green)':'var(--amber)'}">${s.action==='add'?'+ Add':'− Remove'}</td><td>${s.variable}</td><td>${(s.aic||0).toFixed(2)}</td><td>${(s.r_squared||0).toFixed(4)}</td></tr>`).join('')}
+    </table></div></div>
+    <div class="card"><div class="ch"><div class="ct">Fit vs Actual</div></div><div class="cb" style="height:240px"><canvas id="sw-fit-chart"></canvas></div></div>
+  `);
+  if(r.actual && r.fitted) {
+    charts['sw'] = new Chart(document.getElementById('sw-fit-chart').getContext('2d'), {
+      type:'scatter',
+      data:{datasets:[
+        {label:'Actual vs Fitted',data:r.actual.map((y,i)=>({x:r.fitted[i],y})),pointRadius:3,pointBackgroundColor:'rgba(45,212,160,0.6)'},
+        {label:'Perfect fit',data:[{x:Math.min(...r.fitted),y:Math.min(...r.actual)},{x:Math.max(...r.fitted),y:Math.max(...r.actual)}],type:'line',borderColor:'rgba(255,255,255,0.25)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'Fitted',color:'#8b92b0',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'Actual',color:'#8b92b0',font:{size:10}}}}}
+    });
+  }
+}
+
+function dsOperation(op) {
+  const input = document.getElementById(`ds-${op}-input`);
+  if(!input || !input.files[0]) { showToast('Drop a file first', true); return; }
+  const f = input.files[0];
+  const fd = new FormData(); fd.append('file', f);
+  fetch(`${API}/api/v1/data/transform?operation=${op}`, {method:'POST', body:fd})
+    .then(r => { if(!r.ok) throw new Error('Server error'); return r.blob(); })
+    .then(blob => {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = op + '_result.csv'; a.click();
+      showToast(`${op === 'stack' ? 'Stacked' : 'Unstacked'} data downloaded`);
+    })
+    .catch(e => showToast(e.message, true));
+}
+
+function dsAddFormulaColumn() {
+  showToast('Formula columns require an uploaded file — use Stack/Unstack first', true);
+}
 
 /* ── Transformation download / apply ─────────────────────────────────────── */
 function downloadTransformedData(r, fmt) {

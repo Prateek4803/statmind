@@ -1025,6 +1025,27 @@ async def correlation_analyze(file: UploadFile=File(...), alpha: float=Query(0.0
     try: return jd(dc.asdict(correlation_matrix(r.df,alpha=alpha,min_r=min_r)))
     except Exception as e: raise HTTPException(400,str(e))
 
+
+@app.post("/api/v1/correlation/matrix")
+async def correlation_matrix_endpoint(
+    file:   UploadFile = File(...),
+    method: str   = Query("pearson"),
+    alpha:  float = Query(0.05),
+):
+    """Correlation matrix — alias used by the frontend and CI."""
+    c = await file.read()
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    import dataclasses as dc
+    from correlation import correlation_matrix as _corr_matrix
+    try:
+        r = _corr_matrix(result.df, alpha=alpha)
+        return jd(dc.asdict(r))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
 @app.post("/api/v1/nonnormal-capability/analyze")
 async def nonnormal_cap(file: UploadFile=File(...), column: str=Query(...),
     usl: float=Query(None), lsl: float=Query(None)):
@@ -2551,10 +2572,10 @@ from typing import Optional
 # from fastapi.responses import JSONResponse
 #
 # @app.exception_handler(Exception)
-# async def global_exception_handler(request: Request, exc: Exception):
-#     import logging
-#     logging.error(f"Unhandled exception: {exc}", exc_info=True)
-#     return JSONResponse(
-#         status_code=500,
-#         content={"detail": str(exc), "type": type(exc).__name__},
-#     )
+async def global_exception_handler(request: Request, exc: Exception):
+    import logging
+    logging.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "type": type(exc).__name__},
+    )

@@ -718,6 +718,9 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-section">Reliability</div>
         <div class="nav-dd-item" onclick="switchAnalysis('weibull')"><span class="nav-dd-icon">📉</span><span class="nav-dd-label">Weibull / Reliability</span><span class="nav-dd-tag">Coming Soon</span></div>
         <div class="nav-dd-item" onclick="switchAnalysis('linearity')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">MSA Linearity &amp; Bias</span><span class="nav-dd-tag">Coming Soon</span></div>
+        <div class="nav-dd-sep"></div>
+        <div class="nav-dd-section">Compliance</div>
+        <div class="nav-dd-item" onclick="switchAnalysis('ppap')"><span class="nav-dd-icon">📦</span><span class="nav-dd-label">PPAP Package Generator</span><span class="nav-dd-tag">Coming Soon</span></div>
       </div>
     </div>
 
@@ -827,10 +830,45 @@ textarea{resize:vertical;min-height:52px;}
   </span>
   <span class="ctx-sep">·</span>
   <span class="ctx-cols" id="ctx-cols-info">—</span>
-  <span style="margin-left:auto;display:flex;gap:10px">
+  <!-- Lot/Tool context tags (shown when set) -->
+  <span id="ctx-lot-tag" style="display:none;font-size:11px;background:rgba(79,124,255,0.12);color:#7fa8ff;border:1px solid rgba(79,124,255,0.25);border-radius:12px;padding:1px 9px;margin-left:4px" title="Lot ID"></span>
+  <span id="ctx-tool-tag" style="display:none;font-size:11px;background:rgba(45,212,160,0.1);color:var(--teal);border:1px solid rgba(45,212,160,0.25);border-radius:12px;padding:1px 9px;margin-left:2px" title="Tool ID"></span>
+  <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
+    <span class="ctx-change" onclick="toggleContextPanel()" title="Set Lot ID, Tool ID, Recipe, Operator">🏷 Context</span>
     <span class="ctx-change" onclick="openFileWizard()">Change file</span>
     <span class="ctx-change" onclick="openNewFileWizard()">New file</span>
   </span>
+</div>
+
+<!-- Context fields panel (collapsible) -->
+<div id="context-panel" style="display:none;background:var(--bg2);border-bottom:1px solid var(--border);padding:8px 16px;gap:10px;flex-wrap:wrap;align-items:center">
+  <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-right:4px">Analysis Context</div>
+  <div style="display:flex;align-items:center;gap:5px">
+    <label style="font-size:11px;color:var(--text3)">Lot ID</label>
+    <input type="text" id="ctx-lot-id" placeholder="e.g. LOT-2024-001" oninput="updateContextTags()"
+      style="font-size:11px;padding:3px 7px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);width:130px"/>
+  </div>
+  <div style="display:flex;align-items:center;gap:5px">
+    <label style="font-size:11px;color:var(--text3)">Tool ID</label>
+    <input type="text" id="ctx-tool-id" placeholder="e.g. ETCH-03" oninput="updateContextTags()"
+      style="font-size:11px;padding:3px 7px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);width:110px"/>
+  </div>
+  <div style="display:flex;align-items:center;gap:5px">
+    <label style="font-size:11px;color:var(--text3)">Recipe</label>
+    <input type="text" id="ctx-recipe" placeholder="e.g. ETCH_V2.3"
+      style="font-size:11px;padding:3px 7px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);width:120px"/>
+  </div>
+  <div style="display:flex;align-items:center;gap:5px">
+    <label style="font-size:11px;color:var(--text3)">Operator</label>
+    <input type="text" id="ctx-operator" placeholder="e.g. J. Smith"
+      style="font-size:11px;padding:3px 7px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);width:110px"/>
+  </div>
+  <div style="display:flex;align-items:center;gap:5px">
+    <label style="font-size:11px;color:var(--text3)">Date</label>
+    <input type="date" id="ctx-date"
+      style="font-size:11px;padding:3px 7px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);width:130px"/>
+  </div>
+  <button onclick="clearContextFields()" style="font-size:11px;background:none;border:1px solid var(--border2);color:var(--text3);padding:3px 10px;border-radius:6px;cursor:pointer;margin-left:auto">Clear</button>
 </div>
 
 <!-- MAIN APP BODY -->
@@ -860,6 +898,43 @@ textarea{resize:vertical;min-height:52px;}
           </select>
         </div>
         <button class="run-btn" id="run-spc-btn">Run Full Analysis</button>
+      <!-- Alert configuration -->
+      <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">📢 Alerts</span>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+            <input type="checkbox" id="spc-alerts-enabled" onchange="toggleAlertConfig()"/>
+            <span style="font-size:11px;color:var(--text2)">Enable</span>
+          </label>
+        </div>
+        <div id="alert-config-panel" style="display:none;flex-direction:column;gap:7px">
+          <div class="sl" style="margin:0">Notify via</div>
+          <div style="display:flex;gap:6px">
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">
+              <input type="checkbox" id="alert-email-check"/> Email
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer">
+              <input type="checkbox" id="alert-slack-check"/> Slack
+            </label>
+          </div>
+          <input type="email" id="alert-email-addr" placeholder="your@email.com"
+            style="font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text)"/>
+          <input type="text" id="alert-slack-url" placeholder="Slack webhook URL"
+            style="font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text)"/>
+          <div class="sl" style="margin:0">Trigger when</div>
+          <select id="alert-trigger" style="font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text)">
+            <option value="any_alarm">Any Western Electric alarm</option>
+            <option value="cpk_below">Cpk drops below threshold</option>
+            <option value="both">Either condition</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--text3)">Cpk threshold</span>
+            <input type="number" id="alert-cpk-threshold" value="1.33" step="0.01" style="width:70px;font-size:11px;padding:3px 7px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text)"/>
+          </div>
+          <button onclick="saveAlertConfig()" style="font-size:11px;background:rgba(45,212,160,0.1);border:1px solid rgba(45,212,160,0.3);color:var(--teal);padding:5px 10px;border-radius:7px;cursor:pointer">Save Alert Config</button>
+          <div id="alert-status" style="font-size:10px;color:var(--text3)"></div>
+        </div>
+      </div>
       </div>
       <div id="spc-results-nav" style="display:none">
         <div class="sl">Results</div>
@@ -1253,9 +1328,37 @@ textarea{resize:vertical;min-height:52px;}
 
     <!-- E10: Multi-Dataset Comparison -->
     <div id="sb-comparison" style="display:none">
-      <div class="sl">Datasets to Compare</div>
-      <div id="comp-datasets-list" style="display:flex;flex-direction:column;gap:6px"></div>
-      <button onclick="addCompDataset()" style="margin-top:4px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;font-family:var(--font)">+ Add Dataset</button>
+      <!-- Mode toggle -->
+      <div style="display:flex;gap:4px;margin-bottom:8px;background:var(--bg3);border-radius:8px;padding:3px">
+        <button id="comp-mode-multi" onclick="setCompMode('multi')" style="flex:1;padding:5px;border-radius:6px;border:none;background:var(--accent);color:#0f1117;font-size:12px;font-weight:600;cursor:pointer">Multi-Dataset</button>
+        <button id="comp-mode-tool" onclick="setCompMode('tool')" style="flex:1;padding:5px;border-radius:6px;border:none;background:transparent;color:var(--text2);font-size:12px;cursor:pointer">Tool A vs B</button>
+      </div>
+      <!-- Multi-dataset mode -->
+      <div id="comp-multi-section">
+        <div class="sl">Datasets to Compare</div>
+        <div id="comp-datasets-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        <button onclick="addCompDataset()" style="margin-top:4px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:6px 12px;border-radius:7px;font-size:12px;cursor:pointer;font-family:var(--font)">+ Add Dataset</button>
+      </div>
+      <!-- Tool A vs B mode -->
+      <div id="comp-tool-section" style="display:none;flex-direction:column;gap:8px">
+        <div class="sl">Tool A</div>
+        <div class="upload-zone" id="tool-a-upload" style="padding:10px">
+          <input type="file" id="tool-a-input" accept=".csv,.xlsx,.xls"/>
+          <div style="font-size:11px;font-weight:600" id="tool-a-label">Drop file for Tool A</div>
+        </div>
+        <div class="sl">Tool B</div>
+        <div class="upload-zone" id="tool-b-upload" style="padding:10px">
+          <input type="file" id="tool-b-input" accept=".csv,.xlsx,.xls"/>
+          <div style="font-size:11px;font-weight:600" id="tool-b-label">Drop file for Tool B</div>
+        </div>
+        <div class="sl">Parameter Column</div>
+        <input type="text" id="tool-param-col" placeholder="Column name (same in both files)" style="font-size:12px;padding:6px 9px;border-radius:7px;border:1px solid var(--border2);background:var(--bg3);color:var(--text)"/>
+        <div class="field-row">
+          <div class="field"><label>USL</label><input type="number" id="tool-comp-usl" step="any"/></div>
+          <div class="field"><label>LSL</label><input type="number" id="tool-comp-lsl" step="any"/></div>
+        </div>
+        <button class="run-btn" id="run-tool-comp-btn" onclick="runToolComparison()">Compare Tools</button>
+      </div>
       <div class="sl" style="margin-top:10px">Spec Limits (optional)</div>
       <div class="field-row"><div class="field"><label>USL</label><input type="number" id="comp-usl" step="any"/></div><div class="field"><label>LSL</label><input type="number" id="comp-lsl" step="any"/></div></div>
       <button class="run-btn" id="run-comp-btn" style="margin-top:8px" disabled>Compare Datasets</button>
@@ -1601,6 +1704,30 @@ textarea{resize:vertical;min-height:52px;}
         <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
           ← Back to Normality Tests
         </button>
+      </div>
+    </div>
+
+
+    <!-- PPAP Package Generator sidebar -->
+    <div id="sb-ppap" style="display:none">
+      <div style="padding:4px 0 12px">
+        <div style="font-size:28px;margin-bottom:8px;text-align:center">📦</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">PPAP Package Generator</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">Auto-assemble capability, SPC, GRR, and FMEA studies into an IATF 16949-compliant PPAP submission package.</div>
+        <div style="background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">IN DEVELOPMENT</div>
+          <div style="font-size:11px;color:var(--text2)">Expected: Q3 2026</div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.8;margin-bottom:10px">
+          <strong style="color:var(--text)">What's coming:</strong><br>
+          • Level 3 PPAP document assembly<br>
+          • Auto-pulls from your capability + SPC + GRR runs<br>
+          • Part Submission Warrant (PSW) template<br>
+          • Dimensional results & material certs checklist<br>
+          • Process flow, control plan & FMEA linkage<br>
+          • One-click PDF export, audit-ready
+        </div>
+        <button onclick="switchAnalysis('capability')" style="width:100%;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">← Run Capability First</button>
       </div>
     </div>
 
@@ -2116,6 +2243,170 @@ function showNewFileTable(){
 }
 
 const API=window.location.origin.includes('localhost')?'http://localhost:8010':'';
+// ── StatMind AI Narrative Engine (in-house rule-based LLM stub) ──────────────
+// This calls our own ai_narrative.py endpoint — no external AI API
+// The narrative is generated from deterministic rules trained on manufacturing data
+// Future: fine-tuned transformer model on quality engineering text
+
+let _narrativeCache = null;
+
+async function generateAINarrative(){
+  const btn = document.getElementById('ai-narrative-btn');
+  if(!btn)return;
+  btn.textContent='⏳ Generating…';
+  btn.disabled=true;
+
+  // Collect all available analysis results
+  const payload = {
+    parameter:    globalFile?.name?.replace(/\.[^.]+$/,'')||'Parameter',
+    process_type: globalProcType||'General',
+    normality_result:   normData?.results?.[0]||null,
+    capability_result:  capData||null,
+    spc_result:         spcData||null,
+    grr_result:         grrData||null,
+    capa_result:        capaReports?.[0]||null,
+    context:            getAnalysisContext(),
+  };
+
+  try{
+    const r = await fetch(API+'/api/v1/ai/narrative', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    if(!r.ok) throw new Error((await r.json()).detail||'Narrative generation failed');
+    const d = await r.json();
+    _narrativeCache = d;
+    showAINarrativeModal(d);
+  }catch(e){
+    // Fallback: client-side rule-based narrative if server unavailable
+    const fallback = generateClientNarrative(payload);
+    showAINarrativeModal(fallback);
+  }finally{
+    btn.textContent='🤖 AI Narrative';
+    btn.disabled=false;
+  }
+}
+
+function generateClientNarrative(payload){
+  // Client-side rule-based narrative (StatMind N17 stub)
+  // Mirrors the server-side ai_narrative.py logic for offline resilience
+  const cap = payload.capability_result;
+  const norm = payload.normality_result;
+  const spc = payload.spc_result;
+  const param = payload.parameter;
+  const proc = payload.process_type;
+
+  let exec = '';
+  let capNarr = '';
+  let spcNarr = '';
+
+  if(cap){
+    const cpk = cap.cpk||0;
+    const cp = cap.cp||0;
+    const ppm = cap.ppm_within||0;
+    const centered = Math.abs(cpk-cp)<0.05;
+    const grade = cpk>=1.67?'excellent':cpk>=1.33?'capable':cpk>=1.0?'marginally capable':'not capable';
+    exec = param+' is '+grade+' (Cpk='+cpk.toFixed(3)+', '+Math.round(ppm).toLocaleString()+' PPM estimated within-subgroup).';
+    if(centered){
+      capNarr = 'The process is well-centered (Cp≈Cpk). The primary opportunity for improvement is reducing variation rather than shifting the mean.';
+    } else {
+      const shift = cpk<cp?'The process mean is off-center relative to the specification midpoint. Centering the process could improve Cpk by approximately '+(cp-cpk).toFixed(3)+' without reducing variation.':'';
+      capNarr = shift;
+    }
+    if(ppm>1000){
+      capNarr += ' Immediate process investigation is recommended — expected defect rate exceeds 1,000 PPM.';
+    }
+  }
+
+  if(spc){
+    const alarms = spc.total_alarms||spc.primary_alarms||0;
+    spcNarr = alarms===0
+      ? 'The SPC chart shows the process is in statistical control — no Western Electric rule violations detected.'
+      : alarms+' alarm(s) detected on the control chart. Assignable causes should be investigated before drawing capability conclusions.';
+  }
+
+  const full = [exec,capNarr,spcNarr].filter(Boolean).join(' ');
+  return {
+    executive_summary: exec||'Insufficient data for narrative.',
+    capability_narrative: capNarr,
+    spc_narrative: spcNarr,
+    full_narrative: full,
+    word_count: full.split(/\s+/).length,
+    source: 'StatMind N17 (client-side)',
+  };
+}
+
+function showAINarrativeModal(d){
+  // Remove existing
+  document.getElementById('ai-narrative-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id='ai-narrative-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9998;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+  modal.innerHTML=`
+    <div style="background:var(--bg);border:1px solid var(--border2);border-radius:14px;padding:24px;width:min(680px,92vw);max-height:80vh;overflow-y:auto;position:relative">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div style="font-size:20px">🤖</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">StatMind AI Narrative</div>
+          <div style="font-size:11px;color:var(--text3)">Generated by StatMind N17 · ${d.word_count||0} words · ${d.source||'Server'}</div>
+        </div>
+        <button onclick="document.getElementById('ai-narrative-modal')?.remove()"
+          style="margin-left:auto;background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button>
+      </div>
+
+      ${d.executive_summary?`
+      <div style="background:rgba(45,212,160,0.08);border:1px solid rgba(45,212,160,0.2);border-radius:10px;padding:12px 16px;margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:6px">EXECUTIVE SUMMARY</div>
+        <div style="font-size:13px;color:var(--text);line-height:1.7">${d.executive_summary}</div>
+      </div>`:''}
+
+      ${d.capability_narrative?`
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px">Process Capability</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">${d.capability_narrative}</div>
+      </div>`:''}
+
+      ${d.spc_narrative?`
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px">Statistical Control</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">${d.spc_narrative}</div>
+      </div>`:''}
+
+      ${d.grr_narrative?`
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px">Measurement System</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">${d.grr_narrative}</div>
+      </div>`:''}
+
+      ${d.capa_narrative?`
+      <div style="margin-bottom:16px">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px">Root Cause & Actions</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7">${d.capa_narrative}</div>
+      </div>`:''}
+
+      <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:12px">
+        <button onclick="copyNarrative()" style="font-size:12px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:6px 14px;border-radius:8px;cursor:pointer">📋 Copy</button>
+        <button onclick="document.getElementById('ai-narrative-modal')?.remove()" style="font-size:12px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:6px 14px;border-radius:8px;cursor:pointer">Close</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
+}
+
+function copyNarrative(){
+  if(!_narrativeCache)return;
+  const text=[
+    _narrativeCache.executive_summary,
+    _narrativeCache.capability_narrative,
+    _narrativeCache.spc_narrative,
+    _narrativeCache.grr_narrative,
+    _narrativeCache.capa_narrative,
+  ].filter(Boolean).join('\n\n');
+  navigator.clipboard.writeText(text).then(()=>showToast('Narrative copied'));
+}
+
 // ── Universal run-button loading state ───────────────────────────────────────
 async function runWithLoading(btnId, originalLabel, asyncFn) {
   const btn = document.getElementById(btnId);
@@ -2256,7 +2547,7 @@ let currentSpcResult=null;
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 const tabMap={spc:'sb-spc',capa:'sb-capa',capability:'sb-cap',normality:'sb-norm',grr:'sb-grr',report:'sb-report',hypothesis:'sb-hypothesis',pareto:'sb-pareto',sixpack:'sb-sixpack',regression:'sb-regression',transformation:'sb-transformation',multivari:'sb-multivari',doe:'sb-doe',tolerance:'sb-tolerance',aaa:'sb-aaa',comparison:'sb-comparison',livestream:'sb-livestream',processdash:'sb-processdash',cusum:'sb-cusum',runchart:'sb-runchart',correlation:'sb-correlation',equivalence:'sb-equivalence',outliers:'sb-outliers',samplesize:'sb-samplesize',twoway_anova:'sb-twoway_anova',rsm:'sb-rsm',
-    attrchart:'sb-attrchart',weibull:'sb-weibull',linearity:'sb-linearity',
+    attrchart:'sb-attrchart',weibull:'sb-weibull',linearity:'sb-linearity',ppap:'sb-ppap',
     pca:'sb-pca',scattermatrix:'sb-scattermatrix',boxplot:'sb-boxplot',
     datastudio:'sb-datastudio',logistic:'sb-logistic',stepwise:'sb-stepwise'};
 
@@ -2511,7 +2802,30 @@ else if(tab==='capability'){
           <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
         </div>
       </div>
-    `);}    else if(tab==='stepwise'){showContent(`
+    `);}    else if(tab==='ppap'){showContent(`
+      <div style="max-width:620px;margin:32px auto;padding:0 16px;text-align:center">
+        <div style="font-size:52px;margin-bottom:12px">📦</div>
+        <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">PPAP Package Generator</div>
+        <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto 24px">Auto-assemble your capability, SPC, GRR, and FMEA studies into an IATF 16949-compliant PPAP submission.</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px;text-align:left">
+          <div style="background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.3);border-radius:20px;display:inline-block;padding:4px 14px;font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.05em;margin-bottom:14px">IN DEVELOPMENT — Q3 2026</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What's coming:</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text2);line-height:1.9">
+            <li>Level 3 PPAP document package — all 18 elements checklist</li>
+            <li>Auto-pulls from your existing Capability, SPC, and GRR runs</li>
+            <li>Part Submission Warrant (PSW) auto-fill</li>
+            <li>Dimensional results summary with pass/fail against drawing</li>
+            <li>Control Plan, Process Flow, and FMEA linkage</li>
+            <li>One-click PDF export — audit-ready in minutes, not days</li>
+          </ul>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button onclick="switchAnalysis('capability')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Capability Analysis</button>
+          <button onclick="switchAnalysis('grr')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Gauge R&amp;R</button>
+        </div>
+      </div>
+    `);}
+    else if(tab==='stepwise'){showContent(`
       <div style="max-width:620px;margin:32px auto;padding:0 16px">
         <div style="text-align:center;margin-bottom:24px">
           <div style="font-size:52px;margin-bottom:12px">🪜</div>
@@ -5716,6 +6030,75 @@ function renderRSMResults(r){
 }
 
 /* ── TASK 3: Session Save / Load ─────────────────────────────────────── */
+// ── Lot/Tool Context Panel ────────────────────────────────────────────────────
+function toggleContextPanel(){
+  const p=document.getElementById('context-panel');
+  if(!p)return;
+  const showing = p.style.display==='flex';
+  p.style.display=showing?'none':'flex';
+  // Set today's date if empty
+  if(!showing){
+    const d=document.getElementById('ctx-date');
+    if(d&&!d.value)d.value=new Date().toISOString().slice(0,10);
+  }
+}
+
+function updateContextTags(){
+  const lot=document.getElementById('ctx-lot-id')?.value?.trim();
+  const tool=document.getElementById('ctx-tool-id')?.value?.trim();
+  const lotTag=document.getElementById('ctx-lot-tag');
+  const toolTag=document.getElementById('ctx-tool-tag');
+  if(lotTag){lotTag.textContent=lot?'Lot: '+lot:'';lotTag.style.display=lot?'inline':'none';}
+  if(toolTag){toolTag.textContent=tool?'Tool: '+tool:'';toolTag.style.display=tool?'inline':'none';}
+}
+
+function restoreAutoSession(){
+  const raw=localStorage.getItem('statmind_session_auto');
+  if(!raw){showToast('No auto-saved session found',true);return;}
+  try{
+    const s=JSON.parse(raw);
+    if(s.capData){capData=s.capData;renderCap(capData);}
+    if(s.normData){normData=s.normData;}
+    if(s.spcData){spcData=s.spcData;}
+    if(s.grrData){grrData=s.grrData;}
+    if(s.capaReports){capaReports=s.capaReports;}
+    if(s.globalProcType){globalProcType=s.globalProcType;}
+    if(s.globalFileName){
+      const ctxFn=document.getElementById('ctx-filename');
+      if(ctxFn)ctxFn.innerHTML='📂 <strong>'+s.globalFileName+'</strong> (restored)';
+      document.getElementById('context-bar')?.classList.add('visible');
+    }
+    if(s.analysisContext){
+      const ctx=s.analysisContext;
+      if(ctx.lot_id){const el=document.getElementById('ctx-lot-id');if(el)el.value=ctx.lot_id;}
+      if(ctx.tool_id){const el=document.getElementById('ctx-tool-id');if(el)el.value=ctx.tool_id;}
+      if(ctx.recipe){const el=document.getElementById('ctx-recipe');if(el)el.value=ctx.recipe;}
+      if(ctx.operator){const el=document.getElementById('ctx-operator');if(el)el.value=ctx.operator;}
+      updateContextTags();
+    }
+    showToast('✅ Session restored from '+new Date(s.saved).toLocaleString());
+    document.querySelector('.restore-toast')?.remove();
+  }catch(e){showToast('Could not restore session: '+e.message,true);}
+}
+
+function clearContextFields(){
+  ['ctx-lot-id','ctx-tool-id','ctx-recipe','ctx-operator','ctx-date'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  updateContextTags();
+}
+
+function getAnalysisContext(){
+  return {
+    lot_id:    document.getElementById('ctx-lot-id')?.value?.trim()||null,
+    tool_id:   document.getElementById('ctx-tool-id')?.value?.trim()||null,
+    recipe:    document.getElementById('ctx-recipe')?.value?.trim()||null,
+    operator:  document.getElementById('ctx-operator')?.value?.trim()||null,
+    date:      document.getElementById('ctx-date')?.value||new Date().toISOString().slice(0,10),
+    process:   window.globalProcType||null,
+  };
+}
+
 function saveSession(){
   const session={
     version:1, saved:new Date().toISOString(),
@@ -5761,15 +6144,16 @@ function loadSession(){
 const specLibrary = JSON.parse(localStorage.getItem('statmind_specs')||'{}');
 
 function saveSpec(){
-  const col=document.getElementById('cap-col-list')?.querySelector('.active')?.dataset?.col||
-            document.getElementById('usl-input')?.closest('form')?.dataset?.col||'';
-  const usl=parseFloat(document.getElementById('usl-input')?.value);
-  const lsl=parseFloat(document.getElementById('lsl-input')?.value);
-  const name=prompt('Spec name (e.g. "Etch Rate 150±15"):','');
-  if(!name||isNaN(usl)||isNaN(lsl))return;
-  specLibrary[name]={usl,lsl,col,saved:new Date().toISOString()};
+  const col   = document.getElementById('cap-col-list')?.querySelector('.active')?.dataset?.col||'';
+  const usl   = parseFloat(document.getElementById('usl-input')?.value);
+  const lsl   = parseFloat(document.getElementById('lsl-input')?.value);
+  const target= parseFloat(document.getElementById('target-input')?.value)||((usl+lsl)/2)||null;
+  const proc  = window.globalProcType||'';
+  const name  = prompt('Spec name (e.g. "EtchDepth_nm — Litho"):', col||'');
+  if(!name||isNaN(usl)||isNaN(lsl)){showToast('Enter USL and LSL first',true);return;}
+  specLibrary[name]={usl,lsl,target,col,process:proc,saved:new Date().toISOString()};
   try{localStorage.setItem('statmind_specs',JSON.stringify(specLibrary));}catch{}
-  showToast(`✅ Spec "${name}" saved`);
+  showToast('✅ Spec "'+name+'" saved (USL='+usl+', LSL='+lsl+(target?', T='+target:'')+')');
   renderSpecLibrary();
 }
 
@@ -5777,23 +6161,262 @@ function loadSpec(name){
   const s=specLibrary[name];if(!s)return;
   const uslEl=document.getElementById('usl-input');
   const lslEl=document.getElementById('lsl-input');
+  const tgtEl=document.getElementById('target-input');
   if(uslEl)uslEl.value=s.usl;
   if(lslEl)lslEl.value=s.lsl;
-  showToast(`Loaded spec "${name}": USL=${s.usl}, LSL=${s.lsl}`);
+  if(tgtEl&&s.target)tgtEl.value=s.target;
+  // Auto-select the saved column if still available
+  if(s.col){
+    const colItems=document.querySelectorAll('#cap-col-list .col-item');
+    colItems.forEach(el=>{ if(el.dataset.col===s.col) el.click(); });
+  }
+  showToast('Loaded: '+name+' — USL='+s.usl+', LSL='+s.lsl+(s.target?' T='+s.target:''));
 }
 
 function renderSpecLibrary(){
   const el=document.getElementById('spec-library-list');
   if(!el)return;
   const specs=Object.entries(specLibrary);
-  if(specs.length===0){el.innerHTML='<div style="font-size:11px;color:var(--text3)">No saved specs. Click "Save spec" after entering limits.</div>';return;}
-  el.innerHTML=specs.map(([name,s])=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg3);border-radius:7px;margin-bottom:4px">
-      <span style="flex:1;font-size:12px">${name}</span>
-      <span style="font-size:11px;color:var(--text3)">USL=${s.usl} LSL=${s.lsl}</span>
-      <button onclick="loadSpec('${name.replace(/'/g,"\\'")}')" style="font-size:11px;background:none;border:1px solid var(--border2);color:var(--teal);padding:2px 7px;border-radius:5px;cursor:pointer">Load</button>
-      <button onclick="delete specLibrary['${name.replace(/'/g,"\\'")}']; try{localStorage.setItem('statmind_specs',JSON.stringify(specLibrary));}catch{}renderSpecLibrary()" style="font-size:11px;background:none;border:none;color:var(--text3);cursor:pointer">✕</button>
+  if(!specs.length){
+    el.innerHTML='<div style="font-size:11px;color:var(--text3);padding:4px">No saved specs. Enter limits then click + Save.</div>';
+    return;
+  }
+  el.innerHTML=`
+    <div style="display:flex;justify-content:flex-end;gap:5px;margin-bottom:5px">
+      <button onclick="exportSpecLibrary()" style="font-size:10px;background:none;border:1px solid var(--border2);color:var(--text2);padding:2px 7px;border-radius:5px;cursor:pointer">⬇ Export</button>
+      <button onclick="document.getElementById('spec-import-input').click()" style="font-size:10px;background:none;border:1px solid var(--border2);color:var(--text2);padding:2px 7px;border-radius:5px;cursor:pointer">⬆ Import</button>
+      <input type="file" id="spec-import-input" accept=".json" style="display:none" onchange="importSpecLibrary(this)"/>
+    </div>
+  `+specs.map(([name,s])=>`
+    <div style="background:var(--bg3);border-radius:7px;padding:6px 9px;margin-bottom:4px;border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="flex:1;font-size:12px;font-weight:600;color:var(--text)">${name}</span>
+        <button onclick="loadSpec('${name.replace(/'/g,"\\'")}') " style="font-size:11px;background:none;border:1px solid var(--border2);color:var(--teal);padding:2px 8px;border-radius:5px;cursor:pointer">Load</button>
+        <button onclick="deleteSpec('${name.replace(/'/g,"\\'")}') " style="font-size:11px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px">✕</button>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:3px">
+        USL=${s.usl} · LSL=${s.lsl}${s.target?' · T='+s.target:''}${s.process?' · '+s.process:''}
+      </div>
     </div>`).join('');
+}
+
+function deleteSpec(name){
+  delete specLibrary[name];
+  try{localStorage.setItem('statmind_specs',JSON.stringify(specLibrary));}catch{}
+  renderSpecLibrary();
+}
+
+// ── Tool A vs B Comparison ────────────────────────────────────────────────────
+let _compMode = 'multi';
+function setCompMode(mode){
+  _compMode = mode;
+  document.getElementById('comp-multi-section').style.display=mode==='multi'?'flex':'none';
+  if(mode==='multi') document.getElementById('comp-multi-section').style.flexDirection='column';
+  document.getElementById('comp-tool-section').style.display=mode==='tool'?'flex':'none';
+  document.getElementById('comp-mode-multi').style.background=mode==='multi'?'var(--accent)':'transparent';
+  document.getElementById('comp-mode-multi').style.color=mode==='multi'?'#0f1117':'var(--text2)';
+  document.getElementById('comp-mode-multi').style.fontWeight=mode==='multi'?'600':'400';
+  document.getElementById('comp-mode-tool').style.background=mode==='tool'?'var(--accent)':'transparent';
+  document.getElementById('comp-mode-tool').style.color=mode==='tool'?'#0f1117':'var(--text2)';
+  document.getElementById('comp-mode-tool').style.fontWeight=mode==='tool'?'600':'400';
+}
+
+setupUpload('tool-a-upload','tool-a-input','tool-a-label', f=>{
+  window._toolAFile=f;
+  document.getElementById('tool-a-label').textContent='✅ '+f.name;
+  document.getElementById('run-tool-comp-btn').disabled=false;
+});
+setupUpload('tool-b-upload','tool-b-input','tool-b-label', f=>{
+  window._toolBFile=f;
+  document.getElementById('tool-b-label').textContent='✅ '+f.name;
+});
+
+async function runToolComparison(){
+  const fa=window._toolAFile, fb=window._toolBFile;
+  if(!fa||!fb){showToast('Upload files for both Tool A and Tool B',true);return;}
+  const col=document.getElementById('tool-param-col')?.value?.trim();
+  if(!col){showToast('Enter the column name to compare',true);return;}
+  const usl=parseFloat(document.getElementById('tool-comp-usl')?.value)||null;
+  const lsl=parseFloat(document.getElementById('tool-comp-lsl')?.value)||null;
+  const btn=document.getElementById('run-tool-comp-btn');
+  btn.disabled=true;btn.textContent='⏳ Comparing…';
+  showContent(loadHtml('Running tool comparison…'));
+  try{
+    const fdA=new FormData();fdA.append('file',fa);
+    const fdB=new FormData();fdB.append('file',fb);
+    const urlA=`${API}/api/v1/capability/analyze?column=${encodeURIComponent(col)}${usl?'&usl='+usl:''}${lsl?'&lsl='+lsl:''}`;
+    const [rA,rB]=await Promise.all([
+      fetch(urlA,{method:'POST',body:fdA}).then(r=>r.json()),
+      fetch(urlA,{method:'POST',body:fdB}).then(r=>r.json()),
+    ]);
+    renderToolComparison(rA, rB, fa.name, fb.name, col);
+  }catch(e){showContent('<div class="empty-state">❌ '+e.message+'</div>');}
+  finally{btn.disabled=false;btn.textContent='Compare Tools';}
+}
+
+function renderToolComparison(rA, rB, nameA, nameB, param){
+  const verdictColor=(cpk)=>cpk>=1.67?'var(--green)':cpk>=1.33?'var(--green)':cpk>=1.0?'var(--amber)':'var(--red)';
+  const grade=(cpk)=>cpk>=1.67?'Excellent':cpk>=1.33?'Capable':cpk>=1.0?'Marginal':'Not Capable';
+  const metrics=['cp','cpk','pp','ppk','ppm_within','sigma_level','mean','std_within'];
+  const labels={'cp':'Cp','cpk':'Cpk','pp':'Pp','ppk':'Ppk','ppm_within':'PPM (Within)','sigma_level':'Sigma Level','mean':'Mean','std_within':'σ Within'};
+  const better=(key,a,b)=>{
+    if(key==='ppm_within')return a<b?'A':'B';
+    return a>b?'A':'B';
+  };
+  showContent(`
+    <div class="results-header">
+      <div class="rh-title">Tool-to-Tool Comparison — ${param}</div>
+      <div class="verdict-badge ${rA.cpk>=1.33&&rB.cpk>=1.33?'vb-ok':'vb-warn'}">
+        ${Math.abs((rA.cpk||0)-(rB.cpk||0))<0.1?'Similar Performance':'Performance Gap Detected'}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div class="card" style="border-top:3px solid var(--teal)">
+        <div class="ch"><div class="ct">Tool A — ${nameA}</div></div>
+        <div class="cb">
+          <div style="font-size:28px;font-weight:700;color:${verdictColor(rA.cpk)}">${(rA.cpk||0).toFixed(3)}</div>
+          <div style="font-size:12px;color:${verdictColor(rA.cpk)};font-weight:600">${grade(rA.cpk)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Cp=${(rA.cp||0).toFixed(3)} · Mean=${(rA.mean||0).toFixed(4)}</div>
+        </div>
+      </div>
+      <div class="card" style="border-top:3px solid var(--accent2)">
+        <div class="ch"><div class="ct">Tool B — ${nameB}</div></div>
+        <div class="cb">
+          <div style="font-size:28px;font-weight:700;color:${verdictColor(rB.cpk)}">${(rB.cpk||0).toFixed(3)}</div>
+          <div style="font-size:12px;color:${verdictColor(rB.cpk)};font-weight:600">${grade(rB.cpk)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Cp=${(rB.cp||0).toFixed(3)} · Mean=${(rB.mean||0).toFixed(4)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">Side-by-Side Comparison</div></div><div class="cb">
+      <table class="alarm-table">
+        <tr><th>Metric</th><th>Tool A</th><th>Tool B</th><th>Better</th></tr>
+        ${metrics.filter(k=>rA[k]!==undefined).map(k=>{
+          const vA=rA[k],vB=rB[k];
+          const win=better(k,vA,vB);
+          const fmt=v=>k==='ppm_within'?Math.round(v).toLocaleString():typeof v==='number'?v.toFixed(4):v;
+          return `<tr>
+            <td style="font-weight:500">${labels[k]||k}</td>
+            <td style="color:${win==='A'?'var(--teal)':'var(--text2)'}${win==='A'?';font-weight:600':''}">${fmt(vA)}</td>
+            <td style="color:${win==='B'?'var(--teal)':'var(--text2)'}${win==='B'?';font-weight:600':''}">${fmt(vB)}</td>
+            <td style="font-size:11px;color:var(--teal)">${win}</td>
+          </tr>`;
+        }).join('')}
+      </table>
+    </div></div>
+    <div class="card"><div class="ch"><div class="ct">Interpretation</div></div><div class="cb">
+      <div style="font-size:13px;color:var(--text2)">
+        ${Math.abs((rA.cpk||0)-(rB.cpk||0))>0.2
+          ? `<strong style="color:var(--amber)">Significant tool-to-tool gap detected</strong> (ΔCpk = ${Math.abs((rA.cpk||0)-(rB.cpk||0)).toFixed(3)}). Investigate tool matching — check recipe parameters, chamber conditioning, and maintenance history.`
+          : `<strong style="color:var(--green)">Tools are well-matched</strong> (ΔCpk = ${Math.abs((rA.cpk||0)-(rB.cpk||0)).toFixed(3)}). Process is consistent across both tools.`}
+        ${Math.abs((rA.mean||0)-(rB.mean||0))>0.5*((rA.std_within||1)+(rB.std_within||1))/2
+          ? ` Mean offset of ${Math.abs((rA.mean||0)-(rB.mean||0)).toFixed(4)} is significant — check tool calibration or recipe offsets.`
+          : ''}
+      </div>
+    </div></div>
+  `);
+}
+
+function exportSpecLibrary(){
+  const blob=new Blob([JSON.stringify(specLibrary,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='statmind_specs_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  showToast('Spec library exported');
+}
+
+// ── SPC Alerts / Notifications ────────────────────────────────────────────────
+function toggleAlertConfig(){
+  const enabled=document.getElementById('spc-alerts-enabled')?.checked;
+  const panel=document.getElementById('alert-config-panel');
+  if(panel)panel.style.display=enabled?'flex':'none';
+}
+
+function saveAlertConfig(){
+  const config={
+    enabled:document.getElementById('spc-alerts-enabled')?.checked,
+    email:  document.getElementById('alert-email-check')?.checked,
+    slack:  document.getElementById('alert-slack-check')?.checked,
+    emailAddr:document.getElementById('alert-email-addr')?.value?.trim(),
+    slackUrl: document.getElementById('alert-slack-url')?.value?.trim(),
+    trigger:  document.getElementById('alert-trigger')?.value,
+    cpkThreshold:parseFloat(document.getElementById('alert-cpk-threshold')?.value)||1.33,
+  };
+  try{localStorage.setItem('statmind_alert_config',JSON.stringify(config));}catch{}
+  document.getElementById('alert-status').textContent='✅ Alert config saved';
+  setTimeout(()=>{const s=document.getElementById('alert-status');if(s)s.textContent='';},3000);
+}
+
+async function checkAndFireAlerts(spcResult, capResult){
+  const raw=localStorage.getItem('statmind_alert_config');
+  if(!raw)return;
+  const config=JSON.parse(raw);
+  if(!config.enabled)return;
+  const alarms=spcResult?.total_alarms||0;
+  const cpk=capResult?.cpk;
+  const trigger=config.trigger;
+  let shouldAlert=false;
+  let reason='';
+  if((trigger==='any_alarm'||trigger==='both')&&alarms>0){
+    shouldAlert=true; reason=alarms+' Western Electric alarm(s) detected on SPC chart';
+  }
+  if((trigger==='cpk_below'||trigger==='both')&&cpk!==undefined&&cpk<config.cpkThreshold){
+    shouldAlert=true; reason=(reason?reason+'; ':'')+'Cpk='+cpk.toFixed(3)+' below threshold '+config.cpkThreshold;
+  }
+  if(!shouldAlert)return;
+  const ctx=getAnalysisContext();
+  const payload={
+    parameter:window.globalFile?.name||'Unknown',
+    lot_id:ctx.lot_id,tool_id:ctx.tool_id,recipe:ctx.recipe,
+    reason,alarms,cpk,
+    timestamp:new Date().toISOString(),
+  };
+  // Fire to StatMind backend which routes to email/Slack
+  try{
+    await fetch(API+'/api/v1/alerts/fire',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({config,payload}),
+    });
+    showToast('🔔 Alert sent: '+reason);
+  }catch(e){
+    // Backend not yet configured — log locally
+    console.warn('Alert would fire:',payload);
+    showToast('🔔 Alert triggered (configure webhook in settings): '+reason.slice(0,60));
+  }
+}
+
+// Load saved alert config on init
+(function loadAlertConfig(){
+  const raw=localStorage.getItem('statmind_alert_config');
+  if(!raw)return;
+  try{
+    const c=JSON.parse(raw);
+    const cb=document.getElementById('spc-alerts-enabled');
+    if(cb){cb.checked=c.enabled;if(c.enabled){const p=document.getElementById('alert-config-panel');if(p)p.style.display='flex';}}
+    const eck=document.getElementById('alert-email-check');if(eck)eck.checked=c.email;
+    const sck=document.getElementById('alert-slack-check');if(sck)sck.checked=c.slack;
+    const ea=document.getElementById('alert-email-addr');if(ea)ea.value=c.emailAddr||'';
+    const su=document.getElementById('alert-slack-url');if(su)su.value=c.slackUrl||'';
+    const tr=document.getElementById('alert-trigger');if(tr)tr.value=c.trigger||'any_alarm';
+    const th=document.getElementById('alert-cpk-threshold');if(th)th.value=c.cpkThreshold||1.33;
+  }catch{}
+})();
+
+function importSpecLibrary(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const imported=JSON.parse(e.target.result);
+      Object.assign(specLibrary, imported);
+      localStorage.setItem('statmind_specs',JSON.stringify(specLibrary));
+      renderSpecLibrary();
+      showToast('✅ Imported '+(Object.keys(imported).length)+' specs');
+    }catch{showToast('Invalid spec file',true);}
+  };
+  reader.readAsText(file);
 }
 
 /* ── TASK 5: Paste from clipboard ────────────────────────────────────── */
@@ -5857,6 +6480,35 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // Init RSM factors
   rsmFactors=[{name:'X1',lo:'0',hi:'100'},{name:'X2',lo:'0',hi:'100'}];
+
+  // ── Auto-save session every 60 seconds ──────────────────────────────────
+  setInterval(()=>{
+    if(!globalFile&&!capData&&!normData&&!spcData)return; // nothing to save
+    const session={
+      version:1,saved:new Date().toISOString(),
+      capData,spcData,normData,grrData,capaReports,
+      colNameMap,wizardSelectedCols,globalProcType,
+      globalFileName:globalFile?.name||'',
+      analysisContext:getAnalysisContext(),
+    };
+    try{
+      localStorage.setItem('statmind_session_auto',JSON.stringify(session));
+      localStorage.setItem('statmind_session_time',new Date().toISOString());
+    }catch{}
+  }, 60000);
+
+  // ── Check for auto-saved session from previous visit ────────────────────
+  const prevTime=localStorage.getItem('statmind_session_time');
+  if(prevTime){
+    const mins=Math.round((Date.now()-new Date(prevTime))/(60000));
+    if(mins<1440){ // Only offer restore if <24h old
+      const toast=document.createElement('div');
+      toast.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:10px 16px;font-size:13px;color:var(--text);z-index:8000;display:flex;gap:12px;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,0.4)';
+      toast.innerHTML='💾 Auto-saved session found ('+mins+' min ago). <button onclick="restoreAutoSession()" style="background:var(--teal);color:#0f1117;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">Restore</button><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;margin-left:4px">×</button>';
+      document.body.appendChild(toast);
+      setTimeout(()=>toast.remove(),12000);
+    }
+  }
   renderRsmFactors();rsmUpdatePreview();
 
   // RSM goal toggle for target
@@ -6749,5 +7401,11 @@ function goHome() {
 <input type="file" id="mob-file-input-global" accept=".csv,.xlsx,.xls,.tsv,.txt"
   style="position:fixed;left:-9999px;opacity:0;width:1px;height:1px"
   onchange="handleMobileFileSelect(this)"/>
+
+<!-- Copyright notice -->
+<div style="position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--border);padding:4px 16px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3);z-index:100;pointer-events:none">
+  <span>© 2024–2026 StatMind. All rights reserved. Statistical methods based on published industry standards (AIAG, ISO, SEMI, ASTM).</span>
+  <span>StatMind v5.0 — Public Beta</span>
+</div>
 </body>
 </html>

@@ -88,7 +88,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:16
 .nav-dd-item.active{color:var(--teal);}
 .nav-dd-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0;}
 .nav-dd-label{flex:1;}
-.nav-dd-tag{font-size:9px;padding:1px 6px;border-radius:10px;background:rgba(45,212,160,0.12);color:var(--teal);}
+.nav-dd-tag{font-size:9px;padding:1px 6px;border-radius:10px;background:rgba(45,212,160,0.12);color:var(--teal);;cursor:help}
 .nav-dd-sep{height:1px;background:var(--border);margin:4px 0;}
 .nav-dd-section{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;padding:6px 11px 3px;}
 
@@ -661,8 +661,8 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-item" onclick="switchAnalysis('datastudio')"><span class="nav-dd-icon">🛠️</span><span class="nav-dd-label">Data Studio</span><span class="nav-dd-tag">Excel/JMP</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Advanced Regression</div>
-        <div class="nav-dd-item" onclick="switchAnalysis('logistic')"><span class="nav-dd-icon">📈</span><span class="nav-dd-label">Logistic Regression</span><span class="nav-dd-tag">JMP</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('stepwise')"><span class="nav-dd-icon">🪜</span><span class="nav-dd-label">Stepwise Regression</span><span class="nav-dd-tag">JMP</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('logistic')"><span class="nav-dd-icon">📈</span><span class="nav-dd-label">Logistic Regression</span><span class="nav-dd-tag">JMP — Coming Soon</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('stepwise')"><span class="nav-dd-icon">🪜</span><span class="nav-dd-label">Stepwise Regression</span><span class="nav-dd-tag">JMP — Coming Soon</span></div>
       </div>
     </div>
   </div>
@@ -689,9 +689,9 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-item" onclick="switchAnalysis('samplesize')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">Sample Size Calculator</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Multivariate</div>
-        <div class="nav-dd-item" onclick="switchAnalysis('pca')"><span class="nav-dd-icon">🔭</span><span class="nav-dd-label">Principal Component Analysis</span><span class="nav-dd-tag">JMP</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('scattermatrix')"><span class="nav-dd-icon">🔲</span><span class="nav-dd-label">Scatter Plot Matrix</span><span class="nav-dd-tag">JMP</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('boxplot')"><span class="nav-dd-icon">📦</span><span class="nav-dd-label">Box Plot / Violin</span><span class="nav-dd-tag">SigmaPlot</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('pca')"><span class="nav-dd-icon">🔭</span><span class="nav-dd-label">Principal Component Analysis</span><span class="nav-dd-tag">JMP — Coming Soon</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('scattermatrix')"><span class="nav-dd-icon">🔲</span><span class="nav-dd-label">Scatter Plot Matrix</span><span class="nav-dd-tag">JMP — Coming Soon</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('boxplot')"><span class="nav-dd-icon">📦</span><span class="nav-dd-label">Box Plot / Violin</span><span class="nav-dd-tag">SigmaPlot — Coming Soon</span></div>
       </div>
     </div>
 
@@ -713,11 +713,11 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-section">Measurement Systems</div>
         <div class="nav-dd-item" onclick="switchAnalysis('grr')"><span class="nav-dd-icon">🔬</span><span class="nav-dd-label">Gauge R&amp;R (MSA)</span><span class="nav-dd-tag" id="dd-tag-grr"></span></div>
         <div class="nav-dd-item" onclick="switchAnalysis('aaa')"><span class="nav-dd-icon">✅</span><span class="nav-dd-label">Attribute Agreement</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('attrchart')"><span class="nav-dd-icon">📊</span><span class="nav-dd-label">Attribute Charts (p/np/u/c)</span><span class="nav-dd-tag">JMP</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('attrchart')"><span class="nav-dd-icon">📊</span><span class="nav-dd-label">Attribute Charts (p/np/u/c)</span><span class="nav-dd-tag">JMP — Coming Soon</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Reliability</div>
-        <div class="nav-dd-item" onclick="switchAnalysis('weibull')"><span class="nav-dd-icon">📉</span><span class="nav-dd-label">Weibull / Reliability</span><span class="nav-dd-tag">JMP</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('linearity')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">MSA Linearity &amp; Bias</span><span class="nav-dd-tag">JMP</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('weibull')"><span class="nav-dd-icon">📉</span><span class="nav-dd-label">Weibull / Reliability</span><span class="nav-dd-tag">JMP — Coming Soon</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('linearity')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">MSA Linearity &amp; Bias</span><span class="nav-dd-tag">JMP — Coming Soon</span></div>
       </div>
     </div>
 
@@ -898,6 +898,15 @@ textarea{resize:vertical;min-height:52px;}
 
       <!-- Step 2: Link analysis data -->
       <div id="capa-panel-2" style="display:none">
+        <!-- Inline file upload — no need to leave CAPA -->
+        <div id="capa-inline-upload-zone" style="display:none;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:5px">📂 Upload Data File</div>
+          <div class="upload-zone" id="capa-direct-upload" style="padding:10px 12px;min-height:unset">
+            <input type="file" id="capa-direct-file-input" accept=".csv,.xlsx,.xls,.tsv"/>
+            <div style="font-size:12px;font-weight:600" id="capa-direct-upload-title">Drop file or click to browse</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">CSV · Excel · TSV</div>
+          </div>
+        </div>
         <div class="sl" style="margin-bottom:6px">Prerequisite analyses</div>
         <div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5">CAPA uses results from completed analyses. Run them first for the best report quality.</div>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
@@ -1426,139 +1435,173 @@ textarea{resize:vertical;min-height:52px;}
 
     <!-- Attribute Control Charts sidebar -->
     <div id="sb-attrchart" style="display:none">
-      <div class="sl">Chart Type</div>
-      <select id="attr-chart-type" style="margin-bottom:8px">
-        <option value="p">p Chart — proportion defective (variable n)</option>
-        <option value="np">np Chart — number defective (constant n)</option>
-        <option value="u">u Chart — defects per unit (variable n)</option>
-        <option value="c">c Chart — count of defects (constant n)</option>
-      </select>
-      <div class="upload-zone" id="attr-upload"><input type="file" id="attr-file-input" accept=".csv,.xlsx,.xls"/><div style="font-size:20px;margin-bottom:5px">📊</div><div style="font-size:13px;font-weight:600" id="attr-upload-title">Drop file or click</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Columns: Subgroup, Defects, [SampleSize]</div></div>
-      <div id="attr-col-section" style="display:none">
-        <div class="sl">Defects/Failures Column</div>
-        <div class="col-list" id="attr-def-list" style="max-height:100px"></div>
-        <div class="sl" style="margin-top:6px">Sample Size Column <span style="color:var(--text3);font-weight:400">(if variable)</span></div>
-        <div class="col-list" id="attr-n-list" style="max-height:80px"></div>
-        <div class="ctrl-row"><label>Const. sample size n</label><input type="number" id="attr-const-n" value="100" style="width:80px"/></div>
+      <div style="padding:4px 0 12px">
+        <div style="font-size:28px;margin-bottom:8px;text-align:center">📊</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Attribute Control Charts</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">p/np/u/c charts for defect counts and proportions</div>
+        <div style="background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">IN DEVELOPMENT</div>
+          <div style="font-size:11px;color:var(--text2)">Expected: <strong style="color:var(--text)">Q3 2026</strong></div>
+        </div>
+        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Capability Analysis
+        </button>
+        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Normality Tests
+        </button>
       </div>
-      <button class="run-btn" id="run-attr-btn" disabled>Run Attribute Chart</button>
     </div>
 
     <!-- Weibull / Reliability sidebar -->
     <div id="sb-weibull" style="display:none">
-      <div class="sl">Analysis Type</div>
-      <select id="weibull-type" style="margin-bottom:8px">
-        <option value="weibull2">Weibull 2-parameter</option>
-        <option value="weibull3">Weibull 3-parameter</option>
-        <option value="lognormal">Lognormal</option>
-        <option value="exponential">Exponential</option>
-      </select>
-      <div class="upload-zone" id="weibull-upload"><input type="file" id="weibull-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">📉</div><div style="font-size:13px;font-weight:600" id="weibull-upload-title">Drop lifetime data</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Time-to-failure or censored data</div></div>
-      <div id="weibull-col-section" style="display:none">
-        <div class="sl">Time / Cycles Column</div>
-        <div class="col-list" id="weibull-col-list" style="max-height:100px"></div>
-        <div class="ctrl-row"><label>Censored column (optional)</label></div>
-        <div class="col-list" id="weibull-cens-list" style="max-height:80px"></div>
-        <div class="ctrl-row"><label>Confidence</label><select id="weibull-conf" style="width:auto"><option value="0.95" selected>95%</option><option value="0.90">90%</option></select></div>
+      <div style="padding:4px 0 12px">
+        <div style="font-size:28px;margin-bottom:8px;text-align:center">📉</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Weibull / Reliability</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">B10/B50 life estimation, hazard rate, probability plots</div>
+        <div style="background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">IN DEVELOPMENT</div>
+          <div style="font-size:11px;color:var(--text2)">Expected: <strong style="color:var(--text)">Q3 2026</strong></div>
+        </div>
+        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Capability Analysis
+        </button>
+        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Normality Tests
+        </button>
       </div>
-      <button class="run-btn" id="run-weibull-btn" disabled>Run Reliability Analysis</button>
     </div>
 
     <!-- MSA Linearity & Bias sidebar -->
     <div id="sb-linearity" style="display:none">
-      <div class="upload-zone" id="lin-upload"><input type="file" id="lin-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">📏</div><div style="font-size:13px;font-weight:600" id="lin-upload-title">Drop file</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Columns: Reference, Measurement</div></div>
-      <div id="lin-col-section" style="display:none">
-        <div class="sl">Reference (master) value</div>
-        <div class="col-list" id="lin-ref-list" style="max-height:90px"></div>
-        <div class="sl" style="margin-top:6px">Gauge Measurement</div>
-        <div class="col-list" id="lin-meas-list" style="max-height:90px"></div>
-        <div class="field"><label>Process Variation (optional)</label><input type="number" id="lin-pv" step="any" placeholder="e.g. 0.5"/></div>
+      <div style="padding:4px 0 12px">
+        <div style="font-size:28px;margin-bottom:8px;text-align:center">📏</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">MSA Linearity & Bias</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">Gauge linearity and bias study per IATF 16949 MSA manual</div>
+        <div style="background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">IN DEVELOPMENT</div>
+          <div style="font-size:11px;color:var(--text2)">Expected: <strong style="color:var(--text)">Q3 2026</strong></div>
+        </div>
+        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Capability Analysis
+        </button>
+        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Normality Tests
+        </button>
       </div>
-      <button class="run-btn" id="run-lin-btn" disabled>Run Linearity &amp; Bias</button>
     </div>
 
     <!-- PCA sidebar -->
     <div id="sb-pca" style="display:none">
-      <div class="upload-zone" id="pca-upload"><input type="file" id="pca-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">🔭</div><div style="font-size:13px;font-weight:600" id="pca-upload-title">Drop multi-column data</div><div style="font-size:11px;color:var(--text2);margin-top:2px">All numeric columns used as variables</div></div>
-      <div id="pca-options" style="display:none;flex-direction:column;gap:8px">
-        <div class="ctrl-row"><label>Components to retain</label><input type="number" id="pca-n-comp" value="3" min="2" max="10" style="width:60px"/></div>
-        <div class="ctrl-row"><label>Scaling</label><select id="pca-scale" style="width:auto"><option value="standardize">Standardize (Z-score)</option><option value="none">None (covariance)</option></select></div>
+      <div style="padding:4px 0 12px">
+        <div style="font-size:28px;margin-bottom:8px;text-align:center">🔭</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Principal Component Analysis</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">Dimensionality reduction and variation source fingerprinting</div>
+        <div style="background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">IN DEVELOPMENT</div>
+          <div style="font-size:11px;color:var(--text2)">Expected: <strong style="color:var(--text)">Q4 2026</strong></div>
+        </div>
+        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Capability Analysis
+        </button>
+        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Normality Tests
+        </button>
       </div>
-      <button class="run-btn" id="run-pca-btn" disabled>Run PCA</button>
     </div>
 
     <!-- Scatter Matrix sidebar -->
     <div id="sb-scattermatrix" style="display:none">
-      <div class="upload-zone" id="smat-upload"><input type="file" id="smat-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">🔲</div><div style="font-size:13px;font-weight:600" id="smat-upload-title">Drop multi-column data</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Shows all pairwise scatter plots</div></div>
-      <div class="ctrl-row" style="margin-top:6px"><label>Color by column (optional)</label></div>
-      <div id="smat-col-section" style="display:none">
-        <div class="col-list" id="smat-color-list" style="max-height:100px"></div>
+      <div style="padding:4px 0 12px">
+        <div style="font-size:28px;margin-bottom:8px;text-align:center">🔲</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Scatter Plot Matrix</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">All pairwise correlations in one JMP Graph Builder-style view</div>
+        <div style="background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">IN DEVELOPMENT</div>
+          <div style="font-size:11px;color:var(--text2)">Expected: <strong style="color:var(--text)">Q4 2026</strong></div>
+        </div>
+        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Capability Analysis
+        </button>
+        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Normality Tests
+        </button>
       </div>
-      <button class="run-btn" id="run-smat-btn" disabled>Build Scatter Matrix</button>
     </div>
 
     <!-- Box Plot / Violin sidebar -->
     <div id="sb-boxplot" style="display:none">
-      <div class="upload-zone" id="bp-upload"><input type="file" id="bp-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">📦</div><div style="font-size:13px;font-weight:600" id="bp-upload-title">Drop file</div><div style="font-size:11px;color:var(--text2);margin-top:2px">One or more numeric columns</div></div>
-      <div id="bp-col-section" style="display:none">
-        <div class="sl">Columns to plot (select multiple)</div>
-        <div class="col-list" id="bp-col-list" style="max-height:160px"></div>
+      <div style="padding:4px 0 12px">
+        <div style="font-size:28px;margin-bottom:8px;text-align:center">📦</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Box Plot / Violin</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">Distribution comparison with outlier detection across groups</div>
+        <div style="background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">IN DEVELOPMENT</div>
+          <div style="font-size:11px;color:var(--text2)">Expected: <strong style="color:var(--text)">Q4 2026</strong></div>
+        </div>
+        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Capability Analysis
+        </button>
+        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Normality Tests
+        </button>
       </div>
-      <div class="ctrl-row"><label>Chart type</label><select id="bp-type" style="width:auto"><option value="box">Box plot</option><option value="violin">Violin plot</option><option value="both">Both</option></select></div>
-      <div class="ctrl-row"><label>Show outliers</label><input type="checkbox" id="bp-outliers" checked/></div>
-      <button class="run-btn" id="run-bp-btn" disabled>Build Box Plot</button>
     </div>
 
     <!-- Data Studio sidebar -->
     <div id="sb-datastudio" style="display:none">
-      <div class="sl">Data Operations</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
-          <div style="font-size:12px;font-weight:600;margin-bottom:4px">Stack Columns</div>
-          <div style="font-size:10px;color:var(--text3)">Wide → long format (multiple cols → one col + group)</div>
-          <div class="upload-zone" style="padding:10px;margin-top:6px"><input type="file" id="ds-stack-input" accept=".csv,.xlsx"/><div style="font-size:11px">Drop file to stack</div></div>
-          <button onclick="dsOperation('stack')" class="run-btn secondary" style="margin-top:6px;font-size:12px;padding:7px">Stack →</button>
+      <div style="padding:4px 0 12px">
+        <div style="font-size:28px;margin-bottom:8px;text-align:center">🛠️</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Data Studio</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">Stack/unstack, formula columns, table joins — JMP Tables equivalent</div>
+        <div style="background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">IN DEVELOPMENT</div>
+          <div style="font-size:11px;color:var(--text2)">Expected: <strong style="color:var(--text)">Q4 2026</strong></div>
         </div>
-        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
-          <div style="font-size:12px;font-weight:600;margin-bottom:4px">Unstack Column</div>
-          <div style="font-size:10px;color:var(--text3)">Long → wide (value + group col → separate cols)</div>
-          <div class="upload-zone" style="padding:10px;margin-top:6px"><input type="file" id="ds-unstack-input" accept=".csv,.xlsx"/><div style="font-size:11px">Drop file to unstack</div></div>
-          <button onclick="dsOperation('unstack')" class="run-btn secondary" style="margin-top:6px;font-size:12px;padding:7px">Unstack →</button>
-        </div>
-        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;border:1px solid var(--border)">
-          <div style="font-size:12px;font-weight:600;margin-bottom:4px">Formula Column</div>
-          <div style="font-size:10px;color:var(--text3)">Add calculated column (e.g. A+B, log(A), A/B)</div>
-          <input type="text" id="ds-formula" placeholder="e.g. col1 + col2 * 2" style="margin-top:6px;font-size:12px"/>
-          <input type="text" id="ds-formula-name" placeholder="New column name" style="margin-top:4px;font-size:12px"/>
-          <button onclick="dsAddFormulaColumn()" class="run-btn" style="margin-top:6px;font-size:12px;padding:7px">Add Column →</button>
-        </div>
+        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Capability Analysis
+        </button>
+        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Normality Tests
+        </button>
       </div>
     </div>
 
     <!-- Logistic Regression sidebar -->
     <div id="sb-logistic" style="display:none">
-      <div class="upload-zone" id="logit-upload"><input type="file" id="logit-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">📈</div><div style="font-size:13px;font-weight:600" id="logit-upload-title">Drop file</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Binary outcome (0/1) + predictor columns</div></div>
-      <div id="logit-col-section" style="display:none">
-        <div class="sl">Binary Response Y (0/1)</div>
-        <div class="col-list" id="logit-y-list" style="max-height:80px"></div>
-        <div class="sl" style="margin-top:6px">Predictor(s) X</div>
-        <div class="col-list" id="logit-x-list" style="max-height:130px"></div>
+      <div style="padding:4px 0 12px">
+        <div style="font-size:28px;margin-bottom:8px;text-align:center">📈</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Logistic Regression</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">Binary outcome modeling with ROC curve and odds ratios</div>
+        <div style="background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">IN DEVELOPMENT</div>
+          <div style="font-size:11px;color:var(--text2)">Expected: <strong style="color:var(--text)">Q4 2026</strong></div>
+        </div>
+        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Capability Analysis
+        </button>
+        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Normality Tests
+        </button>
       </div>
-      <button class="run-btn" id="run-logit-btn" disabled>Run Logistic Regression</button>
     </div>
 
     <!-- Stepwise Regression sidebar -->
     <div id="sb-stepwise" style="display:none">
-      <div class="upload-zone" id="sw-upload"><input type="file" id="sw-file-input" accept=".csv,.xlsx"/><div style="font-size:20px;margin-bottom:5px">🪜</div><div style="font-size:13px;font-weight:600" id="sw-upload-title">Drop file</div><div style="font-size:11px;color:var(--text2);margin-top:2px">Auto-selects significant predictors</div></div>
-      <div id="sw-col-section" style="display:none">
-        <div class="sl">Response Y</div>
-        <div class="col-list" id="sw-y-list" style="max-height:80px"></div>
-        <div class="sl" style="margin-top:6px">Candidate Predictors X (select all)</div>
-        <div class="col-list" id="sw-x-list" style="max-height:130px"></div>
+      <div style="padding:4px 0 12px">
+        <div style="font-size:28px;margin-bottom:8px;text-align:center">🪜</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Stepwise Regression</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">Auto variable selection: forward, backward, or both</div>
+        <div style="background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;padding:10px 12px">
+          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">IN DEVELOPMENT</div>
+          <div style="font-size:11px;color:var(--text2)">Expected: <strong style="color:var(--text)">Q4 2026</strong></div>
+        </div>
+        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Capability Analysis
+        </button>
+        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
+          ← Back to Normality Tests
+        </button>
       </div>
-      <div class="ctrl-row"><label>Method</label><select id="sw-method" style="width:auto"><option value="forward">Forward</option><option value="backward">Backward</option><option value="both">Both</option></select></div>
-      <div class="ctrl-row"><label>Entry α</label><input type="number" id="sw-alpha-in" value="0.05" step="0.01" style="width:70px"/></div>
-      <button class="run-btn" id="run-sw-btn" disabled>Run Stepwise</button>
     </div>
 
   </aside>
@@ -1834,10 +1877,20 @@ function finalizeOpen(){
   globalFile = wizardFile;
   globalProcType = wizardProcType;
   closeModal('open-file-modal');
-  activateWorkspace(wizardFile.name, wizardProcType, globalColumns);
-  // Pre-populate all session file inputs with this file
   distributeFileToSessions(wizardFile);
   showToast(`✅ ${wizardFile.name} loaded`);
+  // If user opened wizard from CAPA, return to CAPA step 2 instead of welcome
+  if(window._capaWizardPending) {
+    window._capaWizardPending = false;
+    activateWorkspace(wizardFile.name, wizardProcType, globalColumns);
+    // Stay in CAPA — switch to it and advance to step 2
+    setTimeout(() => {
+      switchAnalysis('capa');
+      setTimeout(() => capaGoStep(2), 150);
+    }, 100);
+  } else {
+    activateWorkspace(wizardFile.name, wizardProcType, globalColumns);
+  }
 }
 
 function distributeFileToSessions(file){
@@ -2285,16 +2338,179 @@ else if(tab==='capability'){
     else if(tab==='samplesize'){showEmpty('📏','Sample Size Calculator','Select study type and parameters. Calculates required n with power curve.');}
     else if(tab==='twoway_anova'){showEmpty('🔢','Two-Way ANOVA','Upload data with Response, Factor A, Factor B columns. Tests main effects and interaction.');}
     else if(tab==='rsm'){showEmpty('🏔️','Response Surface Methodology','Use the sidebar wizard: pick CCD or Box-Behnken design, define factors, generate matrix, fit model.');}
-    else if(tab==='attrchart'){showEmpty('📊','Attribute Control Charts (p/np/u/c)','Upload subgroup defect counts. Select p, np, u, or c chart in the sidebar and run — JMP equivalent.');}
-    else if(tab==='weibull'){showEmpty('📉','Weibull / Reliability Analysis','Upload time-to-failure data. Fits Weibull 2P/3P, lognormal, or exponential — reports B10/B50 life, hazard rate, probability plot.');}
-    else if(tab==='linearity'){showEmpty('📏','MSA Linearity & Bias','Upload reference vs measured value pairs. Evaluates whether gauge bias changes across the measurement range.');}
-    else if(tab==='pca'){showEmpty('🔭','Principal Component Analysis','Upload multi-column process data. PCA identifies the dominant sources of variation — essential for process fingerprinting and data reduction.');}
-    else if(tab==='scattermatrix'){showEmpty('🔲','Scatter Plot Matrix','Upload multi-column data. Shows all pairwise scatter plots with correlation coefficients — equivalent to JMP Graph Builder.');}
-    else if(tab==='boxplot'){showEmpty('📦','Box Plot / Violin','Upload data with numeric columns. Compare distributions, identify outliers, check spread — standard in SigmaPlot and MATLAB.');}
-    else if(tab==='datastudio'){showEmpty('🛠️','Data Studio','Stack/unstack columns, add formula columns — equivalent to JMP Tables menu and Excel Power Query.');}
-    else if(tab==='logistic'){showEmpty('📈','Logistic Regression','Upload data with a binary outcome (0/1) and numeric predictors. Reports odds ratios, ROC curve, and model fit.');}
-    else if(tab==='stepwise'){showEmpty('🪜','Stepwise Regression','Upload data and select a response + candidate predictors. Auto-selects the most significant variables using forward/backward entry.');}
-    else{ showEmpty('📊', tab.charAt(0).toUpperCase()+tab.slice(1), 'Select options in the sidebar and run the analysis.'); }
+    else if(tab==='attrchart'){showContent(`
+      <div style="max-width:620px;margin:32px auto;padding:0 16px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:52px;margin-bottom:12px">📊</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">Attribute Control Charts</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">p, np, u, and c control charts for defect counts, proportions, and rates. The JMP equivalent for visual inspection and pass/fail data.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.05em">IN DEVELOPMENT — Q3 2026</div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What's coming:</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text2);line-height:1.8"><li style="margin-bottom:4px">p Chart — fraction defective with variable sample size</li><li style="margin-bottom:4px">np Chart — number defective with constant sample size</li><li style="margin-bottom:4px">c Chart — count of defects per unit (constant n)</li><li style="margin-bottom:4px">u Chart — defects per unit with variable sample size</li><li style="margin-bottom:4px">Auto alarm detection with Western Electric rules</li><li style="margin-bottom:4px">Export chart with alarm table to PDF report</li></ul>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button onclick="switchAnalysis('spc')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Variable Control Charts</button>
+          <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
+        </div>
+      </div>
+    `);}
+    else if(tab==='weibull'){showContent(`
+      <div style="max-width:620px;margin:32px auto;padding:0 16px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:52px;margin-bottom:12px">📉</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">Weibull / Reliability Analysis</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">Fit lifetime data to Weibull 2P/3P, lognormal, or exponential distributions. Get B10/B50 life estimates, hazard rates, and reliability at time T.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.05em">IN DEVELOPMENT — Q3 2026</div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What's coming:</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text2);line-height:1.8"><li style="margin-bottom:4px">Weibull 2-parameter and 3-parameter fitting</li><li style="margin-bottom:4px">Lognormal and exponential alternatives with AIC comparison</li><li style="margin-bottom:4px">B10 / B50 / Bx life estimation with confidence bounds</li><li style="margin-bottom:4px">Probability plot with Anderson-Darling goodness-of-fit</li><li style="margin-bottom:4px">Hazard rate and survival function plots</li><li style="margin-bottom:4px">Censored data support (right-censored, interval-censored)</li><li style="margin-bottom:4px">MTTF / MTBF calculation for repairable systems</li></ul>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button onclick="switchAnalysis('capability')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Capability Analysis</button>
+          <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
+        </div>
+      </div>
+    `);}    else if(tab==='linearity'){showContent(`
+      <div style="max-width:620px;margin:32px auto;padding:0 16px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:52px;margin-bottom:12px">📏</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">MSA Linearity & Bias</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">Evaluate whether your gauge has consistent bias across the measurement range. Required by IATF 16949 MSA manual for critical gauges.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.05em">IN DEVELOPMENT — Q3 2026</div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What's coming:</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text2);line-height:1.8"><li style="margin-bottom:4px">Overall bias calculation and significance test</li><li style="margin-bottom:4px">Linearity plot: bias vs reference value with regression fit</li><li style="margin-bottom:4px">Slope significance test (non-zero slope = linearity problem)</li><li style="margin-bottom:4px">% linearity relative to process variation</li><li style="margin-bottom:4px">Bias significance test at each reference point</li><li style="margin-bottom:4px">Combined linearity/bias verdict per AIAG MSA 4th Ed.</li></ul>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button onclick="switchAnalysis('capability')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Capability Analysis</button>
+          <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
+        </div>
+      </div>
+    `);}    else if(tab==='pca'){showContent(`
+      <div style="max-width:620px;margin:32px auto;padding:0 16px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:52px;margin-bottom:12px">🔭</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">Principal Component Analysis</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">Reduce the dimensionality of multi-variable process data. Identify the dominant sources of variation — essential for process fingerprinting and fault detection.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.05em">IN DEVELOPMENT — Q4 2026</div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What's coming:</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text2);line-height:1.8"><li style="margin-bottom:4px">Scree plot with elbow detection for component selection</li><li style="margin-bottom:4px">Score plot (PC1 vs PC2) for outlier and cluster detection</li><li style="margin-bottom:4px">Loading plot to identify contributing variables</li><li style="margin-bottom:4px">Biplot combining scores and loadings</li><li style="margin-bottom:4px">Variance explained table with cumulative %</li><li style="margin-bottom:4px">Export loadings matrix for fault classification models</li></ul>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button onclick="switchAnalysis('capability')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Capability Analysis</button>
+          <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
+        </div>
+      </div>
+    `);}    else if(tab==='scattermatrix'){showContent(`
+      <div style="max-width:620px;margin:32px auto;padding:0 16px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:52px;margin-bottom:12px">🔲</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">Scatter Plot Matrix</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">All pairwise scatter plots in one view with correlation coefficients. The JMP Graph Builder equivalent for multivariate process data exploration.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.05em">IN DEVELOPMENT — Q4 2026</div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What's coming:</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text2);line-height:1.8"><li style="margin-bottom:4px">All pairwise scatter plots with trend lines</li><li style="margin-bottom:4px">Pearson and Spearman correlation coefficients</li><li style="margin-bottom:4px">Color coding by a grouping variable</li><li style="margin-bottom:4px">Diagonal: individual histograms or density curves</li><li style="margin-bottom:4px">Click any cell to enlarge with full zoom capability</li><li style="margin-bottom:4px">Export correlation matrix as CSV or heat map</li></ul>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button onclick="switchAnalysis('capability')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Capability Analysis</button>
+          <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
+        </div>
+      </div>
+    `);}    else if(tab==='boxplot'){showContent(`
+      <div style="max-width:620px;margin:32px auto;padding:0 16px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:52px;margin-bottom:12px">📦</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">Box Plot / Violin</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">Compare distributions across groups with box plots, violin plots, or both. Standard in SigmaPlot and MATLAB for process comparison studies.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.05em">IN DEVELOPMENT — Q4 2026</div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What's coming:</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text2);line-height:1.8"><li style="margin-bottom:4px">Box plot with IQR, median, whiskers, and outlier dots</li><li style="margin-bottom:4px">Violin plot showing full distribution density shape</li><li style="margin-bottom:4px">Side-by-side comparison of multiple columns or groups</li><li style="margin-bottom:4px">Notched box plot for median confidence intervals</li><li style="margin-bottom:4px">Jittered data points overlay for small samples</li><li style="margin-bottom:4px">Statistical significance brackets between groups</li></ul>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button onclick="switchAnalysis('capability')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Capability Analysis</button>
+          <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
+        </div>
+      </div>
+    `);}    else if(tab==='datastudio'){showContent(`
+      <div style="max-width:620px;margin:32px auto;padding:0 16px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:52px;margin-bottom:12px">🛠️</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">Data Studio</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">Stack/unstack columns, add formula columns, reshape datasets. The JMP Tables menu equivalent for pre-analysis data preparation.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.05em">IN DEVELOPMENT — Q4 2026</div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What's coming:</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text2);line-height:1.8"><li style="margin-bottom:4px">Stack: wide-to-long format (multiple cols → one col + group label)</li><li style="margin-bottom:4px">Unstack: long-to-wide format (value + group → separate columns)</li><li style="margin-bottom:4px">Formula columns: A+B, log(A), A/B, Z-score, rolling average</li><li style="margin-bottom:4px">Filter rows by condition</li><li style="margin-bottom:4px">Concatenate multiple uploaded files</li><li style="margin-bottom:4px">Download reshaped dataset as CSV/Excel</li></ul>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button onclick="switchAnalysis('capability')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Capability Analysis</button>
+          <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
+        </div>
+      </div>
+    `);}    else if(tab==='logistic'){showContent(`
+      <div style="max-width:620px;margin:32px auto;padding:0 16px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:52px;margin-bottom:12px">📈</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">Logistic Regression</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">Model binary outcomes (pass/fail, defect/no-defect) as a function of continuous process variables. Get odds ratios, ROC curve, and classification performance.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.05em">IN DEVELOPMENT — Q4 2026</div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What's coming:</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text2);line-height:1.8"><li style="margin-bottom:4px">Binary logistic regression with Newton-Raphson estimation</li><li style="margin-bottom:4px">Coefficient table with odds ratios and confidence intervals</li><li style="margin-bottom:4px">ROC curve with AUC metric</li><li style="margin-bottom:4px">Confusion matrix with accuracy, precision, recall</li><li style="margin-bottom:4px">Deviance residuals and influence diagnostics</li><li style="margin-bottom:4px">Hosmer-Lemeshow goodness-of-fit test</li></ul>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button onclick="switchAnalysis('capability')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Capability Analysis</button>
+          <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
+        </div>
+      </div>
+    `);}    else if(tab==='stepwise'){showContent(`
+      <div style="max-width:620px;margin:32px auto;padding:0 16px">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:52px;margin-bottom:12px">🪜</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">Stepwise Regression</div>
+          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">Automatically select the most significant predictors from a candidate set. Avoids manual variable selection for complex process models.</div>
+        </div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--teal);letter-spacing:.05em">IN DEVELOPMENT — Q4 2026</div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What's coming:</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:var(--text2);line-height:1.8"><li style="margin-bottom:4px">Forward, backward, and bidirectional selection</li><li style="margin-bottom:4px">AIC, BIC, and adjusted R² as selection criteria</li><li style="margin-bottom:4px">Step history table showing each add/remove decision</li><li style="margin-bottom:4px">VIF multicollinearity check on final model</li><li style="margin-bottom:4px">Residual diagnostics plots</li><li style="margin-bottom:4px">Equivalent to JMP Fit Model → Stepwise personality</li></ul>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button onclick="switchAnalysis('capability')" style="padding:9px 18px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:13px;cursor:pointer">← Capability Analysis</button>
+          <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
+        </div>
+      </div>
+    `);}    else{ showEmpty('📊', tab.charAt(0).toUpperCase()+tab.slice(1), 'Select options in the sidebar and run the analysis.'); }
 }
 
 function switchTab(name){switchAnalysis(name);}
@@ -2754,6 +2970,12 @@ function renderCap(r){
   // ── Non-normal data warning ──────────────────────────────────────────────
   const normResult = attachedNorm || (normData?.results?.find(x=>x.column===r.column));
   const isNonNormal = normResult && normResult.overall_verdict==='Non-Normal';
+  // ── Spec limit sanity check ──────────────────────────────────────────────
+  if(r.usl !== undefined && r.lsl !== undefined && r.mean !== undefined) {
+    if(r.usl <= r.lsl) showToast('❌ USL ≤ LSL — invalid spec limits, check your inputs', true);
+    else if(r.mean > r.usl) showToast('⚠️ Process mean exceeds USL — check spec limits', true);
+    else if(r.mean < r.lsl) showToast('⚠️ Process mean is below LSL — check spec limits', true);
+  }
   const isLikelyNonNormal = normResult && normResult.overall_verdict==='Likely Normal';
   const transData = window._lastTransformResult; // set by Box-Cox transform
   const transLambda = transData?.optimal_lambda;
@@ -2973,141 +3195,75 @@ setupUpload('sw-upload','sw-file-input','sw-upload-title', f=>{
 });
 
 // ── Run handlers for new analyses ─────────────────────────────────────────────
-document.getElementById('run-attr-btn').addEventListener('click', async () => {
-  const f = document.querySelector('#attr-upload input[type=file]').files[0];
-  if(!f) return;
-  const chartType = document.getElementById('attr-chart-type').value;
-  const defCol = document.querySelector('#attr-def-list .col-item.selected')?.dataset?.col || '';
-  const nCol = document.querySelector('#attr-n-list .col-item.selected')?.dataset?.col || '';
-  const constN = parseInt(document.getElementById('attr-const-n').value) || 100;
-  const fd = new FormData(); fd.append('file', f);
-  const btn = document.getElementById('run-attr-btn'); btn.disabled=true; btn.textContent='Running…';
-  showContent(loadHtml('Building attribute control chart…'));
-  try {
-    const r = await fetch(`${API}/api/v1/attrchart/analyze?chart_type=${chartType}&defect_col=${encodeURIComponent(defCol)}&n_col=${encodeURIComponent(nCol)}&const_n=${constN}`, {method:'POST', body:fd});
-    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
-    renderAttrChart(await r.json());
-  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
-  finally { btn.disabled=false; btn.textContent='Run Attribute Chart'; }
+document.getElementById('run-attr-btn')?.addEventListener('click', () => {
+  showToast('🚧 Attribute Charts is coming in a future release', false);
+});;
+
+document.getElementById('run-weibull-btn')?.addEventListener('click', () => {
+  showToast('🚧 Weibull Analysis is coming in a future release', false);
+});;
+
+document.getElementById('run-lin-btn')?.addEventListener('click', () => {
+  showToast('🚧 MSA Linearity is coming in a future release', false);
+});;
+
+document.getElementById('run-pca-btn')?.addEventListener('click', () => {
+  showToast('🚧 PCA is coming in a future release', false);
+});;
+
+document.getElementById('run-smat-btn')?.addEventListener('click', () => {
+  showToast('🚧 Scatter Matrix is coming in a future release', false);
+});;
+
+document.getElementById('run-bp-btn')?.addEventListener('click', () => {
+  showToast('🚧 Box Plot is coming in a future release', false);
+});;
+
+document.getElementById('run-logit-btn')?.addEventListener('click', () => {
+  showToast('🚧 Logistic Regression is coming in a future release', false);
+});;
+
+document.getElementById('run-sw-btn')?.addEventListener('click', () => {
+  showToast('🚧 Stepwise Regression is coming in a future release', false);
+});;
+
+// ── CAPA direct upload zone (Panel 2 inline) ─────────────────────────────────
+setupUpload('capa-direct-upload', 'capa-direct-file-input', 'capa-direct-upload-title', f => {
+  // File uploaded directly inside CAPA — set as global and update all sessions
+  globalFile = f;
+  distributeFileToSessions(f);
+  loadCols(f, cols => {
+    globalColumns = cols;
+    // Hide the upload zone, show data-linked state
+    const zone = document.getElementById('capa-inline-upload-zone');
+    if(zone) zone.style.display = 'none';
+    // Update the data warning
+    const warn = document.getElementById('capa-data-warning');
+    if(warn) { warn.style.display = 'none'; }
+    // Show a success banner
+    const banner = document.createElement('div');
+    banner.style.cssText = 'padding:8px 10px;background:rgba(45,212,160,0.1);border:1px solid rgba(45,212,160,0.3);border-radius:8px;font-size:11px;color:var(--teal);margin-bottom:8px';
+    banner.innerHTML = `✅ <strong>${f.name}</strong> loaded — ${cols.length} column(s) available`;
+    const panel2 = document.getElementById('capa-panel-2');
+    const existingBanner = panel2?.querySelector('.capa-file-banner');
+    if(existingBanner) existingBanner.remove();
+    banner.className = 'capa-file-banner';
+    if(panel2) panel2.insertBefore(banner, panel2.firstChild);
+    // Update context bar
+    const ctxFn = document.getElementById('ctx-filename');
+    if(ctxFn) ctxFn.innerHTML = `📂 <strong>${f.name}</strong>`;
+    document.getElementById('context-bar')?.classList.add('visible');
+    showToast(`✅ ${f.name} loaded in CAPA`);
+  });
 });
 
-document.getElementById('run-weibull-btn').addEventListener('click', async () => {
-  const f = document.querySelector('#weibull-upload input[type=file]').files[0];
-  if(!f) return;
-  const col = document.querySelector('#weibull-col-list .col-item.selected')?.dataset?.col || '';
-  const dist = document.getElementById('weibull-type').value;
-  const conf = document.getElementById('weibull-conf').value;
-  const fd = new FormData(); fd.append('file', f);
-  const btn = document.getElementById('run-weibull-btn'); btn.disabled=true; btn.textContent='Running…';
-  showContent(loadHtml('Fitting reliability model…'));
-  try {
-    const r = await fetch(`${API}/api/v1/weibull/analyze?column=${encodeURIComponent(col)}&distribution=${dist}&confidence=${conf}`, {method:'POST', body:fd});
-    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
-    renderWeibull(await r.json());
-  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
-  finally { btn.disabled=false; btn.textContent='Run Reliability Analysis'; }
-});
-
-document.getElementById('run-lin-btn').addEventListener('click', async () => {
-  const f = document.querySelector('#lin-upload input[type=file]').files[0];
-  if(!f) return;
-  const refCol = document.querySelector('#lin-ref-list .col-item.selected')?.dataset?.col || '';
-  const measCol = document.querySelector('#lin-meas-list .col-item.selected')?.dataset?.col || '';
-  const pv = parseFloat(document.getElementById('lin-pv').value) || null;
-  const fd = new FormData(); fd.append('file', f);
-  const btn = document.getElementById('run-lin-btn'); btn.disabled=true; btn.textContent='Running…';
-  showContent(loadHtml('Analyzing linearity and bias…'));
-  try {
-    let url = `${API}/api/v1/msa/linearity?ref_col=${encodeURIComponent(refCol)}&meas_col=${encodeURIComponent(measCol)}`;
-    if(pv) url += `&process_variation=${pv}`;
-    const r = await fetch(url, {method:'POST', body:fd});
-    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
-    renderLinearity(await r.json());
-  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
-  finally { btn.disabled=false; btn.textContent='Run Linearity & Bias'; }
-});
-
-document.getElementById('run-pca-btn').addEventListener('click', async () => {
-  const f = document.querySelector('#pca-upload input[type=file]').files[0];
-  if(!f) return;
-  const nComp = parseInt(document.getElementById('pca-n-comp').value) || 3;
-  const scale = document.getElementById('pca-scale').value;
-  const fd = new FormData(); fd.append('file', f);
-  const btn = document.getElementById('run-pca-btn'); btn.disabled=true; btn.textContent='Running…';
-  showContent(loadHtml('Computing principal components…'));
-  try {
-    const r = await fetch(`${API}/api/v1/pca/analyze?n_components=${nComp}&scaling=${scale}`, {method:'POST', body:fd});
-    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
-    renderPCA(await r.json());
-  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
-  finally { btn.disabled=false; btn.textContent='Run PCA'; }
-});
-
-document.getElementById('run-smat-btn').addEventListener('click', async () => {
-  const f = document.querySelector('#smat-upload input[type=file]').files[0];
-  if(!f) return;
-  const colorCol = document.querySelector('#smat-color-list .col-item.selected')?.dataset?.col || '';
-  const fd = new FormData(); fd.append('file', f);
-  const btn = document.getElementById('run-smat-btn'); btn.disabled=true; btn.textContent='Building…';
-  showContent(loadHtml('Building scatter matrix…'));
-  try {
-    const r = await fetch(`${API}/api/v1/scattermatrix/build?color_col=${encodeURIComponent(colorCol)}`, {method:'POST', body:fd});
-    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
-    renderScatterMatrix(await r.json());
-  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
-  finally { btn.disabled=false; btn.textContent='Build Scatter Matrix'; }
-});
-
-document.getElementById('run-bp-btn').addEventListener('click', async () => {
-  const f = document.querySelector('#bp-upload input[type=file]').files[0];
-  if(!f) return;
-  const cols = [...document.querySelectorAll('#bp-col-list .col-item.selected')].map(x=>x.dataset.col);
-  const chartType = document.getElementById('bp-type').value;
-  const showOutliers = document.getElementById('bp-outliers').checked;
-  const fd = new FormData(); fd.append('file', f);
-  const btn = document.getElementById('run-bp-btn'); btn.disabled=true; btn.textContent='Building…';
-  showContent(loadHtml('Building box plot…'));
-  try {
-    const r = await fetch(`${API}/api/v1/boxplot/build?columns=${cols.map(encodeURIComponent).join(',')}&chart_type=${chartType}&show_outliers=${showOutliers}`, {method:'POST', body:fd});
-    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
-    renderBoxPlot(await r.json());
-  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
-  finally { btn.disabled=false; btn.textContent='Build Box Plot'; }
-});
-
-document.getElementById('run-logit-btn').addEventListener('click', async () => {
-  const f = document.querySelector('#logit-upload input[type=file]').files[0];
-  if(!f) return;
-  const yCol = document.querySelector('#logit-y-list .col-item.selected')?.dataset?.col || '';
-  const xCols = [...document.querySelectorAll('#logit-x-list .col-item.selected')].map(x=>x.dataset.col);
-  const fd = new FormData(); fd.append('file', f);
-  const btn = document.getElementById('run-logit-btn'); btn.disabled=true; btn.textContent='Running…';
-  showContent(loadHtml('Fitting logistic model…'));
-  try {
-    const r = await fetch(`${API}/api/v1/regression/logistic?y_col=${encodeURIComponent(yCol)}&x_cols=${xCols.map(encodeURIComponent).join(',')}`, {method:'POST', body:fd});
-    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
-    renderLogistic(await r.json());
-  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
-  finally { btn.disabled=false; btn.textContent='Run Logistic Regression'; }
-});
-
-document.getElementById('run-sw-btn').addEventListener('click', async () => {
-  const f = document.querySelector('#sw-upload input[type=file]').files[0];
-  if(!f) return;
-  const yCol = document.querySelector('#sw-y-list .col-item.selected')?.dataset?.col || '';
-  const xCols = [...document.querySelectorAll('#sw-x-list .col-item.selected')].map(x=>x.dataset.col);
-  const method = document.getElementById('sw-method').value;
-  const alphaIn = parseFloat(document.getElementById('sw-alpha-in').value) || 0.05;
-  const fd = new FormData(); fd.append('file', f);
-  const btn = document.getElementById('run-sw-btn'); btn.disabled=true; btn.textContent='Running…';
-  showContent(loadHtml('Running stepwise selection…'));
-  try {
-    const r = await fetch(`${API}/api/v1/regression/stepwise?y_col=${encodeURIComponent(yCol)}&x_cols=${xCols.map(encodeURIComponent).join(',')}&method=${method}&alpha_in=${alphaIn}`, {method:'POST', body:fd});
-    if(!r.ok) throw new Error((await r.json()).detail || 'Server error');
-    renderStepwise(await r.json());
-  } catch(e) { showContent(`<div class="empty-state">❌ ${e.message}</div>`); }
-  finally { btn.disabled=false; btn.textContent='Run Stepwise'; }
-});
+// Show/hide CAPA upload zone based on whether file is available
+function updateCapaUploadZone() {
+  const zone = document.getElementById('capa-inline-upload-zone');
+  if(!zone) return;
+  const hasFile = !!(window.globalFile || window.normFile || window.capFile || window.spcFile);
+  zone.style.display = hasFile ? 'none' : 'block';
+}
 
 // ── GRR upload zone ─────────────────────────────────────────────────────────
 setupUpload('grr-upload','grr-file-input','grr-upload-title',async f=>{
@@ -4883,7 +5039,7 @@ function capaGoStep(n){
     }
   });
   if(n===2){
-    updateAttachStatus(); capaCheckPrereqs();
+    updateAttachStatus(); capaCheckPrereqs(); updateCapaUploadZone();
     // Always show USL/LSL row for inline capability
     const specRow=document.getElementById('capa-cap-spec-row');
     if(specRow) specRow.style.display='grid';
@@ -5911,14 +6067,15 @@ async function capaRunInline(type) {
   // Use any available file — globalFile is set by the Open File wizard
   const fileToUse = window.globalFile || normFile || capFile || spcFile;
   if (!fileToUse) {
-    // No file loaded at all — need to prompt upload
-    showToast('Upload a data file first (use Open File)', true);
+    // Mark that wizard was opened from CAPA so finalizeOpen returns here
+    window._capaWizardPending = true;
     if (window.innerWidth <= 768) {
       _mobUploadTarget = type;
       openMobileFileUpload(type);
     } else {
       openFileWizard();
     }
+    showToast('📂 Upload your data file — you'll return to CAPA automatically', false);
     return;
   }
 

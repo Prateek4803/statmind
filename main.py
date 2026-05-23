@@ -1371,6 +1371,66 @@ async def ai_classify_intent(request: Request):
 
 
 # ── N17: AI Report Narrative ──────────────────────────────────────────────────
+@app.post("/api/v1/alerts/fire")
+async def fire_alert(request: Request):
+    """
+    Route SPC/Cpk alerts to email or Slack webhooks.
+    Config and payload come from the frontend alert configuration panel.
+    """
+    import httpx
+    from datetime import datetime
+    body = await request.json()
+    config  = body.get("config", {})
+    payload = body.get("payload", {})
+
+    if not config.get("enabled"):
+        return JSONResponse({"status": "disabled"})
+
+    results = []
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    param     = payload.get("parameter", "Unknown parameter")
+    reason    = payload.get("reason", "Alert triggered")
+    lot_id    = payload.get("lot_id") or ""
+    tool_id   = payload.get("tool_id") or ""
+    cpk       = payload.get("cpk")
+    alarms    = payload.get("alarms", 0)
+
+    context_str = ""
+    if lot_id:  context_str += f"  Lot: {lot_id}\n"
+    if tool_id: context_str += f"  Tool: {tool_id}\n"
+
+    message = (
+        f"⚠️ StatMind Process Alert — {timestamp}\n"
+        f"Parameter: {param}\n"
+        f"{context_str}"
+        f"Reason: {reason}\n"
+        f"{'Cpk: '+str(round(cpk,3)) if cpk is not None else ''}  Alarms: {alarms}\n"
+        f"\nStatMind · statmind-production.up.railway.app"
+    )
+
+    # Slack notification
+    if config.get("slack") and config.get("slackUrl"):
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(
+                    config["slackUrl"],
+                    json={"text": message},
+                )
+                results.append({"channel": "slack", "status": resp.status_code})
+        except Exception as e:
+            results.append({"channel": "slack", "error": str(e)})
+
+    # Email notification (stub — requires SMTP config)
+    if config.get("email") and config.get("emailAddr"):
+        # TODO: wire SMTP or SendGrid when email service is configured
+        # For now, log the intent
+        import logging
+        logging.info(f"EMAIL ALERT TO {config['emailAddr']}: {message}")
+        results.append({"channel": "email", "status": "logged (SMTP not yet configured)"})
+
+    return JSONResponse({"status": "sent", "results": results})
+
+
 @app.post("/api/v1/ai/narrative")
 async def ai_narrative_endpoint(request: Request):
     """

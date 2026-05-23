@@ -309,3 +309,109 @@ def generate_narrative(
         full_narrative=full,
         word_count=word_count,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# StatMind N17 — In-House Narrative Engine Architecture Stub
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# DESIGN PHILOSOPHY:
+# StatMind generates plain-English narratives using DETERMINISTIC RULES,
+# not external LLM APIs. This ensures:
+# 1. No data leaves StatMind servers (critical for fab confidentiality)
+# 2. Narratives are auditable and reproducible (required for regulated industries)
+# 3. Domain accuracy guaranteed — rules are written by quality engineers
+# 4. Zero API cost, zero latency from external calls
+# 5. Can be fine-tuned/extended without retraining an external model
+#
+# ARCHITECTURE (current: rule-based → future: StatMind-GPT fine-tuned):
+#
+# Phase 1 (live): Deterministic rule engine in ai_narrative.py
+#   Input: structured analysis results (Cpk, alarms, GRR%, etc.)
+#   Output: human-readable paragraphs
+#   Method: conditional logic on threshold values + f-string templates
+#
+# Phase 2 (6 months): Fine-tuned small transformer
+#   Base: DistilGPT-2 or Mistral-7B (small enough to self-host)
+#   Training data: quality engineering textbooks, AIAG manuals,
+#                  SEMI standards, historical CAPA reports (anonymised)
+#   Fine-tuning: 10,000+ (input_json → narrative_paragraph) pairs
+#   Hosting: self-hosted on Railway with GPU tier
+#
+# Phase 3 (12 months): StatMind-QE-7B
+#   Purpose-built for quality engineering narrative generation
+#   Trained on: PPAP submissions, audit findings, engineering memos,
+#               process qualification reports, NCR root cause analyses
+#   Evaluation metric: reviewed by 5+ senior quality engineers
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class StatMindNarrativeEngine:
+    """
+    StatMind N17 Rule-Based Narrative Engine
+    Stub for future fine-tuned transformer model.
+    All logic is deterministic and auditable.
+    """
+
+    # Training data categories for future fine-tuning
+    TRAINING_DOMAINS = [
+        "semiconductor_process_qualification",
+        "automotive_ppap_narratives",
+        "aerospace_first_article_inspection",
+        "medical_device_process_validation",
+        "gauge_rnr_msa_reports",
+        "control_chart_alarm_investigation",
+        "capa_root_cause_analysis",
+        "doe_experiment_summary",
+    ]
+
+    # Template registry — each maps a statistical condition to narrative text
+    # Future: these become training examples for the fine-tuned model
+    CAPABILITY_TEMPLATES = {
+        "excellent_centered":       "The {param} process demonstrates excellent capability (Cpk={cpk:.3f}, Cp={cp:.3f}). "
+                                    "The process is well-centered and the spread is well within specification. "
+                                    "Expected defect rate of {ppm:,.0f} PPM meets {industry} requirements.",
+        "capable_shifted":          "The {param} process is capable (Cpk={cpk:.3f}) but shows a mean shift of {shift:.4f} {units} "
+                                    "from the specification midpoint. Centering the process could improve Cpk by ~{delta:.3f} "
+                                    "to approach the potential Cp={cp:.3f}.",
+        "marginal":                 "The {param} process is marginally capable (Cpk={cpk:.3f}). "
+                                    "With {ppm:,.0f} PPM estimated defect rate, process improvement is recommended "
+                                    "before full production release.",
+        "not_capable_centering":    "The {param} process is not capable (Cpk={cpk:.3f}). "
+                                    "The primary contributor is mean offset from specification center. "
+                                    "Recipe or setpoint adjustment is the first corrective action.",
+        "not_capable_spread":       "The {param} process is not capable (Cpk={cpk:.3f}, Cp={cp:.3f}). "
+                                    "Both Cp and Cpk are below 1.0, indicating that spread reduction — "
+                                    "not centering — is the primary improvement lever.",
+    }
+
+    @classmethod
+    def get_training_example(cls, input_result: dict, ground_truth_narrative: str) -> dict:
+        """
+        Generate a training example pair for future fine-tuning.
+        Collect these to build the StatMind-QE training dataset.
+        """
+        return {
+            "input": input_result,
+            "output": ground_truth_narrative,
+            "domain": cls._classify_domain(input_result),
+            "quality_score": None,  # To be rated by engineer
+            "timestamp": __import__('datetime').datetime.utcnow().isoformat(),
+        }
+
+    @classmethod
+    def _classify_domain(cls, result: dict) -> str:
+        proc = (result.get("process_type") or "").lower()
+        if "semi" in proc or "litho" in proc or "etch" in proc:
+            return "semiconductor_process_qualification"
+        elif "iatf" in proc or "automotive" in proc:
+            return "automotive_ppap_narratives"
+        elif "aerospace" in proc or "as9100" in proc:
+            return "aerospace_first_article_inspection"
+        elif "fda" in proc or "medical" in proc:
+            return "medical_device_process_validation"
+        return "general_quality_engineering"
+
+
+# Instantiate the engine (used by the endpoint)
+narrative_engine = StatMindNarrativeEngine()

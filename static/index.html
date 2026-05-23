@@ -2116,6 +2116,26 @@ function showNewFileTable(){
 }
 
 const API=window.location.origin.includes('localhost')?'http://localhost:8010':'';
+// ── Universal run-button loading state ───────────────────────────────────────
+async function runWithLoading(btnId, originalLabel, asyncFn) {
+  const btn = document.getElementById(btnId);
+  if(!btn) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ Running…';
+  btn.style.opacity = '0.7';
+  try {
+    await asyncFn(btn);
+  } catch(e) {
+    console.error(btnId + ' error:', e);
+    showToast('❌ ' + (e.message || 'Analysis failed — check your data'), true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+    btn.style.opacity = '';
+  }
+}
+
+
 
 // ── Universal chart modal + zoom helpers ─────────────────────────────────────
 function openChartModal(chartOrCanvas) {
@@ -6660,6 +6680,69 @@ function goHome() {
   }
 })();
 
+// ── Auto-apply loading state to all run buttons ──────────────────────────────
+(function applyRunButtonLoadingStates() {
+  const RUN_LABELS = {
+    'run-spc-btn':'Run SPC Chart','run-capa-btn':'Run CAPA Engine',
+    'run-cap-btn':'Run Capability','run-norm-btn':'Run Normality Tests',
+    'run-grr-btn':'Run Gauge R&R','run-report-btn':'Generate Report',
+    'run-comp-btn':'Run Comparison','run-dash-btn':'Build Dashboard',
+    'run-trans-btn':'Run Transformation','run-mv-btn':'Run Multi-Vari',
+    'run-doe-generate-btn':'Generate Design','run-doe-analyze-btn':'Analyze DOE',
+    'run-tol-btn':'Run Tolerance','run-aaa-btn':'Run Attribute Agreement',
+    'run-hyp-btn':'Run Hypothesis Test','run-pareto-btn':'Run Pareto',
+    'run-sixpack-btn':'Run Sixpack','run-reg-btn':'Run Regression',
+    'run-cusum-btn':'Run CUSUM/EWMA','run-runchart-btn':'Run Run Chart',
+    'run-corr-btn':'Run Correlation','run-equiv-btn':'Run Equivalence Test',
+    'run-outl-btn':'Run Outlier Detection','run-ss-btn':'Calculate Sample Size',
+    'run-twa-btn':'Run Two-Way ANOVA','run-rsm-design-btn':'Generate RSM Design',
+    'run-rsm-analyze-btn':'Analyze RSM',
+  };
+
+  function wrapBtn(btnId, label) {
+    const btn = document.getElementById(btnId);
+    if(!btn || btn._loadingWrapped) return;
+    btn._loadingWrapped = true;
+    // Intercept clicks in capture phase (fires before the existing bubble handler)
+    btn.addEventListener('click', function(e) {
+      if(btn.disabled) { e.stopImmediatePropagation(); return; }
+      btn.disabled = true;
+      btn._prevText = btn.textContent;
+      btn.textContent = '⏳ Running…';
+      btn.style.opacity = '0.7';
+      // Safety: restore after 2 minutes max
+      btn._safetyTimer = setTimeout(() => restoreBtn(btn, label), 120000);
+    }, true); // capture = fires first
+  }
+
+  function restoreBtn(btn, label) {
+    clearTimeout(btn._safetyTimer);
+    btn.disabled = false;
+    btn.textContent = btn._prevText || label;
+    btn.style.opacity = '';
+  }
+
+  // Patch showContent to restore buttons after any result renders
+  const _origShowContent = window.showContent;
+  if(typeof _origShowContent === 'function') {
+    window.showContent = function(content) {
+      _origShowContent(content);
+      Object.entries(RUN_LABELS).forEach(([id, label]) => {
+        const btn = document.getElementById(id);
+        if(btn && btn._loadingWrapped && btn.disabled) restoreBtn(btn, label);
+      });
+    };
+  }
+
+  function init() {
+    Object.entries(RUN_LABELS).forEach(([id, label]) => wrapBtn(id, label));
+  }
+  if(document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
 </script>
 
 <!-- MOBILE FILE INPUT — programmatically triggered to bypass iOS Safari upload-zone bug -->

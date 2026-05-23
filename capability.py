@@ -154,10 +154,20 @@ def analyze_capability(
         raise ValueError(f"Need at least 5 data points, got {n}")
     if usl <= lsl:
         raise ValueError(f"USL ({usl}) must be greater than LSL ({lsl})")
+    if mean > usl * 10 or mean < lsl * 10:
+        raise ValueError(
+            f"Process mean ({mean:.4f}) is far outside spec limits "
+            f"[LSL={lsl}, USL={usl}]. Check that spec limits match your data units."
+        )
 
     mean = float(np.mean(data))
     std_overall = float(np.std(data, ddof=1))
     std_within = float(estimate_sigma_within(data, subgroup_size))
+
+    if std_within == 0:
+        raise ValueError("All data values are identical — cannot compute capability (zero variation)")
+    if std_overall == 0:
+        std_overall = std_within  # fallback: use within sigma
 
     if target is None:
         target_val = (usl + lsl) / 2

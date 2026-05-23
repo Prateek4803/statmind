@@ -3125,74 +3125,13 @@ function showNorm(colName){
 
 // ══ SESSION 4: GRR ═══════════════════════════════════════════════════════════
 // ── New analysis upload zones ─────────────────────────────────────────────────
-setupUpload('attr-upload','attr-file-input','attr-upload-title', f=>{
-  loadCols(f, cols=>{
-    document.getElementById('attr-col-section').style.display='flex';
-    document.getElementById('attr-col-section').style.flexDirection='column';
-    buildColList('attr-def-list', cols.filter(c=>c.n>0), c=>{ document.querySelectorAll('#attr-def-list .col-item').forEach(x=>x.classList.remove('selected')); event.target.closest('.col-item').classList.add('selected'); });
-    buildColList('attr-n-list', cols.filter(c=>c.n>0), c=>{ document.querySelectorAll('#attr-n-list .col-item').forEach(x=>x.classList.remove('selected')); event.target.closest('.col-item').classList.add('selected'); });
-    document.getElementById('run-attr-btn').disabled=false;
-  });
-});
 
-setupUpload('weibull-upload','weibull-file-input','weibull-upload-title', f=>{
-  loadCols(f, cols=>{
-    document.getElementById('weibull-col-section').style.display='flex';
-    document.getElementById('weibull-col-section').style.flexDirection='column';
-    buildColList('weibull-col-list', cols.filter(c=>c.n>0), c=>{ document.querySelectorAll('#weibull-col-list .col-item').forEach(x=>x.classList.remove('selected')); event.target.closest('.col-item').classList.add('selected'); });
-    document.getElementById('run-weibull-btn').disabled=false;
-  });
-});
 
-setupUpload('lin-upload','lin-file-input','lin-upload-title', f=>{
-  loadCols(f, cols=>{
-    document.getElementById('lin-col-section').style.display='flex';
-    document.getElementById('lin-col-section').style.flexDirection='column';
-    buildColList('lin-ref-list', cols.filter(c=>c.n>0), c=>{});
-    buildColList('lin-meas-list', cols.filter(c=>c.n>0), c=>{});
-    document.getElementById('run-lin-btn').disabled=false;
-  });
-});
 
-setupUpload('pca-upload','pca-file-input','pca-upload-title', f=>{
-  loadCols(f, cols=>{ document.getElementById('pca-options').style.display='flex'; document.getElementById('run-pca-btn').disabled=false; });
-});
 
-setupUpload('smat-upload','smat-file-input','smat-upload-title', f=>{
-  loadCols(f, cols=>{
-    document.getElementById('smat-col-section').style.display='block';
-    buildColList('smat-color-list', cols, c=>{});
-    document.getElementById('run-smat-btn').disabled=false;
-  });
-});
 
-setupUpload('bp-upload','bp-file-input','bp-upload-title', f=>{
-  loadCols(f, cols=>{
-    document.getElementById('bp-col-section').style.display='block';
-    buildColList('bp-col-list', cols.filter(c=>c.n>0), c=>{
-      event.target.closest('.col-item').classList.toggle('selected');
-    });
-    document.getElementById('run-bp-btn').disabled=false;
-  });
-});
 
-setupUpload('logit-upload','logit-file-input','logit-upload-title', f=>{
-  loadCols(f, cols=>{
-    document.getElementById('logit-col-section').style.display='block';
-    buildColList('logit-y-list', cols.filter(c=>c.n>0), c=>{});
-    buildColList('logit-x-list', cols.filter(c=>c.n>0), c=>{ event.target.closest('.col-item').classList.toggle('selected'); });
-    document.getElementById('run-logit-btn').disabled=false;
-  });
-});
 
-setupUpload('sw-upload','sw-file-input','sw-upload-title', f=>{
-  loadCols(f, cols=>{
-    document.getElementById('sw-col-section').style.display='block';
-    buildColList('sw-y-list', cols.filter(c=>c.n>0), c=>{});
-    buildColList('sw-x-list', cols.filter(c=>c.n>0), c=>{ event.target.closest('.col-item').classList.toggle('selected'); });
-    document.getElementById('run-sw-btn').disabled=false;
-  });
-});
 
 // ── Run handlers for new analyses ─────────────────────────────────────────────
 document.getElementById('run-attr-btn')?.addEventListener('click', () => {
@@ -6075,7 +6014,7 @@ async function capaRunInline(type) {
     } else {
       openFileWizard();
     }
-    showToast('📂 Upload your data file — you'll return to CAPA automatically', false);
+    showToast('📂 Upload your data file — you\'ll return to CAPA automatically', false);
     return;
   }
 

@@ -262,7 +262,7 @@ def make_styles():
         'section_h':   ParagraphStyle('section_h', fontName='Helvetica-Bold',
             fontSize=14, textColor=ACCENT, leading=18, spaceBefore=14, spaceAfter=6),
         'sub_h':       ParagraphStyle('sub_h', fontName='Helvetica-Bold',
-            fontSize=11, textColor=WHITE, leading=14, spaceBefore=8, spaceAfter=4),
+            fontSize=11, textColor=ACCENT, leading=14, spaceBefore=8, spaceAfter=4),
         'body':        ParagraphStyle('body', fontName='Helvetica', textColor=TEXT2,
             leading=14, fontSize=9, spaceAfter=4),
         'small':       ParagraphStyle('small', fontName='Helvetica', textColor=TEXT3,
@@ -291,11 +291,11 @@ def table_style_base():
         ('TEXTCOLOR',  (0,0), (-1,0), ACCENT),
         ('FONTNAME',   (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTSIZE',   (0,0), (-1,0), 8),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [BG_CARD, BG_DARK]),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, BG_CARD]),
         ('TEXTCOLOR',  (0,1), (-1,-1), TEXT2),
         ('FONTNAME',   (0,1), (-1,-1), 'Helvetica'),
         ('FONTSIZE',   (0,1), (-1,-1), 8),
-        ('GRID',       (0,0), (-1,-1), 0.4, HexColor('#252a3a')),
+        ('GRID',       (0,0), (-1,-1), 0.4, HexColor('#d1d5db')),
         ('VALIGN',     (0,0), (-1,-1), 'MIDDLE'),
         ('TOPPADDING', (0,0), (-1,-1), 5),
         ('BOTTOMPADDING', (0,0), (-1,-1), 5),
@@ -318,7 +318,7 @@ def build_cover(styles, meta: dict) -> list:
     # Dark banner rectangle via a Table (workaround for colored background)
     banner = Table([['']], colWidths=[PAGE_W - 2*MARGIN], rowHeights=[180])
     banner.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,-1), BG_CARD),
+        ('BACKGROUND', (0,0), (-1,-1), ACCENT),
         ('ROUNDEDCORNERS', [8]),
     ]))
     story.append(banner)
@@ -751,7 +751,7 @@ def build_capa_section(styles, capa: dict, width_pt: float) -> list:
             ('TOPPADDING', (0,0), (-1,-1), 7),
             ('BOTTOMPADDING', (0,0), (-1,-1), 7),
             ('LEFTPADDING', (0,0), (-1,-1), 8),
-            ('GRID', (0,0), (-1,-1), 0.3, HexColor('#252a3a')),
+            ('GRID', (0,0), (-1,-1), 0.3, HexColor('#d1d5db')),
         ]))
         story.append(row_table)
     story.append(Spacer(1, 8))
@@ -776,7 +776,7 @@ def build_capa_section(styles, capa: dict, width_pt: float) -> list:
             ('TOPPADDING', (0,0), (-1,-1), 7),
             ('BOTTOMPADDING', (0,0), (-1,-1), 7),
             ('LEFTPADDING', (0,0), (-1,-1), 8),
-            ('GRID', (0,0), (-1,-1), 0.3, HexColor('#252a3a')),
+            ('GRID', (0,0), (-1,-1), 0.3, HexColor('#d1d5db')),
         ]))
         story.append(row_table)
     story.append(Spacer(1, 8))
@@ -819,32 +819,38 @@ class StatMindDocTemplate(SimpleDocTemplate):
     def handle_pageBegin(self):
         super().handle_pageBegin()
 
-    def afterPage(self):
+    def beforePage(self):
+        # Draw page background BEFORE content is placed
         canvas = self.canv
         w, h = A4
-        # Page background
         canvas.saveState()
         canvas.setFillColor(WHITE)
         canvas.rect(0, 0, w, h, fill=1, stroke=0)
         canvas.restoreState()
-        # Header bar
+
+    def afterPage(self):
+        canvas = self.canv
+        w, h = A4
+        # Header bar (drawn ON TOP of content — correct)
         canvas.saveState()
-        canvas.setFillColor(BG_CARD)
+        canvas.setFillColor(HexColor('#1e293b'))
         canvas.rect(0, h - 14*mm, w, 14*mm, fill=1, stroke=0)
-        canvas.setFillColor(ACCENT)
+        canvas.setFillColor(HexColor('#2dd4a0'))
         canvas.setFont('Helvetica-Bold', 8)
         canvas.drawString(MARGIN, h - 9*mm, 'StatMind')
-        canvas.setFillColor(TEXT3)
+        canvas.setFillColor(colors.white)
+        canvas.setFillColor(HexColor('#94a3b8'))
         canvas.setFont('Helvetica', 7)
         param = self.meta.get('parameter', '')
         canvas.drawString(MARGIN + 45, h - 9*mm, f'Process Statistics Report — {param}')
         # Page number
+        canvas.setFillColor(colors.white)
         canvas.setFont('Helvetica', 7)
         canvas.drawRightString(w - MARGIN, h - 9*mm, f'Page {self.page}')
         # Footer
-        canvas.setFillColor(BG_CARD)
+        canvas.setFillColor(HexColor('#1e293b'))
         canvas.rect(0, 0, w, 10*mm, fill=1, stroke=0)
-        canvas.setFillColor(TEXT3)
+        canvas.setFillColor(HexColor('#94a3b8'))  # was TEXT3)
         canvas.setFont('Helvetica', 7)
         canvas.drawString(MARGIN, 6*mm,
             f"Generated: {self.meta.get('generated_at','')}  |  StatMind v5.0")

@@ -5,6 +5,7 @@ Run: python main.py  OR  uvicorn main:app --port 8010
 """
 
 import os, json, uuid, tempfile, dataclasses, re, html as html_lib
+import logging
 import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,7 +48,16 @@ app.add_middleware(CORSMiddleware,
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+from routers import mes
+app.include_router(mes.router)
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logging.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "type": type(exc).__name__},
+    )
 
 # ── Security helpers ──────────────────────────────────────────────────────────
 _BLOCKED_EXT = {"exe","sh","bat","ps1","js","php","rb","pl","cmd","jar","dll","html","zip","tar"}
@@ -1566,48 +1576,6 @@ async def mes_register_webhook(request: Request):
     }
     return jd({"webhook_id": wid, "status": "registered", **_webhooks[wid]})
 
-@app.post("/api/v1/mes/ingest")
-async def mes_ingest(request: Request):
-    """
-    MES data ingestion endpoint.
-    POST: { stream_id, measurements: [{value, timestamp, equipment_id}] }
-    Returns: SPC status + any alarms triggered.
-    """
-    b = await request.json()
-    sid = b.get("stream_id","mes_default")
-    measurements = b.get("measurements",[])
-    if not measurements:
-        raise HTTPException(400, "No measurements provided.")
-    import dataclasses as dc
-    from livestream import create_stream, add_batch, get_stream_status
-    try:
-        if sid not in __import__("livestream")._streams:
-            create_stream(sid, b.get("parameter",sid),
-                         b.get("usl"), b.get("lsl"))
-        values = [float(m["value"]) for m in measurements]
-        timestamps = [m.get("timestamp") for m in measurements]
-        status = add_batch(sid, values, timestamps)
-        # Log any alarms
-        if status.alert_message:
-            _alert_log.append({
-                "stream_id": sid,
-                "alert": status.alert_message,
-                "timestamp": __import__("datetime").datetime.now().isoformat(),
-                "last_value": status.last_value,
-            })
-        return jd({
-            "stream_id": sid,
-            "n_ingested": len(values),
-            "in_control": status.in_control,
-            "total_alarms": status.total_alarms_window,
-            "alert_message": status.alert_message,
-            "cpk": status.cpk,
-            "mean": status.mean,
-            "ucl": status.ucl, "cl": status.cl, "lcl": status.lcl,
-        })
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
 @app.get("/api/v1/mes/alert-log")
 async def mes_alert_log(limit: int = Query(50)):
     """Return recent SPC alert log for MES consumption."""
@@ -2694,11 +2662,3 @@ from typing import Optional
 # from fastapi import Request
 # from fastapi.responses import JSONResponse
 #
-# @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    import logging
-    logging.error(f"Unhandled exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": str(exc), "type": type(exc).__name__},
-    )

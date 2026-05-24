@@ -12,3 +12,4 @@ pingouin>=0.5.4
 slowapi==0.1.9
 slowapi==0.1.9
 slowapi==0.1.9
+slowapi==0.1.9

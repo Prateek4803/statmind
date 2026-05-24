@@ -173,8 +173,12 @@ def western_electric_rules(data: np.ndarray, cl: float, sigma: float) -> list:
             alarms.append({"index": i, "rule": "WE1", "value": float(data[i]),
                 "description": f"Point beyond 3σ (z={z[i]:.2f})"})
 
+    # Detect batch boundaries for this dataset
+    boundaries = _detect_batch_boundaries(data, sigma)
+
     # Rule 2: 2 of 3 consecutive beyond 2σ same side
     for i in range(2, n):
+        if _window_crosses_boundary(i-2, i, boundaries): continue
         window = z[i-2:i+1]
         if sum(1 for v in window if v > 2) >= 2:
             alarms.append({"index": i, "rule": "WE2", "value": float(data[i]),
@@ -185,6 +189,7 @@ def western_electric_rules(data: np.ndarray, cl: float, sigma: float) -> list:
 
     # Rule 3: 4 of 5 consecutive beyond 1σ same side
     for i in range(4, n):
+        if _window_crosses_boundary(i-4, i, boundaries): continue
         window = z[i-4:i+1]
         if sum(1 for v in window if v > 1) >= 4:
             alarms.append({"index": i, "rule": "WE3", "value": float(data[i]),
@@ -195,6 +200,7 @@ def western_electric_rules(data: np.ndarray, cl: float, sigma: float) -> list:
 
     # Rule 4: 8 consecutive same side of CL
     for i in range(7, n):
+        if _window_crosses_boundary(i-7, i, boundaries): continue
         window = z[i-7:i+1]
         if all(v > 0 for v in window):
             alarms.append({"index": i, "rule": "WE4", "value": float(data[i]),
@@ -208,15 +214,51 @@ def western_electric_rules(data: np.ndarray, cl: float, sigma: float) -> list:
 
 # ── Nelson Rules ──────────────────────────────────────────────────────────────
 
-def nelson_rules(data: np.ndarray, cl: float, sigma: float) -> list:
+def _detect_batch_boundaries(data: np.ndarray, sigma: float,
+                              threshold_multiplier: float = 3.5) -> set:
+    """
+    Detect likely batch/shift boundaries where a large jump occurs between
+    consecutive points. Run rules (trending, consecutive same side) should
+    NOT cross these boundaries to avoid false positives.
+
+    A boundary is flagged when |data[i] - data[i-1]| > threshold * sigma.
+    Returns a set of boundary indices (the START of a new segment).
+    """
+    if sigma <= 0 or len(data) < 2:
+        return set()
+    diffs = np.abs(np.diff(data))
+    threshold = threshold_multiplier * sigma
+    boundaries = {i + 1 for i, d in enumerate(diffs) if d > threshold}
+    return boundaries
+
+
+def _window_crosses_boundary(window_start: int, window_end: int,
+                              boundaries: set) -> bool:
+    """Return True if any batch boundary falls within the window."""
+    return any(window_start < b <= window_end for b in boundaries)
+
+
+def nelson_rules(data: np.ndarray, cl: float, sigma: float,
+                 batch_boundaries: set = None) -> list:
+    """
+    Nelson run rules with optional batch boundary awareness.
+    Pass batch_boundaries (set of indices where new batches start) to
+    prevent run rules from firing across batch/shift resets.
+    """
     alarms = []
     n = len(data)
     z = (data - cl) / sigma
+
+    # Auto-detect batch boundaries if not provided
+    if batch_boundaries is None:
+        batch_boundaries = _detect_batch_boundaries(data, sigma)
 
     # Nelson 1 = WE1 (already captured, skip dupe)
 
     # Nelson 2: 9 consecutive same side
     for i in range(8, n):
+        if _window_crosses_boundary(i-8, i, batch_boundaries):
+            continue  # Skip: window spans a batch reset
         window = z[i-8:i+1]
         if all(v > 0 for v in window):
             alarms.append({"index": i, "rule": "NE2", "value": float(data[i]),
@@ -226,7 +268,10 @@ def nelson_rules(data: np.ndarray, cl: float, sigma: float) -> list:
                 "description": "9 consecutive points below centerline (shift)"})
 
     # Nelson 3: 6 consecutive trending (monotone)
+    # Most prone to false positives across batch boundaries
     for i in range(5, n):
+        if _window_crosses_boundary(i-5, i, batch_boundaries):
+            continue  # Skip: trend crosses batch reset
         window = data[i-5:i+1]
         diffs = np.diff(window)
         if all(d > 0 for d in diffs):

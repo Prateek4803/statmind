@@ -4,12 +4,15 @@ All refinements: R1 (universal parser) + R2 (expanded CAPA) + R3 (SPC subrange)
 Run: python main.py  OR  uvicorn main:app --port 8010
 """
 
-import os, json, uuid, tempfile, dataclasses
+import os, json, uuid, tempfile, dataclasses, re, html as html_lib
 import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # ── Engines ───────────────────────────────────────────────────────────────────
 from file_parser    import parse_any_file               # R1: universal parser
@@ -37,7 +40,49 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 app.add_middleware(CORSMiddleware,
-    allow_origins=ORIGINS, allow_methods=["*"], allow_headers=["*"])
+    allow_origins=ORIGINS, allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept"])
+
+# ── Rate limiting ──────────────────────────────────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# ── Security helpers ──────────────────────────────────────────────────────────
+_BLOCKED_EXT = {"exe","sh","bat","ps1","js","php","rb","pl","cmd","jar","dll","html","zip","tar"}
+
+def _validate_upload(file: UploadFile) -> None:
+    """Reject dangerous file types at the API layer."""
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else ""
+    if ext in _BLOCKED_EXT:
+        raise HTTPException(400, f"File type '.{ext}' is not allowed.")
+
+
+def _sanitize_text(text: str, max_len: int = 5000) -> str:
+    """
+    Sanitize user-provided text before passing to AI narrative engine.
+    Prevents prompt injection: strips control sequences, HTML, and caps length.
+    Wraps content in delimiters so the LLM treats it as data, not instructions.
+    """
+    if not text:
+        return ""
+    # Strip HTML tags
+    text = html_lib.unescape(re.sub(r'<[^>]+>', '', text))
+    # Remove common prompt injection patterns
+    injection_patterns = [
+        r'ignore (previous|all|above) instructions?',
+        r'system prompt',
+        r'you are now',
+        r'act as',
+        r'jailbreak',
+        r'DAN mode',
+        r'\\n(system|user|assistant):',
+    ]
+    for pattern in injection_patterns:
+        text = re.sub(pattern, '[FILTERED]', text, flags=re.IGNORECASE)
+    # Cap length
+    return text[:max_len]
 
 _report_cache: dict = {}
 
@@ -54,6 +99,18 @@ def jd(d):   return JSONResponse(content=json.loads(json.dumps(d,  cls=NpEnc)))
 def jobj(o): return jd(dataclasses.asdict(o))
 
 # ── Health ────────────────────────────────────────────────────────────────────
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to every response."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    return response
+
+
 @app.get("/health")
 def health():
     return {
@@ -65,7 +122,9 @@ def health():
 
 # ── Shared: column detection ──────────────────────────────────────────────────
 @app.post("/api/v1/columns")
-async def get_columns(file: UploadFile = File(...)):
+@limiter.limit("30/minute")
+async def get_columns(request: Request, file: UploadFile = File(...)):
+    _validate_upload(file)
     c = await file.read()
     try:
         result = parse_any_file(c, file.filename)
@@ -1439,6 +1498,10 @@ async def ai_narrative_endpoint(request: Request):
              spc_result, grr_result, capa_result }
     """
     b = await request.json()
+    # Sanitize all text fields to prevent prompt injection
+    for key in ["parameter", "process_type", "lot_id", "tool_id", "recipe"]:
+        if key in b and isinstance(b[key], str):
+            b[key] = _sanitize_text(b[key], max_len=200)
     import dataclasses as dc
     from ai_narrative import generate_narrative
     try:

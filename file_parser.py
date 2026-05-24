@@ -58,7 +58,8 @@ class ColumnStats:
     max: float
     q1: float
     q3: float
-    n_missing: int = 0
+    n_missing: int = 0       # blank/NaN cells excluded, NEVER coerced to 0
+    pct_missing: float = 0.0   # percentage of total rows that are missing
 
 
 # ── Parse result dataclass ────────────────────────────────────────────────────
@@ -213,6 +214,16 @@ def parse_any_file(file_bytes: bytes, filename: str = "file") -> ParseResult:
         raise ParseError(
             f"File is too large ({len(file_bytes) / 1024 / 1024:.1f} MB). "
             f"Maximum allowed size is {MAX_FILE_BYTES // 1024 // 1024} MB."
+        )
+
+
+    # File type guard — reject executables and script files
+    _ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    _BLOCKED = {"exe","sh","bat","ps1","js","php","rb","pl","cmd","jar","dll","html","zip","tar"}
+    if _ext in _BLOCKED:
+        raise ParseError(
+            f"File type '.{_ext}' is not allowed. "
+            "Accepted formats: .csv .tsv .txt .xlsx .xls"
         )
 
     warnings: List[str] = []

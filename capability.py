@@ -11,6 +11,27 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+def _welford_std(data: np.ndarray, ddof: int = 1) -> float:
+    """
+    Welford's one-pass online algorithm for sample standard deviation.
+    Numerically stable for data with very small values (e.g. 1e-7) where
+    the naive two-pass formula suffers catastrophic cancellation.
+    Reference: Welford (1962), Knuth TAOCP Vol.2.
+    """
+    n = 0
+    mean = 0.0
+    M2 = 0.0
+    for x in data:
+        n += 1
+        delta = x - mean
+        mean += delta / n
+        delta2 = x - mean
+        M2 += delta * delta2
+    if n - ddof <= 0:
+        return 0.0
+    return float(np.sqrt(M2 / (n - ddof)))
+
+
 @dataclass
 class CapabilityIndices:
     cp: float
@@ -155,7 +176,9 @@ def analyze_capability(
     if usl <= lsl:
         raise ValueError(f"USL ({usl}) must be greater than LSL ({lsl})")
     mean = float(np.mean(data))
-    std_overall = float(np.std(data, ddof=1))
+    # Use Welford's algorithm for numerically stable variance
+    # (prevents catastrophic cancellation on very small-magnitude data)
+    std_overall = _welford_std(data, ddof=1)
     std_within = float(estimate_sigma_within(data, subgroup_size))
 
     # Sanity check: mean wildly outside spec suggests unit mismatch
@@ -223,6 +246,19 @@ def analyze_capability(
         capa_required = True
 
     capa_notes = _build_capa_notes(cpk, ppk, cp, mean, usl, lsl, target_val, std_within, std_overall)
+
+    # Add non-normal data flag to notes if distribution appears skewed
+    try:
+        from scipy.stats import shapiro
+        _, sw_p = shapiro(data[:min(len(data), 5000)])
+        if sw_p < 0.05:
+            capa_notes.insert(0,
+                f"⚠ Non-normal distribution detected (Shapiro-Wilk p={sw_p:.4f} < 0.05). "
+                "Cp/Cpk assume normality and may be unreliable. "
+                "Consider running Non-Normal Capability (Johnson SU/SB) for accurate results."
+            )
+    except Exception:
+        pass
 
     hist_data = _build_capability_histogram(data, usl, lsl, target_val, mean, std_within, std_overall)
     curve_data = _build_capability_curve(mean, std_within, std_overall, usl, lsl)
@@ -299,6 +335,7 @@ def _build_capa_notes(cpk, ppk, cp, mean, usl, lsl, target, sw, so):
 
 
 def _build_capability_histogram(data, usl, lsl, target, mean, sw, so):
+    # Welford std already passed in as sw/so — histogram bins using numpy is fine
     counts, edges = np.histogram(data, bins='auto')
     centers = ((edges[:-1] + edges[1:]) / 2).tolist()
     bw = float(edges[1] - edges[0])

@@ -48,8 +48,16 @@ app.add_middleware(CORSMiddleware,
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-from routers import mes
-app.include_router(mes.router)
+# MES router — loaded only when DATABASE_URL env var is configured
+# Without a PostgreSQL database, this is skipped gracefully
+_db_url = os.getenv("DATABASE_URL", "")
+if _db_url and _db_url not in ("", "sqlite:///./statmind_dev.db"):
+    try:
+        from routers import mes
+        app.include_router(mes.router)
+    except Exception as _mes_err:
+        import logging as _log
+        _log.warning(f"MES router not loaded: {_mes_err}")
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

@@ -11,3 +11,12 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Binary/test artifacts
+*.zip
+*.tar.gz
+
+# Old iteration files
+main_sprint*.py
+main_gapfill*.py
+*_fixed.py

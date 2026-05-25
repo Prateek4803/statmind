@@ -4280,8 +4280,10 @@ function renderTransformation(r){
     ${(()=>{
       // Only show download section when a transformation was actually applied
       // (original data not already normal, and a real transform was found)
-      const noTransformNeeded = r.best_transform === 'None' || r.best_transform === 'No transformation' || (r.original_sw_p >= 0.05);
-      const hasData = r.transformed_values && r.transformed_values.length > 0;
+      const noTransformNeeded = ['none','normal','no transformation required'].includes(
+        (r.best_transform||'').toLowerCase()
+      ) || (r.original_sw_p >= 0.05);
+      const hasData = (r.exported_data?.length > 0) || (r.transformed_values?.length > 0);
       if(noTransformNeeded) {
         return `<div style="margin-top:12px;padding:10px 14px;background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;font-size:13px;color:var(--teal)">✅ Original data is already normally distributed — no transformation needed. You can use the raw data directly.</div>`;
       }
@@ -7477,19 +7479,22 @@ function dsAddFormulaColumn() {
 
 /* ── Transformation download / apply ─────────────────────────────────────── */
 function downloadTransformedData(r, fmt) {
-  if(!r || !r.transformed_values || !r.transformed_values.length){
+  // Backend returns 'exported_data'; older versions used 'transformed_values'
+  const vals = r?.exported_data || r?.transformed_values || [];
+  if(!r || !vals.length){
     showToast('⚠ No transformed data available — re-run the transformation first', true);
     return;
   }
-  // Column name safe for file system
-  const col = (r.column||'value').replace(/[^a-z0-9_]/gi,'_')
-            + '_' + (r.best_transform||'tx').replace(/[^a-z0-9]/gi,'');
+  // Column name: use exported_column_name if available, else construct it
+  const col = (r.exported_column_name
+    || ((r.column||'value').replace(/[^a-z0-9_]/gi,'_')
+        + '_' + (r.best_transform||'tx').replace(/[^a-z0-9]/gi,'')));
 
   if(fmt === 'xlsx') {
     // Generate real Excel file using SheetJS if available
     if(typeof XLSX !== 'undefined') {
       const wsData = [['index', col]].concat(
-        r.transformed_values.map((v,i) => [i+1, v])
+        vals.map((v,i) => [i+1, v])
       );
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -7499,7 +7504,7 @@ function downloadTransformedData(r, fmt) {
     } else {
       // Fallback: TSV with .xlsx extension — opens in Excel
       const tsv = ['index\t' + col]
-        .concat(r.transformed_values.map((v,i) => (i+1) + '\t' + v.toFixed(6)))
+        .concat(vals.map((v,i) => (i+1) + '\t' + v.toFixed(6)))
         .join('\n');
       const blob = new Blob([tsv], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
       const a = document.createElement('a');
@@ -7510,9 +7515,10 @@ function downloadTransformedData(r, fmt) {
     }
   } else {
     // CSV: includes original index + transformed value + original value for reference
-    const hasOrig = r.original_values && r.original_values.length === r.transformed_values.length;
+    // exported_data = transformed Z-values; original_values may not exist in this version
+    const hasOrig = r.original_values && r.original_values.length === vals.length;
     const header = hasOrig ? `index,${col},${r.column}_original` : `index,${col}`;
-    const rows = r.transformed_values.map((v,i) => {
+    const rows = vals.map((v,i) => {
       const base = (i+1) + ',' + v.toFixed(6);
       return hasOrig ? base + ',' + (r.original_values[i]||'').toFixed(6) : base;
     });

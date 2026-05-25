@@ -60,7 +60,9 @@ async def on_startup():
 
 # MES router — loaded only when DATABASE_URL env var is configured
 _db_url = os.getenv("DATABASE_URL", "")
-if _db_url and _db_url not in ("", "sqlite:///./statmind_dev.db"):
+if _db_url and "sqlite" not in _db_url and (
+    _db_url.startswith("postgresql://") or _db_url.startswith("postgres://")
+):
     try:
         from routers import mes
         app.include_router(mes.router)
@@ -215,13 +217,13 @@ async def capability(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
         raise HTTPException(404, f"Column '{column}' not found. Available: {result.numeric_columns}")
     try:
-        return jobj(analyze_capability(
+        return jobj(await asyncio.to_thread(analyze_capability,
             result.df[column].dropna().values.astype(float),
             column, usl, lsl, target, subgroup_size))
     except ValueError as e:
@@ -229,7 +231,9 @@ async def capability(
 
 # ── Session 3: SPC + subrange (R3) ───────────────────────────────────────────
 @app.post("/api/v1/spc/analyze")
+@limiter.limit("20/minute")
 async def spc(
+    request: Request,
     file: UploadFile = File(...),
     column: str = Query(...),
     subgroup_size: int = Query(1),
@@ -393,112 +397,76 @@ async def generate_pdf_report(request: Request):
 
 @app.get("/api/v1/report/download/{report_id}")
 async def download_report(report_id: str):
-    # Security: validate report_id is a pure UUID (no path traversal)
-    import re as _re
+    import re as _re, tempfile as _tmp
     if not _re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", report_id):
-        raise HTTPException(400, "Invalid report ID format.")
-
+        raise HTTPException(400, "Invalid report ID.")
     path = _report_cache.get(report_id)
     if not path:
-        raise HTTPException(404, "Report not found or expired. Please regenerate.")
-
-    # Security: ensure the resolved path stays within the system temp directory
-    import tempfile as _tmp
+        raise HTTPException(404, "Report not found or expired.")
     safe_base = os.path.realpath(_tmp.gettempdir())
     real_path = os.path.realpath(path)
     if not real_path.startswith(safe_base):
         raise HTTPException(403, "Access denied.")
-
     if not os.path.exists(real_path):
-        raise HTTPException(404, "Report file no longer exists. Please regenerate.")
-
-    return FileResponse(
-        real_path, media_type="application/pdf",
+        raise HTTPException(404, "Report file gone. Please regenerate.")
+    return FileResponse(real_path, media_type="application/pdf",
         filename=f"statmind_report_{report_id}.pdf",
-        headers={"Content-Disposition": f"attachment; filename=statmind_report_{report_id}.pdf"},
-    )
+        headers={"X-Content-Type-Options": "nosniff"})
 
-# ── Workflow Connector: SPC alarm → CAPA → Narrative ─────────────────────────
-# This is the "connective tissue" — one endpoint that chains the entire
-# SPC→CAPA→narrative pipeline. Eliminates copy-paste between tools.
+# ── Startup: non-fatal DB init ────────────────────────────────────────────────
+@app.on_event("startup")
+async def _on_startup():
+    try:
+        from database import init_db
+        await asyncio.to_thread(init_db)
+    except Exception as e:
+        logging.warning(f"DB init skipped: {e}")
 
+
+# ── Workflow: SPC → CAPA → Narrative ─────────────────────────────────────────
 @app.post("/api/v1/workflow/capa-from-spc")
 async def workflow_capa_from_spc(request: Request):
-    """
-    Golden workflow endpoint:
-    Input: SPC result + optional capability result
-    Output: CAPA report + AI narrative + CAPA notes + recommended actions
-
-    This is the core differentiator — no other browser-based tool
-    auto-generates a CAPA from a control chart alarm.
-    """
+    """One-call pipeline: SPC result → CAPA engine → AI narrative."""
     try:
         body = await request.json()
-        spc_result = body.get("spc_result")
-        cap_result = body.get("capability_result")
-        grr_result = body.get("grr_result")
-        parameter  = _sanitize_text(body.get("parameter", "Process Parameter"), 200)
-        process    = _sanitize_text(body.get("process_type", "General"), 200)
-
-        if not spc_result:
+        spc_r = body.get("spc_result")
+        cap_r = body.get("capability_result")
+        grr_r = body.get("grr_result")
+        param = _sanitize_text(body.get("parameter", "Parameter"), 200)
+        proc  = _sanitize_text(body.get("process_type", "General"), 200)
+        if not spc_r:
             raise HTTPException(400, "spc_result is required.")
-
-        # Step 1: Run CAPA engine against the combined results
         from capa_rules_engine import run_capa_engine_v2
-        capa_result = await asyncio.to_thread(
-            run_capa_engine_v2,
-            None, cap_result, spc_result, grr_result,
-            parameter, parameter, process
-        )
-
-        # Step 2: Generate AI narrative
-        from ai_narrative import generate_narrative
+        capa_out = await asyncio.to_thread(
+            run_capa_engine_v2, None, cap_r, spc_r, grr_r, param, param, proc)
+        narr_dict = None
         try:
-            narrative = await asyncio.to_thread(
-                generate_narrative,
-                parameter=parameter,
-                process_type=process,
-                normality_result=None,
-                capability_result=cap_result,
-                spc_result=spc_result,
-                grr_result=grr_result,
-                capa_result=capa_result,
-            )
+            from ai_narrative import generate_narrative
             import dataclasses as _dc
-            narrative_dict = _dc.asdict(narrative) if hasattr(narrative, "__dataclass_fields__") else narrative
-        except Exception:
-            narrative_dict = None
-
-        # Step 3: Extract alarm summary for executive digest
-        alarms       = spc_result.get("total_alarms", 0)
-        we_alarms    = spc_result.get("western_electric_alarms", [])
-        alarm_rules  = list({a.get("rule","?") for a in we_alarms})
-        in_control   = spc_result.get("in_control", True)
-        cpk          = cap_result.get("cpk") if cap_result else None
-
-        workflow_summary = {
-            "trigger": "SPC alarm" if not in_control else "Routine analysis",
-            "alarm_count": alarms,
-            "alarm_rules_violated": alarm_rules,
-            "cpk": cpk,
-            "process": process,
-            "parameter": parameter,
-            "action_required": not in_control or (cpk is not None and cpk < 1.33),
-        }
-
+            n = await asyncio.to_thread(generate_narrative, parameter=param,
+                process_type=proc, normality_result=None, capability_result=cap_r,
+                spc_result=spc_r, grr_result=grr_r, capa_result=capa_out)
+            narr_dict = _dc.asdict(n) if hasattr(n, "__dataclass_fields__") else n
+        except Exception as _ne:
+            logging.warning(f"Narrative skipped: {_ne}")
+        alarms = spc_r.get("total_alarms", 0)
+        cpk    = cap_r.get("cpk") if cap_r else None
+        rules  = list({a.get("rule","?") for a in spc_r.get("western_electric_alarms",[])})
         return jd({
-            "workflow_summary": workflow_summary,
-            "capa_result": capa_result,
-            "narrative": narrative_dict,
-            "generated_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+            "workflow_summary": {
+                "trigger": "SPC alarm" if not spc_r.get("in_control",True) else "Routine",
+                "alarm_count": alarms, "alarm_rules": rules, "cpk": cpk,
+                "process": proc, "parameter": param,
+                "action_required": not spc_r.get("in_control",True) or (cpk is not None and cpk<1.33),
+            },
+            "capa_result": capa_out, "narrative": narr_dict,
+            "generated_at": __import__("datetime").datetime.utcnow().isoformat()+"Z",
         })
-
-    except HTTPException:
-        raise
+    except HTTPException: raise
     except (ValueError, TypeError, KeyError) as e:
-        raise HTTPException(400, f"Workflow input error: {str(e)}")
+        raise HTTPException(400, f"Workflow input error: {e}")
     except Exception as e:
-        logging.error(f"Workflow capa-from-spc error: {e}", exc_info=True)
+        logging.error(f"Workflow error: {e}", exc_info=True)
         raise HTTPException(500, "Workflow analysis failed.")
 
 
@@ -558,114 +526,70 @@ if __name__ == "__main__":
 # ── E1: Hypothesis Testing ────────────────────────────────────────────────────
 @app.post("/api/v1/hypothesis/two-sample-t")
 async def hyp_two_sample_t(request: Request):
-    """
-    Two-sample hypothesis test with automatic assumption checking.
-    Runs Shapiro-Wilk + Levene's test first, then auto-routes to:
-      - Pooled t-test (both normal, equal variance)
-      - Welch's t-test (both normal, unequal variance)
-      - Mann-Whitney U (non-normal or small n)
-    """
+    """Auto-checks normality (SW) + variance (Levene) → selects pooled/Welch/Mann-Whitney."""
     body = await request.json()
     try:
         from hypothesis import two_sample_t
-        from scipy import stats as _sp_stats
+        from scipy import stats as _sp
         import dataclasses
         a = np.array(body["group_a"], dtype=float)
         b = np.array(body["group_b"], dtype=float)
         alpha = float(body.get("alpha", 0.05))
+        name_a = body.get("name_a", "Group A")
+        name_b = body.get("name_b", "Group B")
 
-        # ── Automatic assumption checking ──────────────────────────────────────
-        assumption_checks = {}
+        def _sw(d, nm):
+            if len(d) < 3: return {"normal": None, "note": f"{nm}: n<3"}
+            s, p = _sp.shapiro(d if len(d) <= 5000 else np.random.default_rng(42).choice(d,5000,False))
+            return {"stat": round(float(s),5), "p": round(float(p),5), "normal": bool(p>=alpha),
+                    "note": f"{nm} SW p={'%.4f'%p} — {'Normal' if p>=alpha else 'Non-normal'}"}
+        sw_a = _sw(a, name_a); sw_b = _sw(b, name_b)
+        both_normal = sw_a.get("normal") is True and sw_b.get("normal") is True
 
-        # 1. Normality: Shapiro-Wilk on each group (if n ≤ 5000)
-        def _sw(d):
-            if len(d) < 3:
-                return {"stat": None, "p": None, "normal": None, "note": "n < 3"}
-            test_d = d if len(d) <= 5000 else np.random.default_rng(42).choice(d, 5000, replace=False)
-            s, p = _sp_stats.shapiro(test_d)
-            return {"stat": round(float(s), 5), "p": round(float(p), 5),
-                    "normal": bool(p >= alpha),
-                    "note": f"Shapiro-Wilk p={'%.4f' % p} — {'Normal' if p >= alpha else 'Non-normal'} at α={alpha}"}
-
-        sw_a = _sw(a)
-        sw_b = _sw(b)
-        assumption_checks["normality_a"] = sw_a
-        assumption_checks["normality_b"] = sw_b
-
-        # 2. Equal variance: Levene's test (robust to non-normality)
         if len(a) >= 2 and len(b) >= 2:
-            lev_stat, lev_p = _sp_stats.levene(a, b)
-            equal_var = bool(lev_p >= alpha)
-            assumption_checks["equal_variance"] = {
-                "stat": round(float(lev_stat), 5), "p": round(float(lev_p), 5),
-                "equal": equal_var,
-                "note": f"Levene p={'%.4f' % lev_p} — {'Equal variance' if equal_var else 'Unequal variance'} at α={alpha}",
-            }
+            ls, lp = _sp.levene(a, b)
+            equal_var = bool(lp >= alpha)
+            levene = {"stat": round(float(ls),5), "p": round(float(lp),5), "equal": equal_var,
+                      "note": f"Levene p={'%.4f'%lp} — {'Equal' if equal_var else 'Unequal'} var"}
         else:
-            equal_var = False
-            assumption_checks["equal_variance"] = {"note": "Insufficient data for Levene's test"}
+            equal_var, levene = False, {"note": "Insufficient data"}
 
-        # 3. Auto-select test method
-        both_normal = (sw_a.get("normal") is True) and (sw_b.get("normal") is True)
-        if body.get("force_test"):
-            method_used = body["force_test"]
+        forced = body.get("force_test")
+        if forced:
+            method, note = forced, f"Forced: {forced}"
         elif not both_normal:
-            method_used = "mann-whitney"
-            assumption_checks["auto_selection"] = (
-                "Non-normal distribution detected → automatically using Mann-Whitney U "
-                "(non-parametric). Override with force_test='t-test'."
-            )
+            method, note = "mann-whitney", "Non-normal → Mann-Whitney U"
         elif equal_var:
-            method_used = "pooled-t"
-            assumption_checks["auto_selection"] = (
-                "Normal + equal variance → Pooled t-test selected."
-            )
+            method, note = "pooled", "Normal+equal var → Pooled t-test"
         else:
-            method_used = "welch"
-            assumption_checks["auto_selection"] = (
-                "Normal + unequal variance → Welch's t-test (Welch df correction) selected."
-            )
+            method, note = "welch", "Normal+unequal var → Welch t-test"
 
-        # 4. Run the selected test
-        if method_used == "mann-whitney":
-            u_stat, mw_p = _sp_stats.mannwhitneyu(a, b, alternative="two-sided")
+        if method == "mann-whitney":
+            u, p_mw = _sp.mannwhitneyu(a, b, alternative="two-sided")
             result_dict = {
-                "test": "Mann-Whitney U",
-                "u_statistic": round(float(u_stat), 4),
-                "p_value": round(float(mw_p), 5),
-                "significant": bool(mw_p < alpha),
-                "alpha": alpha,
-                "n_a": int(len(a)), "n_b": int(len(b)),
-                "median_a": round(float(np.median(a)), 6),
-                "median_b": round(float(np.median(b)), 6),
-                "mean_a": round(float(a.mean()), 6),
-                "mean_b": round(float(b.mean()), 6),
-                "interpretation": (
-                    f"Mann-Whitney U test: p={'%.5f' % mw_p}. "
-                    + ("Significant difference between groups." if mw_p < alpha
-                       else "No significant difference between groups.")
-                ),
+                "test": "Mann-Whitney U", "significant": bool(p_mw < alpha),
+                "u_statistic": round(float(u),4), "p_value": round(float(p_mw),5),
+                "alpha": alpha, "n_a": int(len(a)), "n_b": int(len(b)),
+                "median_a": round(float(np.median(a)),6), "median_b": round(float(np.median(b)),6),
+                "mean_a": round(float(a.mean()),6), "mean_b": round(float(b.mean()),6),
+                "interpretation": f"MW p={'%.5f'%p_mw}. " + ("Significant." if p_mw<alpha else "Not significant.")
             }
         else:
-            use_equal_var = (method_used == "pooled-t")
-            result = await asyncio.to_thread(
-                two_sample_t, a, b,
-                name_a=body.get("name_a", "Group A"),
-                name_b=body.get("name_b", "Group B"),
-                alpha=alpha,
-                equal_var=use_equal_var,
-            )
-            result_dict = dataclasses.asdict(result)
-            result_dict["test"] = "Pooled t-test" if use_equal_var else "Welch's t-test"
+            r = await asyncio.to_thread(two_sample_t, a, b,
+                name_a=name_a, name_b=name_b, alpha=alpha, equal_var=(method=="pooled"))
+            result_dict = dataclasses.asdict(r)
+            result_dict["test"] = "Pooled t-test" if method=="pooled" else "Welch t-test"
 
-        result_dict["assumption_checks"] = assumption_checks
+        result_dict["assumption_checks"] = {
+            "normality_a": sw_a, "normality_b": sw_b,
+            "equal_variance": levene, "method": method, "note": note,
+        }
         return jd(result_dict)
-
     except (KeyError, TypeError) as e:
-        raise HTTPException(400, f"Invalid request: {str(e)}. Required: group_a, group_b (arrays).")
+        raise HTTPException(400, f"Invalid payload: {e}")
     except Exception as e:
-        logging.error(f"Hypothesis test error: {e}", exc_info=True)
-        raise HTTPException(500, "Statistical computation failed. Check your input data.")
+        logging.error(f"Hypothesis error: {e}", exc_info=True)
+        raise HTTPException(500, "Statistical computation failed.")
 
 @app.post("/api/v1/hypothesis/paired-t")
 async def hyp_paired_t(request: Request):

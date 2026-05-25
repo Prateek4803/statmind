@@ -13,6 +13,26 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+def _welford_std(data: np.ndarray, ddof: int = 1) -> float:
+    """Numerically stable one-pass variance (Welford 1962)."""
+    n_pts = len(data)
+    if n_pts <= 1:
+        return 0.0
+    if n_pts > 50_000:
+        shift = float(data[0])
+        shifted = data.astype(np.float64) - shift
+        mean_s = float(shifted.mean())
+        M2 = float(np.sum((shifted - mean_s) ** 2))
+        return float(np.sqrt(M2 / max(n_pts - ddof, 1)))
+    n, mean, M2 = 0, 0.0, 0.0
+    for x in data:
+        n += 1
+        delta = x - mean
+        mean += delta / n
+        M2 += delta * (x - mean)
+    return float(np.sqrt(M2 / max(n - ddof, 1)))
+
+
 @dataclass
 class NormalityTestResult:
     test_name: str
@@ -52,10 +72,19 @@ class NormalityReport:
 
 
 def run_shapiro_wilk(data: np.ndarray, alpha=0.05) -> NormalityTestResult:
-    stat, p = shapiro(data)
+    # Shapiro-Wilk is unreliable for n > 5000 — sample for large datasets
+    test_data = data
+    n_full = len(data)
+    sampled = False
+    if n_full > 5000:
+        rng = np.random.default_rng(42)
+        test_data = rng.choice(data, size=5000, replace=False)
+        sampled = True
+    stat, p = shapiro(test_data)
     reject = p < alpha
+    note = f" (test used random sample n=5000 of {n_full})" if sampled else ""
     interp = (
-        f"p={p:.4f} {'< ' if reject else '>= '}{alpha}: "
+        f"p={p:.4f} {'< ' if reject else '>= '}{alpha}{note}: "
         + ("Evidence AGAINST normality." if reject else "No evidence against normality.")
     )
     return NormalityTestResult(
@@ -273,8 +302,12 @@ def analyze_column(data: np.ndarray, column_name: str, alpha=0.05) -> NormalityR
     """Run full normality analysis on a single column."""
     data = data[~np.isnan(data)]  # drop NaN
     n = len(data)
-    if n < 3:
-        raise ValueError(f"Column '{column_name}' has only {n} valid data points. Need at least 3.")
+    if n < 7:
+        raise ValueError(
+            f"Column '{column_name}' has only {n} valid data points. "
+            "Normality tests require at least 7 observations to be meaningful. "
+            "Shapiro-Wilk has very low power below n=7 and will produce unreliable results."
+        )
 
     sw = run_shapiro_wilk(data, alpha)
     ad = run_anderson_darling(data, alpha)
@@ -292,7 +325,7 @@ def analyze_column(data: np.ndarray, column_name: str, alpha=0.05) -> NormalityR
         column=column_name,
         n=n,
         mean=round(float(data.mean()), 6),
-        std=round(float(data.std(ddof=1)), 6),
+        std=round(_welford_std(data, ddof=1), 6),
         min_val=round(float(data.min()), 6),
         max_val=round(float(data.max()), 6),
         skewness=round(skewness, 4),

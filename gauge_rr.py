@@ -86,8 +86,26 @@ def analyze_gauge_rr(
     measurements, parts, operators must be aligned arrays of equal length.
     """
     measurements = np.array(measurements, dtype=float)
-    parts = np.array(parts)
-    operators = np.array(operators)
+    parts        = np.array(parts)
+    operators    = np.array(operators)
+
+    # ── Input validation ────────────────────────────────────────────────────
+    if len(measurements) < 6:
+        raise ValueError(
+            f"GRR study requires at least 6 measurements "
+            f"(2 parts × 2 operators × 1 replicate minimum). Got {len(measurements)}."
+        )
+    if len(measurements) != len(parts) or len(measurements) != len(operators):
+        raise ValueError(
+            f"measurements, parts, and operators must have equal length. "
+            f"Got: measurements={len(measurements)}, "
+            f"parts={len(parts)}, operators={len(operators)}."
+        )
+    valid_mask = ~np.isnan(measurements)
+    if not np.all(valid_mask):
+        measurements = measurements[valid_mask]
+        parts        = parts[valid_mask]
+        operators    = operators[valid_mask]
 
     unique_parts = np.unique(parts)
     unique_operators = np.unique(operators)
@@ -445,7 +463,15 @@ def parse_grr_csv(file_bytes: bytes, filename: str):
     # Auto-detect columns
     part_col = next((c for c in df.columns if 'part' in c.lower()), None)
     op_col   = next((c for c in df.columns if any(x in c.lower() for x in ['oper', 'appraiser', 'inspector'])), None)
-    meas_cols = [c for c in df.columns if c not in [part_col, op_col] and df[c].dtype in [float, int] or df[c].apply(lambda x: isinstance(x,(int,float))).all()]
+    import pandas as pd
+    meas_cols = [
+        c for c in df.columns
+        if c not in [part_col, op_col]
+        and (
+            pd.api.types.is_numeric_dtype(df[c])
+            or df[c].apply(lambda x: isinstance(x, (int, float)) and not pd.isna(x)).all()
+        )
+    ]
 
     if not part_col or not op_col:
         raise ValueError(f"Could not find Part/Operator columns. Found: {list(df.columns)}. "
@@ -453,7 +479,12 @@ def parse_grr_csv(file_bytes: bytes, filename: str):
 
     meas_col = meas_cols[0] if meas_cols else None
     if not meas_col:
-        raise ValueError("Could not find measurement column.")
+        available = ", ".join(str(c) for c in df.columns)
+        raise ValueError(
+            f"Could not find a numeric measurement column. "
+            f"Available columns: {available}. "
+            "Please ensure measurements are numeric and not formatted as text."
+        )
 
     df = df.dropna(subset=[part_col, op_col, meas_col])
     return (df[meas_col].values.astype(float),

@@ -17,7 +17,26 @@ def _welford_std(data: np.ndarray, ddof: int = 1) -> float:
     Numerically stable for data with very small values (e.g. 1e-7) where
     the naive two-pass formula suffers catastrophic cancellation.
     Reference: Welford (1962), Knuth TAOCP Vol.2.
+
+    Performance note: For n > 50,000 the pure-Python loop becomes slow.
+    We use numpy's compensated sum for large datasets which is also stable.
     """
+    n_pts = len(data)
+    if n_pts <= 1:
+        return 0.0
+
+    # For large arrays use numpy's two-pass with shifted data (Kahan compensation)
+    # Shifting by mean eliminates catastrophic cancellation: var(X-c) == var(X)
+    if n_pts > 50_000:
+        shift = float(data[0])            # arbitrary shift to reduce magnitude
+        shifted = data.astype(np.float64) - shift
+        mean_s = float(shifted.mean())
+        M2 = float(np.sum((shifted - mean_s) ** 2))
+        if n_pts - ddof <= 0:
+            return 0.0
+        return float(np.sqrt(M2 / (n_pts - ddof)))
+
+    # Pure-Python Welford for n ≤ 50,000 (maximum precision)
     n = 0
     mean = 0.0
     M2 = 0.0
@@ -324,12 +343,20 @@ def _build_capa_notes(cpk, ppk, cp, mean, usl, lsl, target, sw, so):
     else:
         notes.append(f"Expected {ppm:.1f} PPM — process well under control.")
 
-    # Spec limit proximity
+    # Spec limit proximity — use spec width as reference, not raw limit multiplication
     if cpk < 1.33:
-        if mean + 3*sw > usl * 0.98:
-            notes.append("Process mean is dangerously close to USL. Consider recipe adjustment or tighter APC setpoint.")
-        if mean - 3*sw < lsl * 1.02:
-            notes.append("Process mean is dangerously close to LSL. Review process baseline and tool conditioning.")
+        spec_width = usl - lsl
+        proximity_threshold = 0.1 * spec_width  # within 10% of spec width from limit
+        if (usl - mean) < proximity_threshold:
+            notes.append(
+                f"Process mean is close to USL (gap={usl-mean:.4f}, threshold={proximity_threshold:.4f}). "
+                "Consider recipe adjustment or tighter APC setpoint."
+            )
+        if (mean - lsl) < proximity_threshold:
+            notes.append(
+                f"Process mean is close to LSL (gap={mean-lsl:.4f}, threshold={proximity_threshold:.4f}). "
+                "Review process baseline and tool conditioning."
+            )
 
     return notes
 

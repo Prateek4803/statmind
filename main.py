@@ -48,16 +48,25 @@ app.add_middleware(CORSMiddleware,
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# ── Database initialisation (deferred — non-fatal if no DB configured) ─────────
+@app.on_event("startup")
+async def on_startup():
+    """Initialise DB tables on startup — gracefully skips if no DB configured."""
+    try:
+        from database import init_db
+        init_db()
+    except Exception as e:
+        logging.warning(f"DB startup skipped: {e}")
+
 # MES router — loaded only when DATABASE_URL env var is configured
-# Without a PostgreSQL database, this is skipped gracefully
 _db_url = os.getenv("DATABASE_URL", "")
 if _db_url and _db_url not in ("", "sqlite:///./statmind_dev.db"):
     try:
         from routers import mes
         app.include_router(mes.router)
+        logging.info("MES router loaded")
     except Exception as _mes_err:
-        import logging as _log
-        _log.warning(f"MES router not loaded: {_mes_err}")
+        logging.warning(f"MES router not loaded: {_mes_err}")
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -148,25 +157,33 @@ async def get_columns(request: Request, file: UploadFile = File(...)):
         result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
-    cols = [
-        {"name": col,
-         "n":    int(len(d := result.df[col].dropna().values.astype(float))),
-         "mean": round(float(d.mean()), 4),
-         "std":  round(float(d.std(ddof=1)), 4),
-         "min":  round(float(d.min()), 4),
-         "max":  round(float(d.max()), 4)}
-        for col in result.numeric_columns
-    ]
+    stats_map = {cs.name: cs for cs in result.column_stats}
+    cols = []
+    for col in result.numeric_columns:
+        d = result.df[col].dropna().values.astype(float)
+        cs = stats_map.get(col)
+        cols.append({
+            "name":        col,
+            "n":           int(len(d)),
+            "mean":        round(float(d.mean()), 4)   if len(d) else 0,
+            "std":         round(float(d.std(ddof=1)), 4) if len(d) > 1 else 0,
+            "min":         round(float(d.min()), 4)    if len(d) else 0,
+            "max":         round(float(d.max()), 4)    if len(d) else 0,
+            "n_missing":   cs.n_missing if cs else 0,
+            "pct_missing": cs.pct_missing if cs else 0.0,
+        })
     return jd({
-        "columns": cols,
+        "columns":       cols,
         "source_format": result.source_format,
-        "metadata": result.metadata,
-        "warnings": result.warnings,
+        "metadata":      result.metadata,
+        "warnings":      result.warnings,
+        "n_rows":        result.n_rows,
     })
 
 # ── Session 1: Normality ──────────────────────────────────────────────────────
 @app.post("/api/v1/normality/analyze")
-async def normality(file: UploadFile = File(...), alpha: float = 0.05):
+@limiter.limit("30/minute")
+async def normality(request: Request, file: UploadFile = File(...), alpha: float = 0.05):
     c = await file.read()
     try:
         result = parse_any_file(c, file.filename)
@@ -189,7 +206,9 @@ async def normality(file: UploadFile = File(...), alpha: float = 0.05):
 
 # ── Session 2: Capability ─────────────────────────────────────────────────────
 @app.post("/api/v1/capability/analyze")
+@limiter.limit("20/minute")
 async def capability(
+    request: Request,
     file: UploadFile = File(...),
     column: str = Query(...), usl: float = Query(...), lsl: float = Query(...),
     target: float = Query(None), subgroup_size: int = Query(1),

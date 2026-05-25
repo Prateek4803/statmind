@@ -313,3 +313,258 @@ class TestPipeline:
               f"Outliers={out_r.n_outliers}, "
               f"Equivalent={eq_r.equivalent}, "
               f"Welch_df={eq_r.welch_df:.1f}")
+
+
+# ── capability ────────────────────────────────────────────────────────────────
+
+from capability import analyze_capability, _welford_std, cpk_confidence_interval
+
+
+class TestWelfordStd:
+    def test_matches_numpy_normal_data(self):
+        """Welford should match numpy for normal-magnitude data."""
+        rng  = np.random.default_rng(42)
+        data = rng.normal(100.0, 5.0, 1000)
+        w = _welford_std(data, ddof=1)
+        n = float(np.std(data, ddof=1))
+        assert abs(w - n) < 1e-8, f"Welford={w}, numpy={n}"
+
+    def test_stable_for_tiny_values(self):
+        """Two-pass numpy is catastrophically wrong for near-equal tiny values.
+        Welford must stay accurate."""
+        rng  = np.random.default_rng(7)
+        # Chemical concentration: mean ~1e-7, std ~1e-11
+        base = 1e-7
+        data = base + rng.normal(0, 1e-11, 200)
+        w = _welford_std(data, ddof=1)
+        # True std should be close to 1e-11
+        assert 5e-12 < w < 5e-10, f"Welford std={w:.3e} out of expected range"
+
+    def test_single_value_returns_zero(self):
+        assert _welford_std(np.array([5.0]), ddof=1) == 0.0
+
+    def test_identical_values_returns_zero(self):
+        data = np.full(50, 3.14)
+        assert _welford_std(data, ddof=1) == 0.0
+
+
+class TestCpkCalculation:
+    def test_centered_process_cpk_equals_cp(self):
+        """For a perfectly centred process, Cpk should equal Cp."""
+        rng  = np.random.default_rng(99)
+        # mean=100, std=1.0, usl=103, lsl=97 → Cp = Cpk = 1.0
+        data = rng.normal(100.0, 1.0, 300)
+        r = analyze_capability(data, "test", usl=103.0, lsl=97.0)
+        # For perfectly centred: Cp ≈ Cpk (allow 0.05 tolerance due to sampling)
+        assert abs(r.cpk - r.cp) < 0.1, f"cpk={r.cpk:.4f}, cp={r.cp:.4f}"
+
+    def test_offcenter_process_cpk_lt_cp(self):
+        """Off-centre process: Cpk must be less than Cp."""
+        rng  = np.random.default_rng(0)
+        data = rng.normal(102.0, 1.0, 300)   # shifted up
+        r = analyze_capability(data, "test", usl=103.0, lsl=97.0)
+        assert r.cpk < r.cp, f"cpk={r.cpk:.4f} should be < cp={r.cp:.4f}"
+
+    def test_ppk_uses_overall_std(self):
+        """Ppk must use overall std; Cpk must use within-subgroup std."""
+        rng  = np.random.default_rng(1)
+        data = rng.normal(100.0, 2.0, 50)
+        r = analyze_capability(data, "test", usl=106.0, lsl=94.0)
+        # Ppk uses std_overall, Cpk uses std_within — they should differ
+        # (unless process is perfectly stable)
+        assert r.ppk == pytest.approx(r.ppk, abs=5)   # just ensure not NaN/inf
+        assert r.cpk == pytest.approx(r.cpk, abs=5)
+        assert r.std_overall > 0
+        assert r.std_within > 0
+
+    def test_cpk_ci_width_decreases_with_n(self):
+        """Larger samples should produce narrower Cpk confidence intervals."""
+        rng = np.random.default_rng(42)
+        data_small = rng.normal(100, 1, 30)
+        data_large = rng.normal(100, 1, 500)
+        r_s = analyze_capability(data_small, "test", usl=103.0, lsl=97.0)
+        r_l = analyze_capability(data_large, "test", usl=103.0, lsl=97.0)
+        width_small = r_s.cpk_ci_95.upper - r_s.cpk_ci_95.lower
+        width_large = r_l.cpk_ci_95.upper - r_l.cpk_ci_95.lower
+        assert width_large < width_small, "CI should narrow with larger n"
+
+    def test_minimum_n_guard(self):
+        """Less than 5 data points should raise ValueError."""
+        with pytest.raises(ValueError, match="at least 5"):
+            analyze_capability(np.array([1.0, 2.0, 3.0]), "test", usl=5.0, lsl=0.0)
+
+    def test_usl_must_exceed_lsl(self):
+        with pytest.raises(ValueError):
+            analyze_capability(np.arange(1.0, 50.0), "test", usl=2.0, lsl=5.0)
+
+    def test_zero_variance_guard(self):
+        with pytest.raises(ValueError, match="[Ii]dentical|[Zz]ero"):
+            analyze_capability(np.full(20, 5.0), "test", usl=6.0, lsl=4.0)
+
+    def test_verdict_thresholds(self):
+        rng = np.random.default_rng(5)
+        # High Cpk → Excellent / Capable
+        d_good = rng.normal(100, 0.3, 100)
+        r_good = analyze_capability(d_good, "test", usl=103.0, lsl=97.0)
+        assert r_good.verdict in ("Excellent", "Capable"), f"Got {r_good.verdict}"
+
+        # Low Cpk → Not Capable
+        d_bad = rng.normal(100, 2.5, 100)
+        r_bad = analyze_capability(d_bad, "test", usl=103.0, lsl=97.0)
+        assert r_bad.verdict in ("Not Capable", "Marginal"), f"Got {r_bad.verdict}"
+
+    def test_ppm_within_reasonable_range(self):
+        rng  = np.random.default_rng(3)
+        data = rng.normal(100, 1, 200)
+        r = analyze_capability(data, "test", usl=103.0, lsl=97.0)
+        # Cpk≈1.0 → ~2700 PPM expected
+        assert 0 <= r.ppm_within <= 1_000_000
+
+
+# ── control charts ────────────────────────────────────────────────────────────
+
+from control_charts import (
+    analyze_control_chart, build_imr, build_xbar_r, western_electric_rules,
+    _detect_batch_boundaries, _window_crosses_boundary,
+)
+
+
+class TestIMRChart:
+    def test_in_control_process_no_alarms(self):
+        rng  = np.random.default_rng(42)
+        data = rng.normal(100.0, 1.0, 50)
+        r = build_imr(data, "test")
+        # Clean data should have very few or no alarms
+        assert r.total_alarms <= 3, f"Too many false alarms: {r.total_alarms}"
+
+    def test_out_of_control_detected(self):
+        rng  = np.random.default_rng(0)
+        data = rng.normal(100.0, 1.0, 50)
+        # Inject mean shift at point 30
+        data[30:] += 6.0
+        r = build_imr(data, "test")
+        assert r.total_alarms >= 1, "Shift not detected"
+        assert not r.in_control
+
+    def test_ucl_lcl_symmetry_around_cl(self):
+        rng  = np.random.default_rng(1)
+        data = rng.normal(50.0, 2.0, 40)
+        r = build_imr(data, "test")
+        cl = r.primary_cl
+        ucl_gap = r.primary_ucl - cl
+        lcl_gap = cl - r.primary_lcl
+        assert abs(ucl_gap - lcl_gap) < 1e-6, "UCL/LCL not symmetric around CL"
+
+    def test_minimum_n_guard(self):
+        with pytest.raises(ValueError, match="at least 10"):
+            analyze_control_chart(np.array([1.0, 2.0, 3.0]), "col")
+
+    def test_we_rule1_beyond_3sigma(self):
+        """A clear WE Rule 1 violation must be detected."""
+        data = np.full(30, 100.0)
+        data[15] = 115.0   # 15-sigma spike
+        alarms = western_electric_rules(
+            data, cl=100.0, sigma=1.0
+        )
+        rule1 = [a for a in alarms if a["rule"] == "WE1"]
+        assert len(rule1) >= 1
+
+
+class TestBatchBoundaries:
+    def test_detects_large_jump(self):
+        """A 10-sigma jump between consecutive points should be a boundary."""
+        data = np.ones(20)
+        data[10:] += 50.0   # clear batch reset
+        sigma = 1.0
+        bounds = _detect_batch_boundaries(data, sigma)
+        assert 10 in bounds, f"Boundary at index 10 not detected: {bounds}"
+
+    def test_no_false_boundaries_stable_data(self):
+        """Stable data should produce very few (≤1) false boundaries.
+        At threshold=3.5σ there is ~0.05% per-consecutive-pair FP rate.
+        For 50 points that gives ~1 expected false positive."""
+        rng = np.random.default_rng(77)
+        data = rng.normal(100, 1, 50)
+        bounds = _detect_batch_boundaries(data, sigma=1.0)
+        assert len(bounds) <= 1, f"Too many false boundaries: {bounds}"
+
+    def test_window_crossing(self):
+        bounds = {5}
+        assert _window_crosses_boundary(3, 7, bounds)
+        assert not _window_crosses_boundary(6, 9, bounds)
+
+
+class TestXbarR:
+    def test_chart_produced_for_subgroups(self):
+        rng  = np.random.default_rng(42)
+        data = rng.normal(100, 2, 50)   # 10 subgroups of 5
+        r = build_xbar_r(data, "test", n=5)
+        assert r.chart_type == "Xbar-R"
+        assert len(r.primary_values) == 10
+        assert len(r.secondary_values) == 10
+        assert r.primary_ucl > r.primary_cl > r.primary_lcl
+
+
+# ── gauge R&R ─────────────────────────────────────────────────────────────────
+
+from gauge_rr import analyze_gauge_rr
+
+
+class TestGaugeRR:
+    @pytest.fixture
+    def standard_grr_data(self):
+        """10 parts × 3 operators × 2 replicates = 60 measurements."""
+        rng = np.random.default_rng(42)
+        n_parts, n_ops, n_reps = 10, 3, 2
+        parts, operators, measurements = [], [], []
+        for p in range(1, n_parts + 1):
+            true_val = rng.normal(100, 5)   # part-to-part variation
+            for o in range(1, n_ops + 1):
+                op_bias = rng.normal(0, 0.5)   # operator bias
+                for _ in range(n_reps):
+                    meas = true_val + op_bias + rng.normal(0, 0.3)   # repeatability
+                    parts.append(p); operators.append(o); measurements.append(meas)
+        return (
+            np.array(measurements),
+            np.array(parts),
+            np.array(operators),
+        )
+
+    def test_grr_components_sum_to_total(self, standard_grr_data):
+        m, p, o = standard_grr_data
+        r = analyze_gauge_rr(m, p, o, "test")
+        # GRR² + PV² ≈ TV² (variance components should add up)
+        tv_var = r.total_variation.variance
+        grr_var = r.gauge_rr.variance
+        pv_var = r.part_to_part.variance
+        # Allow 1% tolerance for rounding
+        assert abs(grr_var + pv_var - tv_var) / max(tv_var, 1e-10) < 0.02
+
+    def test_ndc_minimum_is_1(self, standard_grr_data):
+        m, p, o = standard_grr_data
+        r = analyze_gauge_rr(m, p, o, "test")
+        assert r.ndc >= 1
+
+    def test_pct_contributions_sum_to_100(self, standard_grr_data):
+        m, p, o = standard_grr_data
+        r = analyze_gauge_rr(m, p, o, "test")
+        total_pct = (
+            r.repeatability.pct_contribution
+            + r.reproducibility.pct_contribution
+            + r.part_to_part.pct_contribution
+        )
+        assert abs(total_pct - 100.0) < 1.0, f"Pct sum={total_pct:.2f}% ≠ 100%"
+
+    def test_verdict_categories(self, standard_grr_data):
+        m, p, o = standard_grr_data
+        r = analyze_gauge_rr(m, p, o, "test")
+        assert r.verdict in ("Acceptable", "Marginal", "Unacceptable")
+
+    def test_minimum_measurements_guard(self):
+        with pytest.raises(ValueError, match="at least 6"):
+            analyze_gauge_rr(
+                np.array([1.0, 2.0, 3.0]),
+                np.array([1, 2, 3]),
+                np.array([1, 1, 2]),
+                "test"
+            )

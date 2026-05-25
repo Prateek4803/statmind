@@ -583,6 +583,20 @@ textarea{resize:vertical;min-height:52px;}
   .mob-sidebar-toggle { display:none !important; }
 }
 
+@media(max-width:768px){
+  .chart-full{height:200px !important}
+  .chart-half{height:160px !important}
+  .spc-limits{grid-template-columns:repeat(3,1fr) !important}
+  .stat-grid{grid-template-columns:1fr 1fr !important}
+  .results-header{flex-direction:column;gap:8px}
+  aside{width:100% !important;min-width:unset !important}
+  .card{padding:10px 12px !important}
+  .sv{font-size:20px !important}
+  .feature-grid{grid-template-columns:1fr 1fr !important}
+  .welcome-actions{flex-direction:column !important}
+  .welcome{padding:20px 12px !important}
+}
+
 /* ── Capability index tooltip ── */
 .cap-tooltip {
   position: fixed;
@@ -753,8 +767,8 @@ textarea{resize:vertical;min-height:52px;}
   <!-- Right side -->
   <div class="nav-right">
     <a href="/" style="font-size:11px;color:var(--text3);padding:4px 10px;border-radius:6px;border:1px solid var(--border);transition:all .15s;text-decoration:none;" onmouseover="this.style.color='var(--text2)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--text3)';this.style.borderColor='var(--border)'">← Home</a>
-    <div class="api-dot checking" id="status-dot"></div>
-    <span class="api-label" id="status-text">Checking…</span>
+    <div class="api-dot" id="status-dot" style="opacity:0;transition:opacity .6s"></div>
+    <span class="api-label" id="status-text" style="opacity:0;transition:opacity .6s"></span>
   </div>
 </nav>
 
@@ -1735,97 +1749,43 @@ textarea{resize:vertical;min-height:52px;}
   <main class="content" id="content">
     <!-- Welcome screen — shown until file is loaded -->
     <div class="welcome" id="welcome-screen">
-      <!-- ── StatMind Hero ─────────────────────────────────────────────────────── -->
-      <div style="display:flex;flex-direction:column;align-items:center;width:100%;max-width:860px;margin:0 auto;padding:0 16px">
-
-        <!-- Logo mark -->
-        <div style="position:relative;margin-bottom:20px">
-          <div style="width:64px;height:64px;background:linear-gradient(135deg,#2dd4a0 0%,#4f7cff 50%,#b47aff 100%);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 8px 32px rgba(45,212,160,0.3),0 0 0 1px rgba(45,212,160,0.15)">S</div>
-          <div style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:var(--teal);border-radius:50%;border:2px solid var(--bg);display:flex;align-items:center;justify-content:center">
-            <div style="width:6px;height:6px;background:#0f1117;border-radius:50%"></div>
-          </div>
+      <div class="welcome-logo">📊</div>
+      <div class="welcome-title">Welcome to StatMind</div>
+      <div class="welcome-sub">A complete process statistics platform for quality engineers.<br>Normality · Capability · SPC · GRR · DOE · CAPA · PDF Reports</div>
+      <div class="welcome-actions">
+        <button class="wa-btn primary" onclick="openNewFileWizard()"><span class="wa-icon">📄</span> New File — Create Data</button>
+        <button class="wa-btn secondary" onclick="openFileWizard()"><span class="wa-icon">📂</span> Open File — Upload Data</button>
+        <button class="wa-btn" style="background:rgba(45,212,160,0.12);border:1.5px solid rgba(45,212,160,0.45);color:var(--teal);font-weight:700;box-shadow:0 0 18px rgba(45,212,160,0.12)" onclick="loadSampleDataset()" onmouseenter="this.style.boxShadow='0 0 28px rgba(45,212,160,0.25)'" onmouseleave="this.style.boxShadow='0 0 18px rgba(45,212,160,0.12)'"><span class="wa-icon">⚡</span> Try Sample Dataset — instant demo</button>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:var(--text3);">
+        New here? Hit <strong style="color:var(--teal)">Try Sample Dataset</strong> for an instant demo — no file needed.
+      </div>
+      <div style="display:flex;align-items:center;gap:0;margin:16px 0 20px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 20px;max-width:480px;width:100%">
+        <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px">
+          <div style="width:30px;height:30px;background:var(--teal);color:#0f1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">1</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text)">Upload</div>
+          <div style="font-size:10px;color:var(--text3)">CSV · Excel</div>
         </div>
-
-        <!-- Headline -->
-        <h1 style="font-size:clamp(26px,4vw,42px);font-weight:800;letter-spacing:-1.5px;text-align:center;color:var(--text);margin:0 0 10px;line-height:1.1">
-          Process Statistics<br>
-          <span style="background:linear-gradient(135deg,#2dd4a0,#4f7cff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">for Quality Engineers</span>
-        </h1>
-        <p style="font-size:15px;color:var(--text2);text-align:center;line-height:1.6;max-width:480px;margin:0 0 28px">
-          43 live tools — Normality · Capability · SPC · GRR · DOE · CAPA · PDF Reports<br>
-          <span style="font-size:13px;color:var(--text3)">Browser-based · No install · Free · No data stored</span>
-        </p>
-
-        <!-- CTA buttons -->
-        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:14px">
-          <button onclick="openFileWizard()" style="display:flex;align-items:center;gap:8px;padding:12px 24px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);box-shadow:0 4px 20px rgba(45,212,160,0.3);transition:transform .15s,box-shadow .15s" onmouseenter="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 24px rgba(45,212,160,0.4)'" onmouseleave="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(45,212,160,0.3)'">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M3 7h18M3 12h18M3 17h10"/></svg>
-            Open File — Upload Data
-          </button>
-          <button onclick="openNewFileWizard()" style="display:flex;align-items:center;gap:8px;padding:12px 22px;background:var(--bg2);border:1px solid var(--border2);color:var(--text);border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);transition:border-color .15s" onmouseenter="this.style.borderColor='var(--teal)';this.style.color='var(--teal)'" onmouseleave="this.style.borderColor='var(--border2)';this.style.color='var(--text)'">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v16M4 12h16"/></svg>
-            New File — Enter Data
-          </button>
-          <button onclick="loadSampleDataset()" style="display:flex;align-items:center;gap:7px;padding:12px 20px;background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.25);color:var(--teal);border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font);transition:background .15s" onmouseenter="this.style.background='rgba(45,212,160,0.12)'" onmouseleave="this.style.background='rgba(45,212,160,0.07)'">
-            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Try Sample Dataset
-          </button>
+        <div style="color:var(--border2);font-size:18px;padding:0 10px">→</div>
+        <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px">
+          <div style="width:30px;height:30px;background:rgba(79,124,255,0.15);border:1.5px solid rgba(79,124,255,0.4);color:#7fa8ff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">2</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text)">Pick Analysis</div>
+          <div style="font-size:10px;color:var(--text3)">43 tools</div>
         </div>
-
-        <p style="font-size:12px;color:var(--text3);margin:0 0 36px;text-align:center">
-          New here? Hit <strong style="color:var(--teal)">Try Sample Dataset</strong> for an instant demo — no file needed.
-        </p>
-
-        <!-- Feature grid — redesigned cards -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;width:100%;max-width:780px">
-
-          <div onclick="openFileWizard();setTimeout(()=>switchAnalysis('normality'),500)" style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .2s,transform .15s,box-shadow .2s" onmouseenter="this.style.borderColor='rgba(45,212,160,0.5)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='';this.style.boxShadow=''">
-            <div style="width:36px;height:36px;background:rgba(45,212,160,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px">⚗️</div>
-            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Normality Testing</div>
-            <div style="font-size:11px;color:var(--text3);line-height:1.5">Shapiro-Wilk · Anderson-Darling · Ryan-Joiner</div>
-          </div>
-
-          <div onclick="openFileWizard();setTimeout(()=>switchAnalysis('capability'),500)" style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .2s,transform .15s,box-shadow .2s" onmouseenter="this.style.borderColor='rgba(79,124,255,0.5)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='';this.style.boxShadow=''">
-            <div style="width:36px;height:36px;background:rgba(79,124,255,0.12);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px">📐</div>
-            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Process Capability</div>
-            <div style="font-size:11px;color:var(--text3);line-height:1.5">Cp · Cpk · Pp · Ppk with 95% confidence intervals</div>
-          </div>
-
-          <div onclick="openFileWizard();setTimeout(()=>switchAnalysis('spc'),500)" style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .2s,transform .15s,box-shadow .2s" onmouseenter="this.style.borderColor='rgba(240,180,41,0.5)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='';this.style.boxShadow=''">
-            <div style="width:36px;height:36px;background:rgba(240,180,41,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px">📈</div>
-            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">SPC Control Charts</div>
-            <div style="font-size:11px;color:var(--text3);line-height:1.5">I-MR · Xbar-R · Xbar-S · CUSUM · EWMA</div>
-          </div>
-
-          <div onclick="openFileWizard();setTimeout(()=>switchAnalysis('grr'),500)" style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .2s,transform .15s,box-shadow .2s" onmouseenter="this.style.borderColor='rgba(180,122,255,0.5)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='';this.style.boxShadow=''">
-            <div style="width:36px;height:36px;background:rgba(180,122,255,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px">🔬</div>
-            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Gauge R&amp;R / MSA</div>
-            <div style="font-size:11px;color:var(--text3);line-height:1.5">ANOVA method · ndc · %GRR · AIAG compliant</div>
-          </div>
-
-          <div onclick="openFileWizard();setTimeout(()=>switchAnalysis('doe'),500)" style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .2s,transform .15s,box-shadow .2s" onmouseenter="this.style.borderColor='rgba(45,212,160,0.5)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'" onmouseleave="this.style.borderColor='var(--border)';this.style.transform='';this.style.boxShadow=''">
-            <div style="width:36px;height:36px;background:rgba(45,212,160,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px">🧫</div>
-            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">DOE &amp; RSM</div>
-            <div style="font-size:11px;color:var(--text3);line-height:1.5">Factorial · Fractional · CCD · Box-Behnken</div>
-          </div>
-
-          <div onclick="openFileWizard();setTimeout(()=>switchAnalysis('capa'),500)" style="background:linear-gradient(135deg,rgba(45,212,160,0.07),rgba(79,124,255,0.07));border:1px solid rgba(45,212,160,0.2);border-radius:14px;padding:18px 16px;cursor:pointer;transition:border-color .2s,transform .15s,box-shadow .2s;position:relative;overflow:hidden" onmouseenter="this.style.borderColor='var(--teal)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(45,212,160,0.15)'" onmouseleave="this.style.borderColor='rgba(45,212,160,0.2)';this.style.transform='';this.style.boxShadow=''">
-            <div style="position:absolute;top:10px;right:10px;background:var(--teal);color:#0f1117;font-size:9px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:8px">AI</div>
-            <div style="width:36px;height:36px;background:rgba(45,212,160,0.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px">🗄️</div>
-            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">CAPA Engine</div>
-            <div style="font-size:11px;color:var(--text3);line-height:1.5">AI root cause · 8D · PFMEA · 50+ industry rules</div>
-          </div>
-
+        <div style="color:var(--border2);font-size:18px;padding:0 10px">→</div>
+        <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px">
+          <div style="width:30px;height:30px;background:rgba(240,180,41,0.12);border:1.5px solid rgba(240,180,41,0.3);color:var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">3</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text)">Results</div>
+          <div style="font-size:10px;color:var(--text3)">Charts · Cpk · PDF</div>
         </div>
-
-        <!-- Stats pills row -->
-        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:28px">
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:11px;color:var(--text2)"><span style="color:var(--teal);font-weight:700">43</span> live tools</div>
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:11px;color:var(--text2)"><span style="color:#4f7cff;font-weight:700">50+</span> CAPA rules</div>
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:11px;color:var(--text2)"><span style="color:var(--amber);font-weight:700">$0</span> to start</div>
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:11px;color:var(--text2)"><span style="color:#b47aff;font-weight:700">0</span> data stored</div>
-        </div>
-
+      </div>
+      <div class="feature-grid">
+        <div class="feat-card" onclick="openFileWizard();setTimeout(()=>switchAnalysis('normality'),500)"><div class="feat-icon">⚗️</div><div class="feat-title">Normality Testing</div><div class="feat-desc">Shapiro-Wilk, Anderson-Darling, Ryan-Joiner</div></div>
+        <div class="feat-card" onclick="openFileWizard();setTimeout(()=>switchAnalysis('capability'),500)"><div class="feat-icon">📐</div><div class="feat-title">Process Capability</div><div class="feat-desc">Cp, Cpk, Pp, Ppk with confidence intervals</div></div>
+        <div class="feat-card" onclick="openFileWizard();setTimeout(()=>switchAnalysis('spc'),500)"><div class="feat-icon">📈</div><div class="feat-title">SPC Control Charts</div><div class="feat-desc">I-MR, Xbar-R, Xbar-S with Western Electric rules</div></div>
+        <div class="feat-card" onclick="openFileWizard();setTimeout(()=>switchAnalysis('hypothesis'),500)"><div class="feat-icon">🧪</div><div class="feat-title">Hypothesis Testing</div><div class="feat-desc">t-test, ANOVA, Mann-Whitney, Kruskal-Wallis</div></div>
+        <div class="feat-card" onclick="openFileWizard();setTimeout(()=>switchAnalysis('sixpack'),500)"><div class="feat-icon">6️⃣</div><div class="feat-title">Capability Sixpack</div><div class="feat-desc">6 capability panels in one view</div></div>
+        <div class="feat-card" onclick="openFileWizard();setTimeout(()=>switchAnalysis('processdash'),500)"><div class="feat-icon">🚦</div><div class="feat-title">Process Dashboard</div><div class="feat-desc">Traffic light view of all parameters at once</div></div>
       </div>
     </div>
   </main>
@@ -1996,8 +1956,13 @@ async function checkHealth(){
   try{const r=await fetch(`${API}/health`);setStatus(r.ok?'ok':'err',r.ok?'API connected':'API offline');}
   catch{setStatus('err','API offline');}
 }
-function setStatus(s,t){document.getElementById('status-dot').className=`api-dot ${s}`;document.getElementById('status-text').textContent=t;}
-checkHealth();setInterval(checkHealth,15000);
+function setStatus(s,t){
+  const dot=document.getElementById('status-dot');
+  const txt=document.getElementById('status-text');
+  if(dot){dot.className=`api-dot ${s}`;dot.style.opacity='1';}
+  if(txt){txt.textContent=t;txt.style.opacity='1';}
+}
+setTimeout(checkHealth,3000);setInterval(checkHealth,20000);
 
 // ── Open File Wizard ──────────────────────────────────────────────────────────
 function openFileWizard(){
@@ -2094,15 +2059,20 @@ function finalizeOpen(){
 }
 
 function distributeFileToSessions(file){
-  // Set the file on all upload inputs across sessions
-  const inputs = ['spc-file-input','cap-file-input','norm-file-input','hyp-file-input',
-    'pareto-file-input','sixpack-file-input','reg-file-input','trans-file-input',
-    'mv-file-input','tol-file-input'];
-  // We can't programmatically set file inputs for security, but we store globally
-  // and auto-load when user switches to each session
   globalFile = file;
-  globalColumns = globalColumns; // already set
-  // Auto-trigger column load for normality as default first view
+  // Assign to ALL tool file variables — upload once, analyze everywhere
+  if(typeof spcFile !== 'undefined')      spcFile     = file;
+  if(typeof capFile !== 'undefined')      capFile     = file;
+  if(typeof normFile !== 'undefined')     normFile    = file;
+  if(typeof hypFile !== 'undefined')      hypFile     = file;
+  if(typeof transFile !== 'undefined')    transFile   = file;
+  if(typeof regFile !== 'undefined')      regFile     = file;
+  if(typeof tolFile !== 'undefined')      tolFile     = file;
+  if(typeof sixpackFile !== 'undefined')  sixpackFile = file;
+  if(typeof mvFile !== 'undefined')       mvFile      = file;
+  if(typeof corrFile !== 'undefined')     corrFile    = file;
+  if(typeof outlFile !== 'undefined')     outlFile    = file;
+  if(typeof grrFile !== 'undefined')      grrFile     = file;
   setTimeout(()=>{ autoLoadGlobalFile(); }, 100);
 }
 
@@ -4276,31 +4246,7 @@ function renderTransformation(r){
       <div class="card"><div class="ch"><div class="ct">Transformed Prob Plot</div></div><div class="cb"><div class="chart-half"><canvas id="trans-new-prob"></canvas></div></div></div>
     </div>
     <div class="card"><div class="ch"><div class="ct">All Transformations Tried</div></div><div class="cb" style="overflow-x:auto"><table class="alarm-table"><tr><th>Transformation</th><th>SW p-value</th><th>Normality</th></tr>${allRows}</table></div></div>
-    <div class="card"><div class="ch"><div class="ct">Recommendation</div></div><div class="cb"><div style="font-size:14px;margin-bottom:8px">${r.recommendation}</div>${r.back_transform_note?`<div style="font-size:12px;color:var(--text3);margin-top:8px;padding:7px 10px;background:var(--bg3);border-radius:7px">↩ ${r.back_transform_note}</div>`:''}
-    ${(()=>{
-      // Only show download section when a transformation was actually applied
-      // (original data not already normal, and a real transform was found)
-      const noTransformNeeded = ['none','normal','no transformation required'].includes(
-        (r.best_transform||'').toLowerCase()
-      ) || (r.original_sw_p >= 0.05);
-      const hasData = (r.exported_data?.length > 0) || (r.transformed_values?.length > 0);
-      if(noTransformNeeded) {
-        return `<div style="margin-top:12px;padding:10px 14px;background:rgba(45,212,160,0.07);border:1px solid rgba(45,212,160,0.2);border-radius:8px;font-size:13px;color:var(--teal)">✅ Original data is already normally distributed — no transformation needed. You can use the raw data directly.</div>`;
-      }
-      if(!hasData) {
-        return `<div style="margin-top:12px;padding:10px 14px;background:rgba(240,180,41,0.08);border:1px solid rgba(240,180,41,0.2);border-radius:8px;font-size:12px;color:var(--amber)">⚠ No transformed values returned. Try re-running with a different column.</div>`;
-      }
-      return `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-        <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)">Apply Transformed Data to Next Analysis</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Download the transformed values (${r.transform_label}) or load them directly into the next analysis. The back-transform formula is shown above so you can convert results back to original units.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button onclick="downloadTransformedData(window._lastTransformResult,'csv')" style="padding:8px 16px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">⬇ Download CSV</button>
-          <button onclick="downloadTransformedData(window._lastTransformResult,'xlsx')" style="padding:8px 16px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:8px;font-size:13px;cursor:pointer">⬇ Download Excel</button>
-          <button onclick="applyTransformedDataToNextAnalysis(window._lastTransformResult)" style="padding:8px 16px;background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.35);color:var(--teal);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">⚡ Use in Next Analysis</button>
-        </div>
-      </div>`;
-    })()}
-    </div></div>
+    <div class="card"><div class="ch"><div class="ct">Recommendation</div></div><div class="cb"><div style="font-size:14px;margin-bottom:8px">${r.recommendation}</div>${r.back_transform_note?`<div style="font-size:12px;color:var(--text3);margin-top:8px;padding:7px 10px;background:var(--bg3);border-radius:7px">↩ ${r.back_transform_note}</div>`:''}<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text)">Apply Transformed Data to Next Analysis</div><div style="font-size:12px;color:var(--text2);margin-bottom:10px">Download the transformed values (${r.transform_label}) or load them directly into the next analysis.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button onclick="downloadTransformedData(window._lastTransformResult,'csv')" style="padding:8px 16px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">⬇ Download CSV</button><button onclick="downloadTransformedData(window._lastTransformResult,'xlsx')" style="padding:8px 16px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:8px;font-size:13px;cursor:pointer">⬇ Download Excel</button><button onclick="applyTransformedDataToNextAnalysis(window._lastTransformResult)" style="padding:8px 16px;background:rgba(45,212,160,0.12);border:1px solid rgba(45,212,160,0.35);color:var(--teal);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">⚡ Use in Next Analysis</button></div></div></div></div>
   `);
   function drawHistChart(canvasId,hd){
     return new Chart(document.getElementById(canvasId).getContext('2d'),{
@@ -5870,140 +5816,14 @@ function renderOutliers(r){
       <div class="cb"><div class="chart-full"><canvas id="outl-chart"></canvas></div></div></div>
     <div style="font-size:11px;color:var(--text3);background:var(--bg3);border-radius:7px;padding:10px 12px">Never remove outliers automatically. Each outlier requires physical investigation — it may indicate a real process event, measurement error, or data entry mistake. Document the investigation result before disposition.</div>
   `);
-  const pts=(r.data||[]).map((v,i)=>({x:i+1,y:v,isOutlier:outlierIndices.has(i),
-    outlierInfo: outlierIndices.has(i) ? outliers.find(o=>o.index===i) : null
-  }));
-
-  const mean  = r.mean  || 0;
-  const stdev = r.std   || r.sigma || (r.grubbs_critical ? Math.abs(pts[0]?.y - mean)/r.grubbs_critical : 1);
-  const ucl3  = mean + 3*stdev;
-  const lcl3  = mean - 3*stdev;
-  const ucl2  = mean + 2*stdev;
-  const lcl2  = mean - 2*stdev;
-  const n     = pts.length;
-
-  // Outlier annotation labels (numbered sequentially)
-  let outlierCounter = 0;
-  const outlierNumbered = pts.filter(p=>p.isOutlier).map(p=>{
-    outlierCounter++;
-    return {...p, num: outlierCounter};
-  });
-
-  charts['outl'] = new Chart(document.getElementById('outl-chart').getContext('2d'), {
-    data: { datasets: [
-      // ── ±3σ band (filled area) ──────────────────────────────────────────
-      {type:'line', label:'UCL (+3σ)', data: Array.from({length:n},(_, i)=>({x:i+1,y:ucl3})),
-       borderColor:'rgba(240,92,92,0.7)', borderWidth:1.5, borderDash:[5,4],
-       pointRadius:0, fill:false},
-      {type:'line', label:'LCL (−3σ)', data: Array.from({length:n},(_, i)=>({x:i+1,y:lcl3})),
-       borderColor:'rgba(240,92,92,0.7)', borderWidth:1.5, borderDash:[5,4],
-       pointRadius:0, fill:'-1',
-       backgroundColor:'rgba(240,92,92,0.04)'},
-      // ── ±2σ warning band ───────────────────────────────────────────────
-      {type:'line', label:'+2σ', data: Array.from({length:n},(_,i)=>({x:i+1,y:ucl2})),
-       borderColor:'rgba(240,180,41,0.4)', borderWidth:1, borderDash:[3,3],
-       pointRadius:0, fill:false},
-      {type:'line', label:'−2σ', data: Array.from({length:n},(_,i)=>({x:i+1,y:lcl2})),
-       borderColor:'rgba(240,180,41,0.4)', borderWidth:1, borderDash:[3,3],
-       pointRadius:0, fill:'-1',
-       backgroundColor:'rgba(240,180,41,0.04)'},
-      // ── Mean line ──────────────────────────────────────────────────────
-      {type:'line', label:'Mean', data: Array.from({length:n},(_,i)=>({x:i+1,y:mean})),
-       borderColor:'#f0b429', borderWidth:1.5, borderDash:[6,3],
-       pointRadius:0, fill:false},
-      // ── Normal points ──────────────────────────────────────────────────
-      {type:'scatter', label:'Normal',
-       data: pts.filter(p=>!p.isOutlier).map(p=>({x:p.x,y:p.y})),
-       backgroundColor:'rgba(45,212,160,0.55)',
-       borderColor:'rgba(45,212,160,0.8)',
-       borderWidth:1, pointRadius:5, pointHoverRadius:7},
-      // ── Outlier points (larger, red, triangle) ─────────────────────────
-      {type:'scatter', label:'Outlier',
-       data: outlierNumbered.map(p=>({x:p.x, y:p.y, num:p.num,
-         label:`#${p.num} (idx ${p.x}): ${p.y?.toFixed?.(4)} — ${p.outlierInfo?.method||''}` })),
-       backgroundColor:'rgba(240,92,92,0.85)',
-       borderColor:'#f05c5c',
-       borderWidth:2, pointRadius:9, pointHoverRadius:12,
-       pointStyle:'triangle'},
+  const pts=(r.data||[]).map((v,i)=>({x:i+1,y:v,isOutlier:outlierIndices.has(i)}));
+  charts['outl']=new Chart(document.getElementById('outl-chart').getContext('2d'),{
+    data:{datasets:[
+      {type:'scatter',label:'Normal',data:pts.filter(p=>!p.isOutlier).map(p=>({x:p.x,y:p.y})),backgroundColor:'rgba(45,212,160,0.5)',pointRadius:4},
+      {type:'scatter',label:'Outlier',data:pts.filter(p=>p.isOutlier).map(p=>({x:p.x,y:p.y})),backgroundColor:'rgba(240,92,92,0.9)',pointRadius:7,pointStyle:'triangle'},
+      {type:'line',label:'Mean',data:labels.map(()=>r.mean||0),borderColor:'#f0b429',borderWidth:1,borderDash:[4,3],pointRadius:0},
     ]},
-    options: {
-      responsive:true, maintainAspectRatio:false, animation:false,
-      interaction: {mode:'nearest', intersect:false},
-      plugins: {
-        legend: {
-          labels:{color:tc, font:{size:10}, boxWidth:12,
-            filter:(item)=>['Normal','Outlier','Mean','UCL (+3σ)','LCL (−3σ)'].includes(item.text)}
-        },
-        tooltip: {
-          callbacks: {
-            title: ctx => {
-              if(!ctx[0]) return '';
-              const d = ctx[0].raw;
-              const isOut = ctx[0].dataset.label === 'Outlier';
-              return isOut ? `⚠️ Outlier #${d.num||'?'} — Point ${d.x}` : `Point ${d.x}`;
-            },
-            label: ctx => {
-              const d = ctx.raw;
-              const v = (d.y??d).toFixed?.(6) ?? d;
-              const zs = stdev > 0 ? ((d.y - mean)/stdev).toFixed(2) : '—';
-              const lines = [`Value: ${v}`, `z-score: ${zs}`];
-              if(ctx.dataset.label === 'Outlier') {
-                const info = outliers.find(o=>o.index===(d.x-1));
-                if(info?.method) lines.push(`Method: ${info.method}`);
-                lines.push('⚠ Investigate before removal');
-              }
-              return lines;
-            }
-          }
-        },
-        // Draw outlier number annotations on the chart
-        afterDraw: function() {}
-      },
-      scales: {
-        x:{grid:{color:gc}, ticks:{color:tc, font:{size:10}},
-          title:{display:true, text:'Observation Index', color:tc, font:{size:11}}},
-        y:{grid:{color:gc}, ticks:{color:tc, font:{size:10}},
-          title:{display:true, text:r.column||'Value', color:tc, font:{size:11}}}
-      }
-    },
-    // Custom plugin: draw outlier number labels on the chart
-    plugins:[{
-      id:'outlierLabels',
-      afterDraw(chart){
-        const ctx2 = chart.ctx;
-        const ds = chart.data.datasets.find(d=>d.label==='Outlier');
-        if(!ds || !ds._cachedMeta) return;
-        const meta = chart.getDatasetMeta(chart.data.datasets.indexOf(ds));
-        meta.data.forEach((pt, i) => {
-          const d = ds.data[i];
-          if(!d) return;
-          const num = d.num ?? (i+1);
-          ctx2.save();
-          ctx2.fillStyle = '#fff';
-          ctx2.font = 'bold 10px Inter, sans-serif';
-          ctx2.textAlign = 'center';
-          ctx2.textBaseline = 'middle';
-          // White circle background
-          ctx2.beginPath();
-          ctx2.arc(pt.x, pt.y - 18, 9, 0, Math.PI*2);
-          ctx2.fillStyle = 'rgba(240,92,92,0.95)';
-          ctx2.fill();
-          ctx2.strokeStyle = '#fff';
-          ctx2.lineWidth = 1.5;
-          ctx2.stroke();
-          ctx2.fillStyle = '#fff';
-          ctx2.fillText(String(num), pt.x, pt.y - 18);
-          // Connecting line
-          ctx2.beginPath();
-          ctx2.moveTo(pt.x, pt.y - 9);
-          ctx2.lineTo(pt.x, pt.y - 5);
-          ctx2.strokeStyle = 'rgba(240,92,92,0.7)';
-          ctx2.lineWidth = 1.5;
-          ctx2.stroke();
-          ctx2.restore();
-        });
-      }
-    }]
+    options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:tc,font:{size:10},boxWidth:10}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}}
   });
 }
 
@@ -7479,57 +7299,20 @@ function dsAddFormulaColumn() {
 
 /* ── Transformation download / apply ─────────────────────────────────────── */
 function downloadTransformedData(r, fmt) {
-  // Backend returns 'exported_data'; older versions used 'transformed_values'
-  const vals = r?.exported_data || r?.transformed_values || [];
-  if(!r || !vals.length){
-    showToast('⚠ No transformed data available — re-run the transformation first', true);
-    return;
+  if(!r || !r.transformed_values || !r.transformed_values.length){
+    showToast('No transformed data available', true); return;
   }
-  // Column name: use exported_column_name if available, else construct it
-  const col = (r.exported_column_name
-    || ((r.column||'value').replace(/[^a-z0-9_]/gi,'_')
-        + '_' + (r.best_transform||'tx').replace(/[^a-z0-9]/gi,'')));
-
-  if(fmt === 'xlsx') {
-    // Generate real Excel file using SheetJS if available
-    if(typeof XLSX !== 'undefined') {
-      const wsData = [['index', col]].concat(
-        vals.map((v,i) => [i+1, v])
-      );
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      XLSX.utils.book_append_sheet(wb, ws, 'Transformed');
-      XLSX.writeFile(wb, col + '.xlsx');
-      showToast('✅ Downloaded ' + col + '.xlsx (Excel)');
-    } else {
-      // Fallback: TSV with .xlsx extension — opens in Excel
-      const tsv = ['index\t' + col]
-        .concat(vals.map((v,i) => (i+1) + '\t' + v.toFixed(6)))
-        .join('\n');
-      const blob = new Blob([tsv], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = col + '.xlsx';
-      a.click(); URL.revokeObjectURL(a.href);
-      showToast('✅ Downloaded ' + col + '.xlsx');
-    }
-  } else {
-    // CSV: includes original index + transformed value + original value for reference
-    // exported_data = transformed Z-values; original_values may not exist in this version
-    const hasOrig = r.original_values && r.original_values.length === vals.length;
-    const header = hasOrig ? `index,${col},${r.column}_original` : `index,${col}`;
-    const rows = vals.map((v,i) => {
-      const base = (i+1) + ',' + v.toFixed(6);
-      return hasOrig ? base + ',' + (r.original_values[i]||'').toFixed(6) : base;
-    });
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = col + '.csv';
-    a.click(); URL.revokeObjectURL(a.href);
-    showToast('✅ Downloaded ' + col + '.csv');
-  }
+  const col = (r.column||'value').replace(/[^a-z0-9_]/gi,'_') + '_' + (r.best_transform||'tx').replace(/[^a-z0-9]/gi,'');
+  const rows = r.transformed_values.map((v,i) => (i+1) + ',' + v.toFixed(6));
+  const csv = [col, ...rows].join('\n');
+  const ext = fmt === 'xlsx' ? 'xlsx' : 'csv';
+  const mime = fmt === 'xlsx' ? 'application/vnd.ms-excel' : 'text/csv';
+  const blob = new Blob([csv], {type: mime});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = col + '.' + ext;
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Downloaded ' + col + '.' + ext);
 }
 
 function applyTransformedDataToNextAnalysis(r) {

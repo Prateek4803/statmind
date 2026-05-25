@@ -156,7 +156,7 @@ async def get_columns(request: Request, file: UploadFile = File(...)):
     _validate_upload(file)
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     stats_map = {cs.name: cs for cs in result.column_stats}
@@ -188,7 +188,7 @@ async def get_columns(request: Request, file: UploadFile = File(...)):
 async def normality(request: Request, file: UploadFile = File(...), alpha: float = 0.05):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     results, errors = [], []
@@ -223,17 +223,26 @@ async def capability(
     if column not in result.df.columns:
         raise HTTPException(404, f"Column '{column}' not found. Available: {result.numeric_columns}")
     try:
-        return jobj(await asyncio.to_thread(analyze_capability,
+        cap_result = analyze_capability(
             result.df[column].dropna().values.astype(float),
-            column, usl, lsl, target, subgroup_size))
+            column, usl, lsl, target, subgroup_size)
     except ValueError as e:
         raise HTTPException(400, str(e))
+    # Audit trail — log metadata only, no raw data stored
+    try:
+        from database import SessionLocal as _SL3, AnalysisSession as _AS
+        _db3 = _SL3()
+        _db3.add(_AS(session_id=str(uuid.uuid4()), tenant_id="default",
+            filename=file.filename, process_type="capability", parameter=column,
+            capability={"cpk": cap_result.cpk, "cp": cap_result.cp, "n": cap_result.n}))
+        _db3.commit(); _db3.close()
+    except Exception as _ae:
+        logging.debug(f"Audit: {_ae}")
+    return jobj(cap_result)
 
 # ── Session 3: SPC + subrange (R3) ───────────────────────────────────────────
 @app.post("/api/v1/spc/analyze")
-@limiter.limit("20/minute")
 async def spc(
-    request: Request,
     file: UploadFile = File(...),
     column: str = Query(...),
     subgroup_size: int = Query(1),
@@ -242,7 +251,7 @@ async def spc(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -383,6 +392,17 @@ async def generate_pdf_report(request: Request):
         )
         _report_cache[report_id] = tmp_path
         size_kb  = round(os.path.getsize(tmp_path) / 1024)
+        try:
+            import base64 as _b64
+            from database import SessionLocal as _SL2, ReportCache as _RC2
+            _db2 = _SL2()
+            with open(tmp_path, "rb") as _pf:
+                _b64d = _b64.b64encode(_pf.read()).decode()
+            _rc2 = _RC2(report_id=report_id, tenant_id="default",
+                        pdf_bytes=_b64d, meta_data={"size_kb": size_kb})
+            _db2.merge(_rc2); _db2.commit(); _db2.close()
+        except Exception as _dbe:
+            logging.debug(f"Report DB persist: {_dbe}")
         sections = sum(1 for k in [
             "normality_result","capability_result",
             "spc_result","grr_result","capa_result",
@@ -402,8 +422,23 @@ async def download_report(report_id: str):
         raise HTTPException(400, "Invalid report ID.")
     path = _report_cache.get(report_id)
     if not path:
-        raise HTTPException(404, "Report not found or expired.")
-    safe_base = os.path.realpath(_tmp.gettempdir())
+        try:
+            import base64 as _b64, tempfile as _tmp2
+            from database import SessionLocal as _SL, ReportCache as _RC
+            _db = _SL()
+            _row = _db.query(_RC).filter(_RC.report_id == report_id).first()
+            _db.close()
+            if _row:
+                _f = _tmp2.NamedTemporaryFile(suffix=".pdf", delete=False)
+                _f.write(_b64.b64decode(_row.pdf_bytes))
+                _f.close()
+                path = _f.name
+                _report_cache[report_id] = path
+        except Exception as _e:
+            logging.debug(f"DB restore: {_e}")
+    if not path:
+        raise HTTPException(404, "Report not found or expired. Please regenerate.")
+    safe_base = os.path.realpath(__import__("tempfile").gettempdir())
     real_path = os.path.realpath(path)
     if not real_path.startswith(safe_base):
         raise HTTPException(403, "Access denied.")
@@ -412,63 +447,6 @@ async def download_report(report_id: str):
     return FileResponse(real_path, media_type="application/pdf",
         filename=f"statmind_report_{report_id}.pdf",
         headers={"X-Content-Type-Options": "nosniff"})
-
-# ── Startup: non-fatal DB init ────────────────────────────────────────────────
-@app.on_event("startup")
-async def _on_startup():
-    try:
-        from database import init_db
-        await asyncio.to_thread(init_db)
-    except Exception as e:
-        logging.warning(f"DB init skipped: {e}")
-
-
-# ── Workflow: SPC → CAPA → Narrative ─────────────────────────────────────────
-@app.post("/api/v1/workflow/capa-from-spc")
-async def workflow_capa_from_spc(request: Request):
-    """One-call pipeline: SPC result → CAPA engine → AI narrative."""
-    try:
-        body = await request.json()
-        spc_r = body.get("spc_result")
-        cap_r = body.get("capability_result")
-        grr_r = body.get("grr_result")
-        param = _sanitize_text(body.get("parameter", "Parameter"), 200)
-        proc  = _sanitize_text(body.get("process_type", "General"), 200)
-        if not spc_r:
-            raise HTTPException(400, "spc_result is required.")
-        from capa_rules_engine import run_capa_engine_v2
-        capa_out = await asyncio.to_thread(
-            run_capa_engine_v2, None, cap_r, spc_r, grr_r, param, param, proc)
-        narr_dict = None
-        try:
-            from ai_narrative import generate_narrative
-            import dataclasses as _dc
-            n = await asyncio.to_thread(generate_narrative, parameter=param,
-                process_type=proc, normality_result=None, capability_result=cap_r,
-                spc_result=spc_r, grr_result=grr_r, capa_result=capa_out)
-            narr_dict = _dc.asdict(n) if hasattr(n, "__dataclass_fields__") else n
-        except Exception as _ne:
-            logging.warning(f"Narrative skipped: {_ne}")
-        alarms = spc_r.get("total_alarms", 0)
-        cpk    = cap_r.get("cpk") if cap_r else None
-        rules  = list({a.get("rule","?") for a in spc_r.get("western_electric_alarms",[])})
-        return jd({
-            "workflow_summary": {
-                "trigger": "SPC alarm" if not spc_r.get("in_control",True) else "Routine",
-                "alarm_count": alarms, "alarm_rules": rules, "cpk": cpk,
-                "process": proc, "parameter": param,
-                "action_required": not spc_r.get("in_control",True) or (cpk is not None and cpk<1.33),
-            },
-            "capa_result": capa_out, "narrative": narr_dict,
-            "generated_at": __import__("datetime").datetime.utcnow().isoformat()+"Z",
-        })
-    except HTTPException: raise
-    except (ValueError, TypeError, KeyError) as e:
-        raise HTTPException(400, f"Workflow input error: {e}")
-    except Exception as e:
-        logging.error(f"Workflow error: {e}", exc_info=True)
-        raise HTTPException(500, "Workflow analysis failed.")
-
 
 # ── Static frontend ───────────────────────────────────────────────────────────
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -526,70 +504,20 @@ if __name__ == "__main__":
 # ── E1: Hypothesis Testing ────────────────────────────────────────────────────
 @app.post("/api/v1/hypothesis/two-sample-t")
 async def hyp_two_sample_t(request: Request):
-    """Auto-checks normality (SW) + variance (Levene) → selects pooled/Welch/Mann-Whitney."""
     body = await request.json()
     try:
         from hypothesis import two_sample_t
-        from scipy import stats as _sp
         import dataclasses
         a = np.array(body["group_a"], dtype=float)
         b = np.array(body["group_b"], dtype=float)
-        alpha = float(body.get("alpha", 0.05))
-        name_a = body.get("name_a", "Group A")
-        name_b = body.get("name_b", "Group B")
-
-        def _sw(d, nm):
-            if len(d) < 3: return {"normal": None, "note": f"{nm}: n<3"}
-            s, p = _sp.shapiro(d if len(d) <= 5000 else np.random.default_rng(42).choice(d,5000,False))
-            return {"stat": round(float(s),5), "p": round(float(p),5), "normal": bool(p>=alpha),
-                    "note": f"{nm} SW p={'%.4f'%p} — {'Normal' if p>=alpha else 'Non-normal'}"}
-        sw_a = _sw(a, name_a); sw_b = _sw(b, name_b)
-        both_normal = sw_a.get("normal") is True and sw_b.get("normal") is True
-
-        if len(a) >= 2 and len(b) >= 2:
-            ls, lp = _sp.levene(a, b)
-            equal_var = bool(lp >= alpha)
-            levene = {"stat": round(float(ls),5), "p": round(float(lp),5), "equal": equal_var,
-                      "note": f"Levene p={'%.4f'%lp} — {'Equal' if equal_var else 'Unequal'} var"}
-        else:
-            equal_var, levene = False, {"note": "Insufficient data"}
-
-        forced = body.get("force_test")
-        if forced:
-            method, note = forced, f"Forced: {forced}"
-        elif not both_normal:
-            method, note = "mann-whitney", "Non-normal → Mann-Whitney U"
-        elif equal_var:
-            method, note = "pooled", "Normal+equal var → Pooled t-test"
-        else:
-            method, note = "welch", "Normal+unequal var → Welch t-test"
-
-        if method == "mann-whitney":
-            u, p_mw = _sp.mannwhitneyu(a, b, alternative="two-sided")
-            result_dict = {
-                "test": "Mann-Whitney U", "significant": bool(p_mw < alpha),
-                "u_statistic": round(float(u),4), "p_value": round(float(p_mw),5),
-                "alpha": alpha, "n_a": int(len(a)), "n_b": int(len(b)),
-                "median_a": round(float(np.median(a)),6), "median_b": round(float(np.median(b)),6),
-                "mean_a": round(float(a.mean()),6), "mean_b": round(float(b.mean()),6),
-                "interpretation": f"MW p={'%.5f'%p_mw}. " + ("Significant." if p_mw<alpha else "Not significant.")
-            }
-        else:
-            r = await asyncio.to_thread(two_sample_t, a, b,
-                name_a=name_a, name_b=name_b, alpha=alpha, equal_var=(method=="pooled"))
-            result_dict = dataclasses.asdict(r)
-            result_dict["test"] = "Pooled t-test" if method=="pooled" else "Welch t-test"
-
-        result_dict["assumption_checks"] = {
-            "normality_a": sw_a, "normality_b": sw_b,
-            "equal_variance": levene, "method": method, "note": note,
-        }
-        return jd(result_dict)
-    except (KeyError, TypeError) as e:
-        raise HTTPException(400, f"Invalid payload: {e}")
+        result = two_sample_t(a, b,
+            name_a=body.get("name_a","Group A"),
+            name_b=body.get("name_b","Group B"),
+            alpha=body.get("alpha",0.05),
+            equal_var=body.get("equal_var",False))
+        return jd(dataclasses.asdict(result))
     except Exception as e:
-        logging.error(f"Hypothesis error: {e}", exc_info=True)
-        raise HTTPException(500, "Statistical computation failed.")
+        raise HTTPException(400, str(e))
 
 @app.post("/api/v1/hypothesis/paired-t")
 async def hyp_paired_t(request: Request):
@@ -672,7 +600,7 @@ async def hyp_from_file(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -717,7 +645,7 @@ async def pareto_analyze(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     import dataclasses as dc
@@ -765,7 +693,7 @@ async def sixpack_analyze(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -789,7 +717,7 @@ async def regression_analyze(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     x_list = [col.strip() for col in x_cols.split(",")]
@@ -823,7 +751,7 @@ async def transform_analyze(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -849,7 +777,7 @@ async def multivari_analyze(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -954,7 +882,7 @@ async def tolerance_analyze(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -1175,7 +1103,7 @@ async def dashboard_build(request: Request):
 async def cusum_analyze(file: UploadFile=File(...), column: str=Query(...),
     k: float=Query(0.5), h: float=Query(5.0)):
     c=await file.read()
-    try: r=parse_any_file(c,file.filename)
+    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e: raise HTTPException(400,str(e))
     if column not in r.df.columns: raise HTTPException(404,f"Column '{column}' not found")
     import dataclasses as dc
@@ -1187,7 +1115,7 @@ async def cusum_analyze(file: UploadFile=File(...), column: str=Query(...),
 async def ewma_analyze(file: UploadFile=File(...), column: str=Query(...),
     lam: float=Query(0.2), L: float=Query(3.0)):
     c=await file.read()
-    try: r=parse_any_file(c,file.filename)
+    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e: raise HTTPException(400,str(e))
     if column not in r.df.columns: raise HTTPException(404,f"Column '{column}' not found")
     import dataclasses as dc
@@ -1233,7 +1161,7 @@ async def ss_spc(request: Request):
 @app.post("/api/v1/correlation/analyze")
 async def correlation_analyze(file: UploadFile=File(...), alpha: float=Query(0.05), min_r: float=Query(0.3)):
     c=await file.read()
-    try: r=parse_any_file(c,file.filename)
+    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e: raise HTTPException(400,str(e))
     import dataclasses as dc
     from correlation import correlation_matrix
@@ -1250,7 +1178,7 @@ async def correlation_matrix_endpoint(
     """Correlation matrix — alias used by the frontend and CI."""
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     import dataclasses as dc
@@ -1265,7 +1193,7 @@ async def correlation_matrix_endpoint(
 async def nonnormal_cap(file: UploadFile=File(...), column: str=Query(...),
     usl: float=Query(None), lsl: float=Query(None)):
     c=await file.read()
-    try: r=parse_any_file(c,file.filename)
+    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e: raise HTTPException(400,str(e))
     if column not in r.df.columns: raise HTTPException(404,f"Column '{column}' not found")
     import dataclasses as dc
@@ -1288,7 +1216,7 @@ async def uncertainty_calc(request: Request):
 async def outliers_detect(file: UploadFile=File(...), column: str=Query(...),
     alpha: float=Query(0.05), usl: float=Query(None), lsl: float=Query(None)):
     c=await file.read()
-    try: r=parse_any_file(c,file.filename)
+    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e: raise HTTPException(400,str(e))
     if column not in r.df.columns: raise HTTPException(404,f"Column '{column}' not found")
     import dataclasses as dc
@@ -2346,7 +2274,7 @@ async def correlation_matrix(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     import dataclasses as dc
@@ -2365,7 +2293,7 @@ async def outliers_analyze(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -2492,7 +2420,7 @@ async def runchart_analyze(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -2760,7 +2688,7 @@ async def normality_probplot(
 ):
     c = await file.read()
     try:
-        result = parse_any_file(c, file.filename)
+        result = await asyncio.to_thread(parse_any_file, c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:

@@ -1556,6 +1556,757 @@ CAPA_RULES = [
         disposition="Release", standard_reference="IATF 16949:2016, AIAG PPAP", weight=1.2,
     ),
 
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SEMICONDUCTOR — METAL / INTERCONNECT
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    CAPARule(
+        rule_id="SEMI-METAL-001", process="Metal", parameter="Sheet Resistance",
+        fault_pattern="Metal Film Rs — High Cpk Gap (Thickness Non-Uniformity)",
+        description="Metal film Rs systematically off-target with Cp>Cpk gap indicating deposition rate shift from target aging.",
+        severity="Major", cpk_max=1.33, cp_cpk_gap_min=0.20,
+        root_cause="PVD/CVD target erosion causing deposition rate shift and Rs centering offset.",
+        root_cause_detail="As sputtering targets age, non-uniform erosion creates azimuthal/radial thickness gradients. Rs shifts gradually over target lifetime — centering gap is the statistical signature of this progressive drift.",
+        alternative_causes=["Argon flow rate drift", "Chamber wall deposition buildup", "Wafer-pedestal gap variation"],
+        corrective_actions=[
+            CAPAAction("Map Rs at 49 points. Identify gradient pattern vs target erosion profile.", "Process Engineer", "Immediate", "P1", "Confirms target age hypothesis"),
+            CAPAAction("Check target utilization (kWh). Replace target if >80% lifetime.", "Equipment Engineer", "48h", "P1", "Target replacement resolves systematic drift"),
+            CAPAAction("Run uniformity DOE vs power/pressure/gas to optimise recipe for current target state.", "Process Engineer", "1 week", "P2", "Maintains process centering through target life"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Rs SPC with auto-lot-hold at 3σ. PM schedule based on kWh not calendar.", "Process", "Immediate", "SPC"),
+            PreventiveAction("Target lifetime tracking. Alert procurement at 70% utilisation.", "Equipment", "2 weeks", "CMMS"),
+        ],
+        containment="100% Rs measurement. Sort by Rs bin. Hold lots from last 24h.", disposition="Conditional Release",
+        standard_reference="SEMI M1, ITRS interconnect roadmap", weight=1.6,
+    ),
+
+    CAPARule(
+        rule_id="SEMI-METAL-002", process="Metal", parameter="Via Resistance",
+        fault_pattern="Via/Contact Resistance — High or Increasing SPC Trend (Void Risk)",
+        description="Via chain resistance showing upward trend or high variability indicating void formation or contamination in tungsten or copper fill.",
+        severity="Critical", cpk_max=1.00, spc_rules=["WE1","NE3","WE4"],
+        root_cause="Void formation in via fill during CVD tungsten or Cu ECD deposition.",
+        root_cause_detail="Voids increase resistance and create electromigration failure risk. Primary causes: seam voids from CVD nucleation issues, keyhole voids from Cu ECD, or contamination blocking barrier layer.",
+        alternative_causes=["Ti/TiN barrier thickness insufficient", "Etch residue blocking via bottom", "Cu CMP over-polish causing dishing"],
+        corrective_actions=[
+            CAPAAction("FIB-SEM cross-section 10 vias. Quantify void fraction and location.", "Failure Analysis", "24h", "P1", "Confirms void mechanism"),
+            CAPAAction("If CVD W: check nucleation layer (WN/WCN) thickness by X-SEM.", "Process Engineer", "48h", "P1", "Nucleation layer critical for void-free fill"),
+            CAPAAction("If Cu ECD: check plating bath chemistry (CVS analysis on accelerator/suppressor).", "Chemical Engineer", "24h", "P1", "Bath aging is primary Cu ECD void cause"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Via chain E-test SPC every 500 wafers. Alert on any WE1 violation.", "Process Control", "1 week", "SPC"),
+            PreventiveAction("Scheduled CVS bath analysis for Cu ECD per bath volume processed.", "Chemical Eng", "Monthly", "PM"),
+        ],
+        containment="Quarantine lot. E-test all die. Fail if via chain > 2× nominal.", disposition="Hold",
+        standard_reference="SEMI M6, JEDEC reliability standards", weight=2.2,
+    ),
+
+    CAPARule(
+        rule_id="SEMI-RTP-001", process="RTP", parameter="Junction Depth",
+        fault_pattern="RTP Spike Anneal — Temperature Overshoot or Undershoot (Junction Deviation)",
+        description="RTP spike anneal temperature deviation causing junction depth or activation non-conformance due to Arrhenius kinetics sensitivity.",
+        severity="Critical", cpk_max=1.00, spc_rules=["WE1","NE2"],
+        root_cause="Pyrometer calibration drift or lamp aging causing actual wafer temperature to deviate from setpoint.",
+        root_cause_detail="Small RTP temperature errors (±5°C) cause large changes in dopant activation due to exponential Arrhenius kinetics. Lamp bank aging creates non-uniform heating over time.",
+        alternative_causes=["Reflectivity correction error", "Chamber wall temperature baseline shift", "Wafer slip on susceptor"],
+        corrective_actions=[
+            CAPAAction("Measure Rs and junction depth on affected wafers vs target.", "Metrology/Process", "Immediate", "P1", "Confirms temperature deviation impact"),
+            CAPAAction("Run thermocouple characterisation wafer. Calibrate pyrometer offset.", "Equipment Engineer", "24h", "P1", "Pyrometer drift is #1 root cause"),
+            CAPAAction("Check lamp power balance across bank. Replace any lamp with >15% power deviation.", "Equipment", "48h", "P1", "Lamp non-uniformity creates cross-wafer T gradient"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Quarterly thermocouple wafer for pyrometer validation.", "Equipment", "Quarterly", "PM"),
+            PreventiveAction("Rs SPC on every anneal lot. WE1 triggers immediate equipment hold.", "Process Control", "Ongoing", "SPC"),
+        ],
+        containment="Hold all lots since last qualified run. Rs measurement on every wafer.", disposition="Hold",
+        standard_reference="SEMI standards, ITRS front-end process", weight=2.1,
+    ),
+
+    CAPARule(
+        rule_id="SEMI-EPI-001", process="Epitaxy", parameter="Thickness",
+        fault_pattern="Epitaxial Thickness — Lot-to-Lot Drift (Reactor Wall Depletion)",
+        description="Epitaxial silicon or SiGe thickness drifting between lots due to reactor surface condition change over time.",
+        severity="Major", cpk_max=1.33, spc_rules=["NE3","WE4"],
+        root_cause="Parasitic epitaxy on reactor walls causing gas phase precursor depletion and growth rate reduction.",
+        root_cause_detail="Silicon accumulation on walls/susceptor/showerhead consumes precursor gas and changes thermal mass. Growth rate decreases systematically until reactor cleaning/re-seasoning restores baseline.",
+        alternative_causes=["HCl etch-back ratio drift", "Temperature calibration shift", "Carrier gas purity change"],
+        corrective_actions=[
+            CAPAAction("Check thickness trend: if consistent decrease, schedule HCl clean and re-seasoning.", "Process Engineer", "Immediate", "P1", "Classic drift pattern — wall depletion"),
+            CAPAAction("After clean: run 5 seasoning wafers before resuming production. Verify growth rate.", "Process Engineer", "Post-clean", "P1", "Seasoning restores reactor to baseline"),
+            CAPAAction("Update recipe growth rate if offset >3% on monitor wafer.", "Process", "Per lot", "P2", "Maintains thickness centring through reactor life"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Recipe-based maintenance: schedule HCl clean after N wafers determined by SPC.", "Process", "2 weeks", "PM"),
+            PreventiveAction("CUSUM chart for drift detection on thickness SPC.", "Process Control", "Ongoing", "SPC"),
+        ],
+        containment="Measure thickness on all wafers from affected lots. Reject if >±5% of target.", disposition="Conditional Release",
+        standard_reference="SEMI M1, substrate specifications", weight=1.5,
+    ),
+
+    CAPARule(
+        rule_id="SEMI-CMP-003", process="CMP", parameter="Cu Dishing",
+        fault_pattern="Cu CMP Dishing — Metal Recessed Below ILD (Over-Polish)",
+        description="Copper dishing after CMP creating step height defects that degrade subsequent layer planarity and increase RC delay.",
+        severity="Major", cpk_max=1.33, non_normal=True,
+        root_cause="Over-polishing of soft copper relative to hard ILD due to excess over-polish time or aggressive slurry.",
+        root_cause_detail="CMP removes Cu faster than dielectric. Over-polish time and slurry H2O2 concentration control dishing depth. High pattern density areas (wide metal lines) show worst dishing.",
+        alternative_causes=["Slurry H2O2 concentration drift above 5%", "Pad wear state affecting selectivity", "Applied pressure too high"],
+        corrective_actions=[
+            CAPAAction("AFM/profilometry measurement of dishing at 1µm, 5µm, 50µm line widths.", "Metrology", "24h", "P1", "Maps dishing vs feature size for DOE"),
+            CAPAAction("Reduce over-polish time by 15%. Monitor blanket removal rate and pattern loading.", "Process Engineer", "Immediate", "P1", "Direct fix for over-polish"),
+            CAPAAction("Check slurry H2O2 concentration. If >5%, reduce to 3–4% target range.", "Process Engineer", "24h", "P2", "Oxidiser controls Cu removal rate"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Post-CMP optical profilometry SPC on dishing monitor wafer.", "Process Control", "1 week", "SPC"),
+            PreventiveAction("CMP endpoint detection with dishing correction algorithm.", "Equipment", "1 month", "Automation"),
+        ],
+        containment="Review optical images for all lots. Reject if dishing >30nm on critical metal layers.", disposition="Hold — Yield impact assessment",
+        standard_reference="SEMI M1-0302, ITRS CMP roadmap", weight=1.7,
+    ),
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # AUTOMOTIVE — ADDITIONAL RULES
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    CAPARule(
+        rule_id="AUTO-007", process="Automotive", parameter="Surface Finish Ra",
+        fault_pattern="Surface Roughness Ra — Low Cpk (Tool Wear Progression)",
+        description="Surface finish Ra showing systematic degradation over time with Cp>Cpk gap, indicating cutting tool wear beyond change interval.",
+        severity="Major", cpk_max=1.33, cp_cpk_gap_min=0.15,
+        root_cause="Cutting tool edge wear progressively increasing Ra toward specification limit.",
+        root_cause_detail="Ra increases monotonically with tool age as cutting edge rounds. Process appears capable at tool start but Cpk degrades as average Ra shifts toward limit — the classic centering gap signature of wear-driven drift.",
+        alternative_causes=["Coolant concentration drift", "Spindle bearing vibration", "Material hardness batch variation"],
+        corrective_actions=[
+            CAPAAction("Map Ra vs tool age (part count). Determine actual tool change interval from data.", "Manufacturing Engineer", "24h", "P1", "Data-driven tool change interval"),
+            CAPAAction("Reduce tool change interval 20% from current setting. Monitor Ra at start/mid/end.", "Production", "Immediate", "P1", "Prevents Ra exceedance"),
+            CAPAAction("Check coolant concentration with refractometer. Verify ±0.5% of specification.", "Maintenance", "Same day", "P2", "Coolant degradation accelerates tool wear"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Ra SPC on first, middle, and last part per tool cycle.", "Quality", "1 week", "SPC"),
+            PreventiveAction("Predictive tool change based on Ra trend, not fixed interval.", "Manufacturing", "1 month", "CMMS"),
+        ],
+        containment="100% surface finish check on parts from affected tool life window.", disposition="Conditional Release",
+        standard_reference="IATF 16949, ISO 4287", weight=1.4,
+    ),
+
+    CAPARule(
+        rule_id="AUTO-008", process="Automotive", parameter="Press-Fit Force",
+        fault_pattern="Press-Fit Insertion Force — Upward Trend (Dimensional Drift or Galling Risk)",
+        description="Press-fit insertion force trending toward UCL indicating dimensional interference increase or inadequate lubrication.",
+        severity="Major", cpk_max=1.33, spc_rules=["NE3","WE4"],
+        root_cause="Bore machining drifting small (tool wear) or shaft drifting large (setup drift), increasing interference fit.",
+        root_cause_detail="Press-fit force is controlled by dimensional interference. Upward trend is almost always dimensional — centering gap confirms systematic offset. Surface conditions (oxidation, lubricant loss) can contribute secondarily.",
+        alternative_causes=["Surface oxidation on bore or shaft", "Insufficient lubrication", "Material hardness increase in batch"],
+        corrective_actions=[
+            CAPAAction("Measure bore and shaft OD on 10 recent parts. Calculate actual interference vs nominal.", "Metrology", "Immediate", "P1", "Identifies whether bore or shaft driving the trend"),
+            CAPAAction("Check bore machining SPC trend. If boring small, adjust offset or replace tool.", "Manufacturing", "Same day", "P1", "Dimensional root cause is most common"),
+            CAPAAction("Verify lubricant application rate and type.", "Process", "Immediate", "P2", "Lubrication issue is quick to check and fix"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Press-force SPC with WE3/NE3 alarm for trend detection before limit exceedance.", "Quality", "1 week", "SPC"),
+            PreventiveAction("Coordinate SPC between bore and shaft machining to detect interference drift.", "Quality", "2 weeks", "SPC"),
+        ],
+        containment="Sort parts by force data. Reject if >UCL. Check functional fit on borderline parts.", disposition="Conditional Release",
+        standard_reference="IATF 16949, DIN 7190 press-fit", weight=1.5,
+    ),
+
+    CAPARule(
+        rule_id="AUTO-009", process="Automotive", parameter="Fatigue Life",
+        fault_pattern="Vibration Fatigue Test Failure — Below Design Cycle Target",
+        description="Accelerated vibration fatigue failures below design life at weld toe or geometric stress concentration.",
+        severity="Critical", cpk_max=1.00,
+        root_cause="Stress concentration at weld toe geometry causing fatigue crack initiation below design load.",
+        root_cause_detail="Fatigue life is exponentially sensitive to stress concentration factor (Kt). A 10% Kt increase reduces fatigue life 30–60% due to S-N curve slope. Production weld profiles rarely achieve the smooth geometry assumed in design.",
+        alternative_causes=["Undercut at weld toe", "Material microstructure (banding, inclusions)", "Surface damage from handling"],
+        corrective_actions=[
+            CAPAAction("Fractographic analysis of failed specimens. Identify crack initiation site.", "Metallurgy/FA", "3 days", "P1", "Determines if design, material, or process failure"),
+            CAPAAction("Measure weld profile geometry. Add weld toe grinding or TIG dressing to reduce Kt.", "Welding Eng", "1 week", "P1", "Weld toe improvement can double fatigue life"),
+            CAPAAction("Full material certification review if material-related.", "Materials Eng", "1 week", "P1", "Ensure material meets spec"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Fatigue test included in PPAP validation with statistical sampling plan.", "Quality", "During PPAP", "SOP"),
+            PreventiveAction("Weld profile inspection (visual + gauge) as in-process check.", "Quality", "2 weeks", "Control Plan"),
+        ],
+        containment="Stop shipment. Customer engineering notification. Field exposure assessment if distributed.", disposition="Hold — Engineering review required",
+        standard_reference="IATF 16949, ISO 1099, AWS D1.1", weight=2.3,
+    ),
+
+    CAPARule(
+        rule_id="AUTO-010", process="Automotive", parameter="Total Runout",
+        fault_pattern="Total Runout OOT — Rotational Component Vibration/Noise Risk",
+        description="Total runout on shaft, hub, or brake disc outside specification causing vibration or NVH issues in service.",
+        severity="Major", cpk_max=1.33, cp_cpk_gap_min=0.25,
+        root_cause="Machine spindle or fixture runout transferred to workpiece during machining/grinding.",
+        root_cause_detail="Runout on machined parts is primarily caused by: spindle bearing wear, fixture/chuck concentricity error, or datum reference inconsistency between machining and inspection.",
+        alternative_causes=["Datum shift between machining operations", "Thermal spindle growth during warm-up", "Workholding clamp distortion"],
+        corrective_actions=[
+            CAPAAction("Measure spindle runout with test indicator. Should be <25% of runout spec.", "Maintenance", "Immediate", "P1", "Machine spindle is primary runout source"),
+            CAPAAction("Check datum consistency: measure on CMM vs production fixture. Compare runout values.", "Quality", "Same day", "P1", "Datum inconsistency is systemic and often overlooked"),
+            CAPAAction("Implement warm-up protocol: run spindle 15 min before first production measurement.", "Production", "Immediate", "P2", "Thermal growth is quick-win improvement"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Quarterly spindle runout check with trend tracking for predictive maintenance.", "Maintenance", "Quarterly", "PM"),
+            PreventiveAction("100% runout inspection during new tool or setup qualification.", "Quality", "Per setup", "SPC"),
+        ],
+        containment="100% runout check on all parts from setup. Sort to spec.", disposition="Conditional Release",
+        standard_reference="ASME Y14.5-2018, IATF 16949", weight=1.6,
+    ),
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # AEROSPACE — ADDITIONAL RULES
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    CAPARule(
+        rule_id="AERO-004", process="Aerospace", parameter="Anodize Thickness",
+        fault_pattern="Hard Anodize Coating Thickness — Low Cpk (Corrosion Protection Risk)",
+        description="Hard anodize coating below minimum, compromising corrosion and wear protection per MIL-A-8625.",
+        severity="Critical", cpk_max=1.33,
+        root_cause="Electrolyte temperature rise above 22°C reducing anodize growth efficiency.",
+        root_cause_detail="Temperature rise above 22°C dramatically reduces coating hardness and growth efficiency. Current density variation from rectifier aging directly affects thickness.",
+        alternative_causes=["Sulfuric acid concentration drift outside 180–220 g/L", "Rectifier current calibration drift", "Part fixturing contact resistance variation"],
+        corrective_actions=[
+            CAPAAction("Check bath temperature log. If >21°C, reduce chiller setpoint. Requalify after stabilisation.", "Process Engineer", "Immediate", "P1", "Temperature is #1 anodize control variable"),
+            CAPAAction("Measure current density on 5 fixtures. Identify any with >10% deviation.", "Engineer", "24h", "P1", "Contact resistance variation is common and overlooked"),
+            CAPAAction("Titrate H2SO4 concentration. Adjust if outside 180–220 g/L.", "Process", "Same day", "P2", "Chemistry drift is cumulative"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Continuous bath temperature SPC with alarm at 20°C.", "Process Control", "1 week", "SPC"),
+            PreventiveAction("Weekly bath chemistry analysis and adjustment log.", "Process", "Weekly", "SOP"),
+        ],
+        containment="100% coating thickness inspection. Reprocess if below minimum.", disposition="Hold — 100% inspect then conditional release",
+        standard_reference="MIL-A-8625, AS9100D, AMS 2469", weight=2.0,
+    ),
+
+    CAPARule(
+        rule_id="AERO-005", process="Aerospace", parameter="Composite Thickness",
+        fault_pattern="Composite Laminate Thickness — Low Cpk (Ply Count or Resin Bleed)",
+        description="Composite structural component thickness OOC due to ply count error or excessive autoclave resin bleed.",
+        severity="Critical", cpk_max=1.33,
+        root_cause="Autoclave cure cycle variation causing inconsistent resin flow and fibre volume fraction.",
+        root_cause_detail="Thickness below nominal usually means excessive resin bleed from too-high autoclave pressure or dwell time. Ply count error is immediately actionable and must be ruled out first.",
+        alternative_causes=["Ply count error during layup", "Prepreg past shelf life (altered cure kinetics)", "Tooling surface mismatch causing bridging"],
+        corrective_actions=[
+            CAPAAction("Ultrasonic C-scan on entire panel. Map thickness variation and ply dropoff zones.", "NDT", "Immediate", "P1", "C-scan provides full-field thickness map"),
+            CAPAAction("Review layup travelers for ply count sign-offs. Audit layup procedure compliance.", "Quality", "24h", "P1", "Ply count error is immediately actionable"),
+            CAPAAction("Check autoclave thermocouple data and pressure log vs cure specification.", "Process", "Same day", "P1", "Out-of-spec cure cycle may affect multiple panels"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Independent ply count verification at each ply group milestone.", "Quality", "Immediate", "SOP"),
+            PreventiveAction("Prepreg shelf life tracking in MRB. Block expired material from floor release.", "Materials", "1 week", "MRB"),
+        ],
+        containment="Stop lay-up line. Full NDT of all panels from same cure cycle. Engineering disposition required.", disposition="Hold — Engineering disposition required",
+        standard_reference="AS9100D, ASTM D3039, Boeing BPS, AMS 2766", weight=2.5,
+    ),
+
+    CAPARule(
+        rule_id="AERO-006", process="Aerospace", parameter="NDT Indication",
+        fault_pattern="NDT Recurring Indication — Systematic Weld or Bond Line Defect",
+        description="UT/RT/PT showing recurring indications in structural weld or bond, requiring systematic root cause investigation.",
+        severity="Critical", ppm_min=0,
+        root_cause="Weld parameter instability or joint preparation non-conformance causing consistent defect generation.",
+        root_cause_detail="Recurring NDT indications in a specific location point to systematic process failure. Common: hydrogen cracking (moisture in flux), lack of fusion (travel speed too fast), porosity (contamination). Recurring pattern excludes random cause.",
+        alternative_causes=["Material contamination (hydrogen for steels)", "Fixturing causing residual stress cracking", "Inspector calibration variation"],
+        corrective_actions=[
+            CAPAAction("Determine indication type. Planar (cracks, LOF) = reject. Volumetric (porosity) = size-assess.", "NDT/Engineering", "Immediate", "P1", "Indication type determines severity"),
+            CAPAAction("Review weld parameter logs for affected parts. Identify any exceedances.", "Process/Quality", "24h", "P1", "Systematic parameter deviation is most likely cause"),
+            CAPAAction("Metallurgical section if destructive evaluation permitted.", "Metallurgy", "3 days", "P2", "Confirms indication type"),
+        ],
+        preventive_actions=[
+            PreventiveAction("100% NDT on all aerospace welds per AWS/ASME codes.", "Quality", "Ongoing", "SOP"),
+            PreventiveAction("In-process weld current/voltage/speed SPC.", "Engineering", "1 month", "SPC"),
+        ],
+        containment="Stop shipment. Quarantine parts with same traveler. Customer notification per AS9100D 8.7.", disposition="Hold — NCR required",
+        standard_reference="AS9100D, AWS D17.1, ASTM NDT standards", weight=2.8,
+    ),
+
+    CAPARule(
+        rule_id="AERO-007", process="Aerospace", parameter="Fastener Torque",
+        fault_pattern="Aerospace Fastener Torque Retention — Loss of Preload",
+        description="Torque audit finding values below minimum indicating fastener loosening or thread damage in flight structure.",
+        severity="Critical", cpk_max=1.00,
+        root_cause="Thread contact stress relaxation or surface fretting under vibration causing preload loss.",
+        root_cause_detail="Torque retention loss driven by: surface coating embedding, thread damage during installation, vibration fatigue loosening. In aerospace, even 10% torque loss below minimum requires investigation.",
+        alternative_causes=["Insufficient thread engagement length", "Wrong lubricant applied", "Torque wrench calibration error at installation"],
+        corrective_actions=[
+            CAPAAction("Break-away torque test on all fasteners in assembly. Compare to minimum.", "Quality", "Immediate", "P1", "Baseline torque retention for disposition"),
+            CAPAAction("If <10% below: re-torque and re-test. If >10%: replace fasteners and inspect threads.", "Assembly Eng", "Immediate", "P1", "Action depends on magnitude"),
+            CAPAAction("Check installation records and torque wrench calibration certificates.", "Quality", "24h", "P1", "Traceability check rules out installation error"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Locking torque audit at 24h and 72h after installation for critical joints.", "Quality", "Immediate", "SOP"),
+            PreventiveAction("Self-locking fasteners or thread locker per engineering drawing.", "Engineering", "Design review", "Design"),
+        ],
+        containment="100% torque audit on all affected assemblies. Ground flight hardware until disposition.", disposition="Hold — Engineering flight safety review",
+        standard_reference="AS9100D, NASA-STD-5020, NAS standards", weight=3.0,
+    ),
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # MEDICAL DEVICES — ADDITIONAL RULES
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    CAPARule(
+        rule_id="MED-004", process="Medical", parameter="Burst Pressure",
+        fault_pattern="Catheter Burst Pressure — Low Cpk Below ISO 10555",
+        description="Balloon catheter or tube burst pressure Cpk below 1.33 from wall thickness or material inconsistency.",
+        severity="Critical", cpk_max=1.33,
+        root_cause="Extrudate wall thickness variation from screw speed or die temperature instability.",
+        root_cause_detail="Burst pressure is proportional to wall thickness/diameter (Barlow's equation). Wall thickness CV >5% typically drops burst pressure Cpk below 1.33.",
+        alternative_causes=["Material moisture content affecting melt viscosity", "Take-up speed variation causing stretching", "Die lip damage creating thin stripe"],
+        corrective_actions=[
+            CAPAAction("100% burst test on affected lot before any shipment decision.", "Quality", "Immediate", "P1", "Safety-critical — 100% test mandatory"),
+            CAPAAction("Wall thickness map at 12 positions around cross-section on 10 samples.", "Engineering", "24h", "P1", "Identifies eccentricity vs overall thickness issue"),
+            CAPAAction("Review extrusion logs: screw speed, melt temp, head pressure, take-up speed variance.", "Process", "Same day", "P1", "Logs show when parameter drift occurred"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Online laser gauge for continuous OD monitoring with feedback to screw speed.", "Engineering", "1 month", "Automation"),
+            PreventiveAction("SPC with internal Cpk ≥1.67 requirement (buffer above 1.33 spec).", "Quality", "1 week", "SPC"),
+        ],
+        containment="100% burst test. Hold and quarantine affected lots. FDA MDR evaluation if distributed.", disposition="Hold — 100% burst test + engineering review",
+        standard_reference="ISO 10555, FDA 21 CFR 820, ISO 13485", weight=2.8,
+    ),
+
+    CAPARule(
+        rule_id="MED-005", process="Medical", parameter="Coating Adhesion",
+        fault_pattern="Hydrophilic Coating Delamination — Particle Shedding Risk",
+        description="Hydrophilic lubricious coating adhesion failure during peel test, creating particle shedding (embolic) risk.",
+        severity="Critical", cpk_max=1.00,
+        root_cause="Surface preparation non-conformance before coating causing inadequate adhesion.",
+        root_cause_detail="Hydrophilic coating adhesion depends critically on substrate surface energy (contact angle <10°). Any organic contamination >5 Å or plasma treatment failure dramatically reduces adhesion.",
+        alternative_causes=["Coating formulation lot variation", "Cure temperature undershoot", "Substrate material lot surface chemistry variation"],
+        corrective_actions=[
+            CAPAAction("Contact angle measurement on affected substrates. Target <10°. If >15°, surface prep failed.", "Quality", "Immediate", "P1", "Fast direct indicator of surface energy"),
+            CAPAAction("Review surface treatment logs (plasma power, time, time-to-coat).", "Process", "Same day", "P1", "Time-to-coat is critical — surface energy degrades within minutes"),
+            CAPAAction("100% functional pull test on affected devices.", "Quality", "Immediate", "P1", "Coating particles are embolic risk"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Time-to-coat specification: coat within 30 min of plasma treatment.", "Process", "Immediate", "SOP"),
+            PreventiveAction("Incoming lot acceptance test for substrate surface energy.", "Quality", "1 week", "IQC"),
+        ],
+        containment="Quarantine all devices from affected batch. 100% pull test. Medical device recall evaluation.", disposition="Hold — Regulatory review required",
+        standard_reference="ISO 13485, ISO 10993, FDA 21 CFR 820", weight=3.0,
+    ),
+
+    CAPARule(
+        rule_id="MED-006", process="Medical", parameter="Implant Dimension",
+        fault_pattern="Critical Implant Dimension OOT — Fit/Function Risk",
+        description="Implant bore, thread, or taper dimension outside specification with Cpk below 1.67 PPAP requirement.",
+        severity="Critical", cpk_max=1.67,
+        root_cause="Machining tool wear or thermal drift causing dimensional shift in critical implant features.",
+        root_cause_detail="Medical implant dimensions are controlled by ASTM F1537/F2033/F899. Titanium and CoCr alloys aggressively wear cutting tools. Tool wear is primary source of systematic drift in implant machining.",
+        alternative_causes=["CMM stylus qualification drift", "Machine thermal growth", "Material hardness lot variation"],
+        corrective_actions=[
+            CAPAAction("100% CMM inspection on all affected devices. Individually tag.", "Quality", "Immediate", "P1", "Implant criticality requires 100% disposition"),
+            CAPAAction("Check CMM stylus qualification. Recalibrate if needed.", "Metrology", "Immediate", "P1", "Metrology integrity is prerequisite"),
+            CAPAAction("Measure tool wear on suspect operations vs established change interval.", "Manufacturing", "Same day", "P1", "Confirm tool wear hypothesis"),
+        ],
+        preventive_actions=[
+            PreventiveAction("100% in-process CMM gaging on all critical implant dimensions in Control Plan.", "Quality", "During PPAP", "Control Plan"),
+            PreventiveAction("Tool life tracking. Change at 80% of demonstrated capability limit.", "Manufacturing", "2 weeks", "CMMS"),
+        ],
+        containment="Medical Device Record review. Hold distribution. Lot traceability and patient exposure determination.", disposition="Hold — Regulatory affairs + potential recall",
+        standard_reference="ISO 13485, ASTM F1537, FDA 510(k) specs", weight=3.0,
+    ),
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PHARMACEUTICAL — ADDITIONAL RULES
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    CAPARule(
+        rule_id="PHARMA-004", process="Pharma", parameter="Tablet Hardness",
+        fault_pattern="Tablet Hardness — Low Cpk with Downward Drift (Granulation Change)",
+        description="Tablet hardness showing low Cpk and downward drift indicating granulation moisture gain or particle size shift.",
+        severity="Major", cpk_max=1.33, spc_rules=["NE3","WE4"],
+        root_cause="Granule moisture content increase softening granule matrix and reducing compaction force effectiveness.",
+        root_cause_detail="Tablet hardness is a function of compaction force and granule properties. If trending down, granulation properties are changing. Moisture increase is the most common cause — softens granule and reduces inter-particle bonding at constant press force.",
+        alternative_causes=["Punch wear reducing effective compaction", "Press speed variation affecting dwell time", "Lubricant over-blending creating hydrophobic barrier"],
+        corrective_actions=[
+            CAPAAction("In-process hardness at 15-min intervals. Plot trend vs time and batch progress.", "Quality", "Immediate", "P1", "Trend separates granulation from press issues"),
+            CAPAAction("Measure granulation LOD on retained samples. If >0.5% above spec, moisture is root cause.", "Process", "Same day", "P1", "Fast check — rules in/out moisture cause"),
+            CAPAAction("Sieve analysis on retained granulation. Compare PSD to specification.", "Process", "Same day", "P2", "PSD shift is leading indicator of hardness variation"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Online hardness monitoring (every Nth tablet). Real-time SPC.", "Quality", "1 month", "Automation"),
+            PreventiveAction("Granule LOD SPC as release criterion before tableting step.", "Quality", "1 week", "SOP"),
+        ],
+        containment="Hold in-process tablets. Full hardness and dissolution testing before batch release.", disposition="Hold — Full batch testing",
+        standard_reference="USP <1217>, ICH Q6A, 21 CFR 211", weight=2.0,
+    ),
+
+    CAPARule(
+        rule_id="PHARMA-005", process="Pharma", parameter="Friability",
+        fault_pattern="Tablet Friability — Exceeds USP <1216> 1% Limit",
+        description="Tablet friability above 1% indicating insufficient tablet mechanical strength and breakage risk.",
+        severity="Major", cpk_max=1.33,
+        root_cause="Insufficient binder content or lubricant over-blending reducing inter-particle bonding.",
+        root_cause_detail="Friability >1% means tablets are mechanically fragile. Primary causes: insufficient binder, over-milling removing binder coating, compaction force too low, or Mg stearate over-blending creating hydrophobic barrier reducing bonding forces.",
+        alternative_causes=["Low tablet hardness (correlated)", "High API-to-excipient ratio", "API crystalline form change"],
+        corrective_actions=[
+            CAPAAction("USP <1216> friability test on retained samples from different blend times.", "Quality", "Immediate", "P1", "Confirms finding and lot disposition"),
+            CAPAAction("Check tablet hardness on same samples. If hardness OK, check binder.", "Quality", "Same day", "P1", "Hardness distinguishes compaction from formulation issue"),
+            CAPAAction("Review blend time and lubricant addition step. Excessive Mg stearate blending is common cause.", "Process", "24h", "P2", "Over-blending identified from batch records"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Friability SPC with 0.8% internal limit (buffer below 1% spec).", "Quality", "1 week", "SOP"),
+            PreventiveAction("Maximum blend time specification for lubricant addition step.", "Process Dev", "1 month", "Master Formula"),
+        ],
+        containment="Hold batch. USP friability, hardness, and dissolution testing before release.", disposition="Hold — OOS investigation per 21 CFR 211.192",
+        standard_reference="USP <1216>, 21 CFR Part 211, ICH Q6A", weight=1.8,
+    ),
+
+    CAPARule(
+        rule_id="PHARMA-006", process="Pharma", parameter="Blend Uniformity",
+        fault_pattern="Blend Uniformity RSD — Exceeds Specification (Dose Non-Uniformity)",
+        description="Blend content uniformity RSD above specification, directly impacting dose accuracy and patient safety.",
+        severity="Critical", cpk_max=1.00,
+        root_cause="Powder density mismatch causing segregation, or incorrect blending sequence/time.",
+        root_cause_detail="Blend uniformity failure is one of the most critical pharmaceutical quality issues — it directly determines dose accuracy. Root causes: density mismatch causing stratification, electrostatic charging creating agglomeration, incorrect blender loading sequence.",
+        alternative_causes=["Incorrect loading order (API not sandwiched)", "API particle size too large", "Sample thief introducing bias"],
+        corrective_actions=[
+            CAPAAction("Collect samples from 10+ positions at multiple blender rotations. Statistical uniformity analysis.", "Quality", "Immediate", "P1", "Quantifies extent of non-uniformity"),
+            CAPAAction("If RSD >5%: discard blend. Do not attempt re-blending — cannot reliably recover.", "Quality", "Same day", "P1", "Non-uniform blend should not be released"),
+            CAPAAction("Next batch: NIR/Raman online blend monitoring to observe mixing kinetics.", "Process", "Next batch", "P2", "Identifies optimal blend endpoint"),
+        ],
+        preventive_actions=[
+            PreventiveAction("PAT: online NIR blend monitoring replacing thief sampling.", "Process Dev", "3 months", "PAT"),
+            PreventiveAction("Validate blend time with 3-batch qualification at production scale.", "Validation", "Before campaign", "Validation"),
+        ],
+        containment="Hold entire blend. Do not compress. OOS investigation per 21 CFR 211.192. Batch rejection likely.", disposition="Hold — Batch rejection probable",
+        standard_reference="USP <905>, ICH Q2(R1), FDA Process Validation 2011", weight=3.0,
+    ),
+
+    CAPARule(
+        rule_id="PHARMA-007", process="Pharma", parameter="LOD",
+        fault_pattern="Loss on Drying (LOD) — Exceeds Post-Granulation Specification",
+        description="Granule LOD above specification after drying, indicating incomplete drying or moisture regain during transfer.",
+        severity="Major", cpk_max=1.33,
+        root_cause="Fluid bed dryer endpoint detection failure or moisture regain during cooling in humid environment.",
+        root_cause_detail="High LOD directly causes soft tablets, dissolution failures, and microbiological risk. Two primary causes: (1) Drying endpoint missed — probe not calibrated, (2) Moisture regain during cooling if facility RH is high.",
+        alternative_causes=["Product bed too deep reducing drying efficiency", "Inlet air dew point too high", "API hygroscopicity causing re-adsorption"],
+        corrective_actions=[
+            CAPAAction("Re-test LOD per USP <731> on retained samples. Confirm OOS result.", "Quality", "Immediate", "P1", "Confirm OOS before any action — 21 CFR 211.192"),
+            CAPAAction("Check dryer inlet dew point at time of batch. If above spec, facility humidity is root cause.", "Facilities", "Same day", "P1", "Facility humidity is common and fast to check"),
+            CAPAAction("Review drying endpoint log. If LOI probe declared endpoint early, calibrate probe.", "Process", "Same day", "P1", "Sensor calibration failure is systematic"),
+        ],
+        preventive_actions=[
+            PreventiveAction("LOD SPC with alarm at 80% of spec limit.", "Process", "1 week", "SPC"),
+            PreventiveAction("Environmental monitoring: maintain RH <40% during cooling and transfer.", "Facilities", "1 month", "SOP"),
+        ],
+        containment="Hold granulation. Do not compress. Extended drying may be permitted if QA approved.", disposition="Hold — OOS investigation required",
+        standard_reference="USP <731>, 21 CFR Part 211, ICH Q6A", weight=1.9,
+    ),
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # ELECTRONICS / PCB — ADDITIONAL RULES
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    CAPARule(
+        rule_id="PCB-004", process="Electronics", parameter="Plating Thickness",
+        fault_pattern="Cu Via Plating Thickness — Low Cpk (Bath Depletion Risk)",
+        description="Electroplated copper below IPC-A-600 minimum in vias, indicating bath copper depletion or current density variation.",
+        severity="Major", cpk_max=1.33, cp_cpk_gap_min=0.20,
+        root_cause="Plating bath copper concentration depletion causing reduced deposit rate and thickness non-uniformity.",
+        root_cause_detail="Via plating thickness is controlled by current density × time × Faradaic efficiency. Bath copper below 65 g/L reduces efficiency and creates non-uniformity.",
+        alternative_causes=["Current density distribution issue (racking, anodes)", "Organic additive imbalance", "Insufficient air agitation"],
+        corrective_actions=[
+            CAPAAction("Hull cell test on plating bath. Check Cu concentration, acid, and additive levels.", "Process Chem", "Immediate", "P1", "Hull cell gives full bath chemistry snapshot"),
+            CAPAAction("If Cu <70 g/L: add copper sulfate to spec. If additives OOR: replenish.", "Process Chem", "Same day", "P1", "Bath correction is direct fix"),
+            CAPAAction("Cross-section 10 vias. Measure wall thickness at knee, mid, and center.", "Quality", "24h", "P1", "X-section gives actual vs spec distribution"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Daily bath analysis (Cu, acid, additives). SPC on chemistry parameters.", "Process", "Daily", "SOP"),
+            PreventiveAction("Auto-replenishment based on amp-hour tracking.", "Engineering", "3 months", "Automation"),
+        ],
+        containment="Cross-section sample from each panel type. Hold panels failing IPC-A-600 minimum.", disposition="Conditional Release — per IPC-A-600",
+        standard_reference="IPC-A-600, IPC-6012, IPC-TM-650", weight=1.7,
+    ),
+
+    CAPARule(
+        rule_id="PCB-005", process="Electronics", parameter="BGA Coplanarity",
+        fault_pattern="BGA Solder Ball Coplanarity — Exceeds IPC-7095 (Assembly Opens Risk)",
+        description="BGA component solder ball coplanarity exceeding specification, creating open joint risk during reflow.",
+        severity="Major", cpk_max=1.33,
+        root_cause="PCB warpage during reflow causing solder ball lift-off at component corners due to CTE mismatch.",
+        root_cause_detail="PCB bows as CTE mismatch between core and copper creates stress at reflow temperature. Large BGAs (>35mm) are most susceptible. Even 100µm coplanarity loss can cause opens with small ball sizes (<0.3mm).",
+        alternative_causes=["BGA package warpage (uneven Cu distribution)", "Solder paste height variation", "Insufficient topside preheat"],
+        corrective_actions=[
+            CAPAAction("Shadow Moiré measurement of PCB/BGA coplanarity at reflow temperature.", "Engineering", "24h", "P1", "Thermal profile coplanarity is actual failure mechanism"),
+            CAPAAction("Adjust reflow profile: reduce ramp rate, increase soak zone to equalise board temperature.", "Process Eng", "Same day", "P1", "Slower ramp reduces thermal gradient driving warpage"),
+            CAPAAction("X-ray inspection of all BGA assemblies. Map opens vs board location.", "Quality", "Immediate", "P1", "Confirms open location pattern vs warpage map"),
+        ],
+        preventive_actions=[
+            PreventiveAction("FEA warpage simulation at design stage for all new boards with large BGAs.", "PCB Design", "Design phase", "DfM"),
+            PreventiveAction("SPI paste height check before reflow. BGA coplanarity check at receiving.", "Quality", "1 week", "Control Plan"),
+        ],
+        containment="X-ray 100% of BGA assemblies. Functional test after inspection.", disposition="Conditional Release — per X-ray and functional test",
+        standard_reference="IPC-7095, IPC-A-610, J-STD-001", weight=1.9,
+    ),
+
+    CAPARule(
+        rule_id="PCB-006", process="Electronics", parameter="Insulation Resistance",
+        fault_pattern="PCB Insulation Resistance — Low or Trending Down (CAF/Contamination Risk)",
+        description="PCB insulation resistance below specification or trending down, indicating ionic contamination or Conductive Anodic Filament risk.",
+        severity="Critical", cpk_max=1.00, spc_rules=["NE3","WE4"],
+        root_cause="Ionic contamination on PCB surface from flux residue, handling, or inadequate cleaning.",
+        root_cause_detail="IR failure from: (1) Surface ionic contamination reducing surface resistance, (2) CAF — copper filament growth under DC bias + humidity, (3) Delamination creating moisture ingress path.",
+        alternative_causes=["Laminate moisture absorption", "No-clean flux not compatible with high-humidity environment", "Storage humidity exposure"],
+        corrective_actions=[
+            CAPAAction("ROSE test per IPC-TM-650. If >1.56 µg/cm² NaCl eq: clean and re-test.", "Quality", "Immediate", "P1", "ROSE test is rapid contamination screening"),
+            CAPAAction("Cross-section suspect high-voltage traces for CAF filaments.", "Failure Analysis", "48h", "P1", "CAF is systematic and field-failure-generating"),
+            CAPAAction("Review wash process. Check wash water conductivity. If >30 µS/cm: change water.", "Process", "Same day", "P2", "Water quality is easy and common fix"),
+        ],
+        preventive_actions=[
+            PreventiveAction("SIR test per IPC-TM-650 2.6.3.7 as qualification test.", "Quality", "Qualification", "Q-test"),
+            PreventiveAction("Pre-assembly bake at 125°C/2h if storage >30 days.", "Process", "SOP update", "SOP"),
+        ],
+        containment="Hold all boards from same clean batch. ROSE test every panel before release.", disposition="Hold — Clean and re-test, or reject",
+        standard_reference="IPC-A-600, IPC-TM-650, IPC-9201A", weight=2.2,
+    ),
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # INJECTION MOLDING — ADDITIONAL RULES
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    CAPARule(
+        rule_id="MOLD-004", process="InjectionMolding", parameter="Flash",
+        fault_pattern="Injection Molding Flash — Parting Line or Insert Gap Defect",
+        description="Excess material extruding past parting line or insert interfaces, creating dimensional and assembly non-conformances.",
+        severity="Major", ppm_min=1000,
+        root_cause="Injection pressure exceeding clamping force or parting line wear creating flash gap.",
+        root_cause_detail="Flash forms when injection pressure exceeds mold clamp force. Also occurs when parting line wear creates >0.02mm gap. Both give same symptom but require different fixes.",
+        alternative_causes=["Melt viscosity too low (temperature too high)", "Mold not seating due to parting line contamination", "Clamp tonnage undersized for part area"],
+        corrective_actions=[
+            CAPAAction("If flash uniform: clamping issue. If localised: parting line wear. Map flash pattern.", "Quality/Tooling", "Immediate", "P1", "Pattern distinguishes root cause"),
+            CAPAAction("If clamping: reduce injection pressure 5%. Check clamp tonnage adequacy.", "Process Engineer", "Same day", "P1", "Pressure reduction is direct fix for clamp flash"),
+            CAPAAction("If parting line wear: blue the mold. Polish or re-stone non-seating areas.", "Tooling", "24h", "P1", "Parting line maintenance required"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Mold parting line inspection at every PM. Blue-check every 50k shots.", "Tooling", "Per PM", "PM"),
+            PreventiveAction("Injection peak pressure SPC. Alarm at ±5% of qualified setpoint.", "Quality", "1 week", "SPC"),
+        ],
+        containment="100% visual inspection. Trim if permissible. Functional test if assembly fit affected.", disposition="Conditional Release — if within dimensional limits",
+        standard_reference="IATF 16949, ISO injection molding standards", weight=1.4,
+    ),
+
+    CAPARule(
+        rule_id="MOLD-005", process="InjectionMolding", parameter="Short Shot",
+        fault_pattern="Injection Molding Short Shot — Incomplete Fill (Missing Features)",
+        description="Molded part with incomplete fill leaving thin sections or fine features unfilled.",
+        severity="Major", ppm_min=500,
+        root_cause="Insufficient injection pressure, melt temperature, or venting causing flow freeze-off before complete fill.",
+        root_cause_detail="Short shots occur when melt cannot reach cavity extremities before freeze-off. Primary causes: flow length too long for viscosity/pressure, temperature too low, or venting inadequate preventing air escape at last-to-fill areas.",
+        alternative_causes=["Blocked vents at short-shot location", "Gate partially frozen from previous shot", "Material degradation from excess regrind"],
+        corrective_actions=[
+            CAPAAction("Identify short-shot location. Check if vent exists there. If not: add vent.", "Tooling", "24h", "P1", "No vent at last-to-fill is fastest fix"),
+            CAPAAction("Increase melt temperature 5°C increments up to material maximum.", "Process Engineer", "Same day", "P2", "Temperature is primary lever for flow length"),
+            CAPAAction("Run fill study at 90/95/99% fill. Map fill progression.", "Process Engineer", "Same day", "P2", "Fill study identifies exactly where fill is insufficient"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Mold flow simulation before tooling approval. Verify fill balance and venting.", "Tool Design", "Design phase", "DfM"),
+            PreventiveAction("In-cavity pressure sensor at last-to-fill for real-time monitoring.", "Engineering", "1 month", "Automation"),
+        ],
+        containment="100% visual inspection. Reject all short-shot parts — features may be safety-critical.", disposition="Reject",
+        standard_reference="IATF 16949, ISO injection molding, moldflow simulation", weight=1.6,
+    ),
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # WELDING — ADDITIONAL RULES
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    CAPARule(
+        rule_id="WELD-003", process="Welding", parameter="Distortion",
+        fault_pattern="Post-Weld Distortion — Dimensional Non-Conformance (Centering Gap)",
+        description="Weldment dimensional non-conformance from thermal contraction, with Cp-Cpk gap indicating systematic directional distortion.",
+        severity="Major", cpk_max=1.33, cp_cpk_gap_min=0.30,
+        root_cause="Unbalanced heat input and inadequate fixturing causing preferential contraction toward weld.",
+        root_cause_detail="Centering gap (Cp>>Cpk) confirms all parts distorting in same direction — systematic constraint or fixturing issue. Angular distortion is worst in T-joints with single-side welding.",
+        alternative_causes=["Inadequate fixturing during welding", "Incorrect weld sequence increasing heat accumulation", "Interpass temperature too high"],
+        corrective_actions=[
+            CAPAAction("Map distortion pattern. Identify if angular, bowing, or complex. Determines fix path.", "Metrology", "Immediate", "P1", "Pattern identification guides specific fix"),
+            CAPAAction("Implement pre-set: fixture parts with reverse angular distortion equal to expected distortion.", "Welding Eng", "1 week", "P1", "Pre-setting is standard industrial fix for predictable angular distortion"),
+            CAPAAction("Revise weld sequence to balance heat input. Alternate sides on double-V joints.", "Welding Eng", "1 week", "P2", "Balanced sequence reduces net moment driving angular distortion"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Weld sequence qualified and documented in WPS.", "Welding Engineer", "1 month", "WPS"),
+            PreventiveAction("Post-weld straightening SOP with acceptance criteria before dimensional inspection.", "Production", "1 month", "SOP"),
+        ],
+        containment="Dimensional survey of all affected parts. Evaluate for straightening.", disposition="Conditional Release — if straightenable within spec",
+        standard_reference="AWS D1.1, ASME IX, ISO 5817", weight=1.5,
+    ),
+
+    CAPARule(
+        rule_id="WELD-004", process="Welding", parameter="Heat Input",
+        fault_pattern="Weld Heat Input OOT — HAZ Properties Non-Conformance",
+        description="Weld heat input outside WPS qualified range causing HAZ hardness or toughness deviation.",
+        severity="Critical", cpk_max=1.00,
+        root_cause="Voltage, current, or travel speed deviation from WPS placing heat input outside qualified range.",
+        root_cause_detail="Heat input = (V × I × 60)/(travel speed × 1000) kJ/mm. WPS qualifies a range because too low causes brittle HAZ (fast cooling), too high causes softening in HSLA (over-tempering). SPC alarm indicates parameter drift.",
+        alternative_causes=["Wire feed speed instability (MIG/MAG)", "Manual welder technique variation", "Power source calibration drift"],
+        corrective_actions=[
+            CAPAAction("Retrieve weld parameter logs. Calculate actual heat input vs WPS range.", "Quality", "Immediate", "P1", "Parameter log confirms actual heat input for disposition"),
+            CAPAAction("Hardness traverse (Vickers) on cross-section of suspect welds: HAZ, weld, base metal.", "Metallurgy", "24h", "P1", "HAZ hardness directly measures metallurgical effect"),
+            CAPAAction("If over-heat: check for HAZ softening. If under-heat: check for cold cracking.", "Metallurgy", "3 days", "P1", "Different effects require different follow-up testing"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Automated weld monitoring SPC with WPS range as control limits.", "Engineering", "1 month", "Automation"),
+            PreventiveAction("Monthly welder qualification audit including heat input calculation verification.", "Quality", "Monthly", "Audit"),
+        ],
+        containment="NDT on all welds from affected machine/welder. Customer notification if structural parts shipped.", disposition="Hold — NDT + HAZ hardness before release",
+        standard_reference="AWS D1.1, ASME IX, ISO 9692", weight=2.3,
+    ),
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # GENERAL METROLOGY — ADDITIONAL RULES
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    CAPARule(
+        rule_id="GEN-012", process="General", parameter="Lab Environment",
+        fault_pattern="Metrology Lab Temperature OOT — Measurement Validity Compromised",
+        description="Lab temperature outside ISO 1 (20°C ±1°C), invalidating dimensional measurements due to thermal expansion error.",
+        severity="Major", ppm_min=0,
+        root_cause="HVAC failure or seasonal variation causing temperature drift above ±1°C from 20°C reference.",
+        root_cause_detail="Every 1°C deviation causes ~12 µm/m expansion in steel — enough to invalidate tight-tolerance measurements. Many labs let environmental control slip without recognising the measurement validity impact.",
+        alternative_causes=["HVAC setpoint drift", "Solar load variation (west-facing lab)", "Cold parts brought into lab"],
+        corrective_actions=[
+            CAPAAction("Document current temp/humidity. Suspend critical measurements until within spec.", "Quality Manager", "Immediate", "P1", "Measurements taken OOT may need repeat"),
+            CAPAAction("Review HVAC maintenance log. Check setpoint drift or filter replacement due.", "Facilities", "Same day", "P1", "HVAC issues are usually quick to identify"),
+            CAPAAction("Apply thermal expansion correction or repeat measurements taken during OOT period.", "Metrology", "24h", "P2", "Determine measurement validity"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Continuous T/RH monitoring with SPC. Alarm at ±0.5°C before 1°C limit hit.", "Facilities/Quality", "1 week", "SPC"),
+            PreventiveAction("Environmental qualification record linked to measurement batch in LIMS.", "Metrology", "2 weeks", "LIMS"),
+        ],
+        containment="Document all measurements taken during OOT. Engineering review for disposition.", disposition="Hold measurements — review for correction or repeat",
+        standard_reference="ISO 1:2022, ASME B89.6.2, NIST measurement uncertainty", weight=1.8,
+    ),
+
+    CAPARule(
+        rule_id="GEN-013", process="General", parameter="Calibration OOT",
+        fault_pattern="Gauge Out-of-Tolerance at Calibration — Prior Measurement Suspect",
+        description="Gauge found OOT at scheduled calibration requiring retroactive review per ISO 10012/ANSI Z540.3.",
+        severity="Critical", ppm_min=0,
+        root_cause="Gradual gauge drift from wear, environmental exposure, or shock since last calibration.",
+        root_cause_detail="ISO 10012 requires 'measurement assurance' review when gauge found OOT — assessing which products were measured and whether incorrectly accepted or rejected. OOT magnitude vs tolerance ratio determines recall scope.",
+        alternative_causes=["Gauge drop/impact between calibrations", "Thermal shock", "Wear on contact surfaces (stylus, pins, anvils)"],
+        corrective_actions=[
+            CAPAAction("Document OOT magnitude and direction. Calculate worst-case measurement error for product.", "Metrology", "Immediate", "P1", "Determines if measurements are invalid"),
+            CAPAAction("Pull traceability records. Identify all products measured since last valid calibration.", "Quality", "24h", "P1", "Scope of impact determines containment"),
+            CAPAAction("If OOT <20% of product tolerance: measurements likely valid. If >20%: re-measure.", "Quality Eng", "48h", "P1", "Risk-based assessment per ISO/IEC 14253-1"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Reduce calibration interval for gauges with OOT history.", "Metrology", "1 week", "Cal plan"),
+            PreventiveAction("Implement guard banding: use 80% of tolerance as production acceptance criterion.", "Quality", "1 month", "SOP"),
+        ],
+        containment="Quarantine all products measured since last good calibration. Scope per records.", disposition="Hold — Scope determination before release",
+        standard_reference="ISO 10012, ANSI Z540.3, ISO/IEC 14253-1", weight=2.2,
+    ),
+
+    CAPARule(
+        rule_id="GEN-014", process="General", parameter="Measurement Bias",
+        fault_pattern="Systematic Measurement Bias — All Readings Consistently Offset from Reference",
+        description="MSA Bias study showing systematic offset from reference standard, indicating calibration error masking as process off-centering.",
+        severity="Major", cpk_max=1.33, cp_cpk_gap_min=0.30,
+        root_cause="Gauge calibration offset (zero error) causing all measurements to read consistently high or low.",
+        root_cause_detail="Bias shifts all measurements in the same direction — the statistical signature is a centering gap (Cp>>Cpk) that suggests process offset when the gauge is actually reading wrong. Separating genuine process shift from gauge bias requires reference standard comparison.",
+        alternative_causes=["Gauge used at different temperature than calibration", "CMM probe deflection causing over-reading", "Reference standard itself OOT"],
+        corrective_actions=[
+            CAPAAction("Measure 10 NIST-traceable reference standards. Calculate bias = mean - reference.", "Metrology", "Immediate", "P1", "Quantifies bias magnitude and direction"),
+            CAPAAction("Check if bias is temperature-related: measure same standard at lab and shop floor temp.", "Metrology", "24h", "P1", "Temperature-dependent bias is common for gauges in different environments"),
+            CAPAAction("Apply bias correction to product data if disposition requires re-evaluation.", "Quality Eng", "48h", "P2", "Bias may explain apparent process shift"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Annual MSA bias and linearity study per AIAG MSA 4th Edition.", "Quality", "Annual", "MSA Plan"),
+            PreventiveAction("Record temperature at critical measurements. Apply CTE correction for high-precision dims.", "Metrology", "1 month", "SOP"),
+        ],
+        containment="Quantify bias impact on all measurements. Assess product disposition.", disposition="Conditional Release — after bias correction analysis",
+        standard_reference="AIAG MSA 4th Ed., ASME B89, ISO 14253-1", weight=2.0,
+    ),
+
+    CAPARule(
+        rule_id="GEN-015", process="General", parameter="EV Repeatability",
+        fault_pattern="Within-Operator Repeatability (EV) Dominant — Gauge Instability",
+        description="GRR Repeatability (EV) >80% of total GRR indicating gauge cannot consistently measure same feature.",
+        severity="Major", grr_min=20.0,
+        root_cause="Gauge resolution too coarse for feature tolerance, or poor part-gauge contact causing measurement instability.",
+        root_cause_detail="High EV means the gauge gives different readings on the same part. Primary causes: resolution >5% of tolerance (digitisation error), surface finish variation on contact point, gauge requiring precise placement skill, or environmental vibration.",
+        alternative_causes=["Insufficient gauge resolution (digitisation error)", "Feature geometry requiring exact probe placement", "Thermal drift during measurement cycle"],
+        corrective_actions=[
+            CAPAAction("Check gauge resolution vs tolerance. If resolution >5% of tolerance: upgrade gauge.", "Metrology", "Immediate", "P1", "Resolution check is fastest root cause verification"),
+            CAPAAction("Standardise measurement technique: define contact point, force, direction in work instruction.", "Quality", "1 week", "P1", "Technique standardisation often reduces EV significantly"),
+            CAPAAction("Run abbreviated GRR (10 parts × 3 repeats) after technique improvement.", "Quality", "2 weeks", "P2", "Validates corrective action improved repeatability"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Gauge selection criteria: resolution <5% of feature tolerance. Document in PPAP.", "Quality", "During PPAP", "PPAP"),
+            PreventiveAction("Annual GRR repeat for all critical measurement systems.", "Quality", "Annual", "MSA Plan"),
+        ],
+        containment="Flag measurements from high-EV gauge. Re-measure borderline parts with calibrated reference.", disposition="Conditional Release — with measurement uncertainty noted",
+        standard_reference="AIAG MSA 4th Ed., ISO 22514-7", weight=1.8,
+    ),
+
+    CAPARule(
+        rule_id="GEN-016", process="General", parameter="Cpk Trend",
+        fault_pattern="Chronic Cpk Degradation — Multi-Month Downward Trend (Multiple Wear Mechanisms)",
+        description="Process Cpk trending downward over months with no single assignable cause, indicating compounding wear or material quality drift.",
+        severity="Major", cpk_max=1.33, spc_rules=["NE3"],
+        root_cause="Multiple interacting process variables drifting simultaneously — tooling, fixtures, incoming material quality.",
+        root_cause_detail="Cpk degradation over months without a step change suggests multiple slow-accumulating wear mechanisms. Unlike acute events, chronic degradation requires multivariable analysis — multi-vari study followed by ANOVA to isolate dominant drivers.",
+        alternative_causes=["Operator turnover causing gradual skill erosion", "Measurement drift masking actual status", "Seasonal environmental change"],
+        corrective_actions=[
+            CAPAAction("Plot Cpk vs time overlaid with maintenance events, material lot changes, operator changes.", "Quality", "1 week", "P1", "Timeline correlation often identifies inflection point"),
+            CAPAAction("Run multi-vari study: measure response stratified by operator, shift, material lot, machine.", "Quality/Eng", "2 weeks", "P2", "Identifies dominant variation source in 20-30 parts"),
+            CAPAAction("ANOVA on multi-vari data. Prioritise factors with >20% contribution.", "Statistical Eng", "3 weeks", "P2", "Directs investment to highest-impact factor"),
+        ],
+        preventive_actions=[
+            PreventiveAction("Monthly Cpk trend review by process family. Alert at 10% decline from baseline.", "Quality Manager", "Monthly", "Review"),
+            PreventiveAction("Annual PFMEA review to update risk rankings from current Cpk trends.", "Eng/Quality", "Annual", "PFMEA"),
+        ],
+        containment="No hold if parts in spec. Trend monitoring and root cause investigation is priority.", disposition="No hold — Trend monitoring required",
+        standard_reference="AIAG PPAP, IATF 16949 monitoring, ISO 22514", weight=1.6,
+    ),
+
+    CAPARule(
+        rule_id="GEN-017", process="General", parameter="Cpk Confidence",
+        fault_pattern="Cpk Study — Insufficient Sample Size (Confidence Interval Too Wide)",
+        description="Capability study performed with n<30 producing Cpk estimate with confidence interval too wide for reliable decisions.",
+        severity="Minor", cpk_max=1.67, cpk_min=1.33,
+        root_cause="Study planned on sample count alone without Cpk confidence interval calculation.",
+        root_cause_detail="For n=25: 95% CI for Cpk=1.33 is approximately [1.01, 1.65] — spanning not-capable to excellent. This is practically useless. n≥125 required for CI width <0.3 at 95% confidence.",
+        alternative_causes=["Production constraints limiting sample size", "Customer plan specified insufficient n", "Preliminary Cpk used as production release criterion"],
+        corrective_actions=[
+            CAPAAction("Calculate 95% CI for reported Cpk using Bissell formula. Report Cpk and CI together.", "Statistics", "Immediate", "P1", "CI makes uncertainty visible"),
+            CAPAAction("Determine required n for CI width ≤0.2 (typically n≥125). Plan re-study.", "Quality Eng", "1 week", "P2", "Re-study with adequate n is definitive fix"),
+            CAPAAction("Use lower 95% confidence bound (Cpk_lower) for compliance reporting.", "Quality", "Immediate", "P2", "Conservative reporting protects against false acceptance"),
+        ],
+        preventive_actions=[
+            PreventiveAction("SOP: minimum n=125 for production Cpk studies. Preliminary studies labelled separately.", "Quality", "1 week", "SOP"),
+            PreventiveAction("Capability study template requires CI calculation before Cpk can be reported.", "Quality Systems", "1 month", "Template"),
+        ],
+        containment="Flag all capability studies n<30 as preliminary. Notify customer if used for PPAP.", disposition="No hold — Study validity concern",
+        standard_reference="AIAG SPC Manual, ASTM E2281, Bissell 1994", weight=1.3,
+    ),
+
+    CAPARule(
+        rule_id="GEN-018", process="General", parameter="Subgrouping",
+        fault_pattern="Rational Subgroup Violation — Subgroup Spans Process Discontinuity",
+        description="SPC subgroups combining measurements across shift changes or setups, inflating sigma and causing false alarms.",
+        severity="Major", spc_rules=["WE1","WE4","NE2"],
+        root_cause="Subgrouping defined by sample count rather than process continuity, mixing between-event variation into within-subgroup estimate.",
+        root_cause_detail="Rational subgrouping (Shewhart's principle): subgroups should contain within-subgroup variation from a stable process only. Combining shift-change data inflates within-subgroup sigma, making control limits too wide and hiding real signals.",
+        alternative_causes=["ERP auto-grouping by time not process batch", "Operator unaware of rational subgroup principle", "Legacy SPC plan not updated for new schedule"],
+        corrective_actions=[
+            CAPAAction("Identify process discontinuities. Map to current subgroup boundaries to quantify violation.", "Quality Eng", "1 week", "P1", "Documents violation — first step to correction"),
+            CAPAAction("Recalculate chart with rational subgroups: each subgroup from same setup/shift only.", "Quality", "2 weeks", "P1", "Correct subgrouping reveals true process signals"),
+            CAPAAction("Re-estimate sigma from within-subgroup variation. Update control limits.", "Statistics", "2 weeks", "P1", "Correct sigma makes chart statistically valid"),
+        ],
+        preventive_actions=[
+            PreventiveAction("SPC plan design review: document rational subgrouping strategy for each chart.", "Quality Systems", "1 month", "SPC Plan"),
+            PreventiveAction("Train quality engineers on rational subgrouping principles.", "Quality", "1 month", "Training"),
+        ],
+        containment="Re-analyse historical data with correct subgrouping. Re-evaluate decisions from invalid chart.", disposition="No hold — Analysis correction required",
+        standard_reference="AIAG SPC Manual Chapter 4, Shewhart (1931), Montgomery SPC", weight=1.5,
+    ),
+
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────

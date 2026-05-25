@@ -6,7 +6,7 @@ No LLM, no API key — fully deterministic
 
 import dataclasses
 from typing import Optional
-from capa_database_r2 import CAPA_RULES, CAPARule, CAPAAction, PreventiveAction
+from capa_database_r3 import CAPA_RULES, CAPARule, CAPAAction, PreventiveAction
 
 
 def score_rule(rule: CAPARule, stats: dict) -> float:
@@ -352,7 +352,7 @@ def get_all_rules_catalog() -> list:
 # ── R2: Load expanded database if available ───────────────────────────────────
 def _get_rules():
     """Load expanded R2 database if available, fallback to original."""
-    from capa_database_r2 import CAPA_RULES as R2_RULES
+    from capa_database_r3 import CAPA_RULES as R2_RULES
     return R2_RULES
 
 
@@ -362,7 +362,7 @@ def run_capa_engine_v2(
     process_context: str = "", parameter_name: str = "", process_type: str = "",
 ) -> dict:
     """V2 engine — uses expanded R2 database with process-boosted scoring."""
-    from capa_database_r2 import CAPA_RULES
+    from capa_database_r3 import CAPA_RULES
 
     stats = _extract_stats(normality_result, capability_result, spc_result, grr_result)
     stats["process"] = (process_type + " " + parameter_name + " " + process_context).lower()
@@ -420,7 +420,7 @@ def run_capa_engine_v2(
 def get_all_rules_catalog_v2() -> list:
     """Return expanded R2 catalog."""
     try:
-        from capa_database_r2 import CAPA_RULES
+        from capa_database_r3 import CAPA_RULES
         return [{"rule_id": r.rule_id, "process": r.process, "parameter": r.parameter,
                  "fault_pattern": r.fault_pattern, "severity": r.severity,
                  "description": r.description, "standard_reference": r.standard_reference}

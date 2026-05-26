@@ -60,9 +60,7 @@ async def on_startup():
 
 # MES router — loaded only when DATABASE_URL env var is configured
 _db_url = os.getenv("DATABASE_URL", "")
-if _db_url and "sqlite" not in _db_url and (
-    _db_url.startswith("postgresql://") or _db_url.startswith("postgres://")
-):
+if _db_url and _db_url not in ("", "sqlite:///./statmind_dev.db"):
     try:
         from routers import mes
         app.include_router(mes.router)
@@ -156,7 +154,7 @@ async def get_columns(request: Request, file: UploadFile = File(...)):
     _validate_upload(file)
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     stats_map = {cs.name: cs for cs in result.column_stats}
@@ -188,7 +186,7 @@ async def get_columns(request: Request, file: UploadFile = File(...)):
 async def normality(request: Request, file: UploadFile = File(...), alpha: float = 0.05):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     results, errors = [], []
@@ -217,28 +215,17 @@ async def capability(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
         raise HTTPException(404, f"Column '{column}' not found. Available: {result.numeric_columns}")
     try:
-        cap_result = analyze_capability(
+        return jobj(analyze_capability(
             result.df[column].dropna().values.astype(float),
-            column, usl, lsl, target, subgroup_size)
+            column, usl, lsl, target, subgroup_size))
     except ValueError as e:
         raise HTTPException(400, str(e))
-    # Audit trail — log metadata only, no raw data stored
-    try:
-        from database import SessionLocal as _SL3, AnalysisSession as _AS
-        _db3 = _SL3()
-        _db3.add(_AS(session_id=str(uuid.uuid4()), tenant_id="default",
-            filename=file.filename, process_type="capability", parameter=column,
-            capability={"cpk": cap_result.cpk, "cp": cap_result.cp, "n": cap_result.n}))
-        _db3.commit(); _db3.close()
-    except Exception as _ae:
-        logging.debug(f"Audit: {_ae}")
-    return jobj(cap_result)
 
 # ── Session 3: SPC + subrange (R3) ───────────────────────────────────────────
 @app.post("/api/v1/spc/analyze")
@@ -251,7 +238,7 @@ async def spc(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -392,17 +379,6 @@ async def generate_pdf_report(request: Request):
         )
         _report_cache[report_id] = tmp_path
         size_kb  = round(os.path.getsize(tmp_path) / 1024)
-        try:
-            import base64 as _b64
-            from database import SessionLocal as _SL2, ReportCache as _RC2
-            _db2 = _SL2()
-            with open(tmp_path, "rb") as _pf:
-                _b64d = _b64.b64encode(_pf.read()).decode()
-            _rc2 = _RC2(report_id=report_id, tenant_id="default",
-                        pdf_bytes=_b64d, meta_data={"size_kb": size_kb})
-            _db2.merge(_rc2); _db2.commit(); _db2.close()
-        except Exception as _dbe:
-            logging.debug(f"Report DB persist: {_dbe}")
         sections = sum(1 for k in [
             "normality_result","capability_result",
             "spc_result","grr_result","capa_result",
@@ -417,36 +393,204 @@ async def generate_pdf_report(request: Request):
 
 @app.get("/api/v1/report/download/{report_id}")
 async def download_report(report_id: str):
-    import re as _re, tempfile as _tmp
-    if not _re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", report_id):
-        raise HTTPException(400, "Invalid report ID.")
     path = _report_cache.get(report_id)
-    if not path:
-        try:
-            import base64 as _b64, tempfile as _tmp2
-            from database import SessionLocal as _SL, ReportCache as _RC
-            _db = _SL()
-            _row = _db.query(_RC).filter(_RC.report_id == report_id).first()
-            _db.close()
-            if _row:
-                _f = _tmp2.NamedTemporaryFile(suffix=".pdf", delete=False)
-                _f.write(_b64.b64decode(_row.pdf_bytes))
-                _f.close()
-                path = _f.name
-                _report_cache[report_id] = path
-        except Exception as _e:
-            logging.debug(f"DB restore: {_e}")
-    if not path:
-        raise HTTPException(404, "Report not found or expired. Please regenerate.")
-    safe_base = os.path.realpath(__import__("tempfile").gettempdir())
-    real_path = os.path.realpath(path)
-    if not real_path.startswith(safe_base):
-        raise HTTPException(403, "Access denied.")
-    if not os.path.exists(real_path):
-        raise HTTPException(404, "Report file gone. Please regenerate.")
-    return FileResponse(real_path, media_type="application/pdf",
+    if not path or not os.path.exists(path):
+        raise HTTPException(404, "Report not found. Please regenerate.")
+    return FileResponse(
+        path, media_type="application/pdf",
         filename=f"statmind_report_{report_id}.pdf",
-        headers={"X-Content-Type-Options": "nosniff"})
+    )
+
+# ── Session 3 Endpoints: Ghost features made real ────────────────────────────
+
+@app.post("/api/v1/regression/logistic")
+async def logistic_regression_ep(
+    file: UploadFile = File(...),
+    response: str = Query(...),
+    predictors: str = Query(...),   # comma-separated
+    threshold: float = Query(0.5),
+):
+    """Logistic regression for binary pass/fail prediction."""
+    c = await file.read()
+    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
+    except Exception as e: raise HTTPException(400, str(e))
+    from logistic_regression import analyze_logistic
+    import dataclasses as dc
+    pred_cols = [p.strip() for p in predictors.split(',') if p.strip()]
+    for col in [response] + pred_cols:
+        if col not in r.df.columns:
+            raise HTTPException(404, f"Column '{col}' not found")
+    y = r.df[response].dropna().values.astype(int)
+    X = r.df[pred_cols].dropna().values.astype(float)
+    try:
+        result = await asyncio.to_thread(analyze_logistic, X, y, response, pred_cols, threshold)
+        return jd(dc.asdict(result))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/regression/stepwise")
+async def stepwise_ep(
+    file: UploadFile = File(...),
+    response: str = Query(...),
+    predictors: str = Query(...),
+    method: str = Query("both"),
+    criterion: str = Query("AIC"),
+):
+    """Stepwise regression with AIC/BIC variable selection."""
+    c = await file.read()
+    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
+    except Exception as e: raise HTTPException(400, str(e))
+    from logistic_regression import stepwise_regression
+    import dataclasses as dc
+    pred_cols = [p.strip() for p in predictors.split(',') if p.strip()]
+    y = r.df[response].dropna().values.astype(int)
+    X = r.df[pred_cols].dropna().values.astype(float)
+    try:
+        result = await asyncio.to_thread(stepwise_regression, X, y, response, pred_cols, method, criterion)
+        d = dc.asdict(result)
+        if d.get('final_model') and hasattr(result.final_model, '__dataclass_fields__'):
+            d['final_model'] = dc.asdict(result.final_model)
+        return jd(d)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/pca/analyze")
+async def pca_ep(
+    file: UploadFile = File(...),
+    columns: str = Query(...),       # comma-separated
+    n_components: int = Query(None),
+    scale: bool = Query(True),
+):
+    """PCA with biplots and explained variance."""
+    c = await file.read()
+    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
+    except Exception as e: raise HTTPException(400, str(e))
+    from pca_advanced import analyze_pca
+    import dataclasses as dc
+    cols = [col.strip() for col in columns.split(',') if col.strip()]
+    for col in cols:
+        if col not in r.df.columns:
+            raise HTTPException(404, f"Column '{col}' not found")
+    X = r.df[cols].dropna().values.astype(float)
+    try:
+        result = await asyncio.to_thread(analyze_pca, X, cols, n_components, scale)
+        return jd(dc.asdict(result))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/pca/scatter-matrix")
+async def scatter_matrix_ep(
+    file: UploadFile = File(...),
+    columns: str = Query(...),
+):
+    """Pairwise scatter matrix with correlation coefficients."""
+    c = await file.read()
+    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
+    except Exception as e: raise HTTPException(400, str(e))
+    from pca_advanced import scatter_matrix
+    import dataclasses as dc
+    cols = [col.strip() for col in columns.split(',') if col.strip()]
+    X = r.df[cols].dropna().values.astype(float)
+    try:
+        result = await asyncio.to_thread(scatter_matrix, X, cols)
+        return jd(dc.asdict(result))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/attribute-charts/p")
+async def p_chart_ep(request: Request):
+    """p chart — fraction defective (variable subgroup size)."""
+    body = await request.json()
+    from attribute_charts import build_p_chart
+    import dataclasses as dc
+    try:
+        d_arr = np.array(body["defectives"], dtype=float)
+        n_arr = np.array(body["subgroup_sizes"], dtype=float)
+        result = await asyncio.to_thread(build_p_chart, d_arr, n_arr, body.get("column","Defectives"))
+        return jd(dc.asdict(result))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/attribute-charts/np")
+async def np_chart_ep(request: Request):
+    """np chart — number defective (constant subgroup size)."""
+    body = await request.json()
+    from attribute_charts import build_np_chart
+    import dataclasses as dc
+    try:
+        d_arr = np.array(body["defectives"], dtype=float)
+        n = int(body["subgroup_size"])
+        result = await asyncio.to_thread(build_np_chart, d_arr, n, body.get("column","Defectives"))
+        return jd(dc.asdict(result))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/attribute-charts/u")
+async def u_chart_ep(request: Request):
+    """u chart — defects per unit (variable subgroup size)."""
+    body = await request.json()
+    from attribute_charts import build_u_chart
+    import dataclasses as dc
+    try:
+        d_arr = np.array(body["defects"], dtype=float)
+        n_arr = np.array(body["subgroup_sizes"], dtype=float)
+        result = await asyncio.to_thread(build_u_chart, d_arr, n_arr, body.get("column","Defects"))
+        return jd(dc.asdict(result))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/attribute-charts/c")
+async def c_chart_ep(request: Request):
+    """c chart — count of defects per subgroup (constant area of opportunity)."""
+    body = await request.json()
+    from attribute_charts import build_c_chart
+    import dataclasses as dc
+    try:
+        d_arr = np.array(body["defects"], dtype=float)
+        result = await asyncio.to_thread(build_c_chart, d_arr, body.get("column","Defects"))
+        return jd(dc.asdict(result))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ── StatMind Intelligence Engine endpoint ─────────────────────────────────────
+@app.post("/api/v1/intelligence/analyse")
+async def intelligence_analyse(request: Request):
+    """
+    Full StatMind Intelligence Engine analysis.
+    Returns: signals, diagnosis, narratives, 8D report, confidence scores.
+    This is the core AI differentiator — 100% deterministic, zero external APIs.
+    """
+    b = await request.json()
+    for key in ["parameter","process_type","lot_id","tool_id"]:
+        if key in b and isinstance(b[key], str):
+            b[key] = _sanitize_text(b[key], max_len=200)
+    try:
+        from statmind_intelligence import generate_intelligence_report
+        result = await asyncio.to_thread(
+            generate_intelligence_report,
+            parameter        = b.get("parameter","Parameter"),
+            process_type     = b.get("process_type","General"),
+            normality_result = b.get("normality_result"),
+            capability_result= b.get("capability_result"),
+            spc_result       = b.get("spc_result"),
+            grr_result       = b.get("grr_result"),
+            capa_result      = b.get("capa_result"),
+            lot_id           = b.get("lot_id",""),
+            tool_id          = b.get("tool_id",""),
+        )
+        return jd(result)
+    except Exception as e:
+        logging.error(f"Intelligence engine error: {e}", exc_info=True)
+        raise HTTPException(500, f"Intelligence analysis failed: {e}")
+
 
 # ── Static frontend ───────────────────────────────────────────────────────────
 _static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -600,7 +744,7 @@ async def hyp_from_file(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -645,7 +789,7 @@ async def pareto_analyze(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     import dataclasses as dc
@@ -693,7 +837,7 @@ async def sixpack_analyze(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -717,7 +861,7 @@ async def regression_analyze(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     x_list = [col.strip() for col in x_cols.split(",")]
@@ -751,7 +895,7 @@ async def transform_analyze(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -777,7 +921,7 @@ async def multivari_analyze(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -882,7 +1026,7 @@ async def tolerance_analyze(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -1103,7 +1247,7 @@ async def dashboard_build(request: Request):
 async def cusum_analyze(file: UploadFile=File(...), column: str=Query(...),
     k: float=Query(0.5), h: float=Query(5.0)):
     c=await file.read()
-    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
+    try: r=parse_any_file(c,file.filename)
     except Exception as e: raise HTTPException(400,str(e))
     if column not in r.df.columns: raise HTTPException(404,f"Column '{column}' not found")
     import dataclasses as dc
@@ -1115,7 +1259,7 @@ async def cusum_analyze(file: UploadFile=File(...), column: str=Query(...),
 async def ewma_analyze(file: UploadFile=File(...), column: str=Query(...),
     lam: float=Query(0.2), L: float=Query(3.0)):
     c=await file.read()
-    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
+    try: r=parse_any_file(c,file.filename)
     except Exception as e: raise HTTPException(400,str(e))
     if column not in r.df.columns: raise HTTPException(404,f"Column '{column}' not found")
     import dataclasses as dc
@@ -1161,7 +1305,7 @@ async def ss_spc(request: Request):
 @app.post("/api/v1/correlation/analyze")
 async def correlation_analyze(file: UploadFile=File(...), alpha: float=Query(0.05), min_r: float=Query(0.3)):
     c=await file.read()
-    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
+    try: r=parse_any_file(c,file.filename)
     except Exception as e: raise HTTPException(400,str(e))
     import dataclasses as dc
     from correlation import correlation_matrix
@@ -1178,7 +1322,7 @@ async def correlation_matrix_endpoint(
     """Correlation matrix — alias used by the frontend and CI."""
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     import dataclasses as dc
@@ -1193,7 +1337,7 @@ async def correlation_matrix_endpoint(
 async def nonnormal_cap(file: UploadFile=File(...), column: str=Query(...),
     usl: float=Query(None), lsl: float=Query(None)):
     c=await file.read()
-    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
+    try: r=parse_any_file(c,file.filename)
     except Exception as e: raise HTTPException(400,str(e))
     if column not in r.df.columns: raise HTTPException(404,f"Column '{column}' not found")
     import dataclasses as dc
@@ -1216,7 +1360,7 @@ async def uncertainty_calc(request: Request):
 async def outliers_detect(file: UploadFile=File(...), column: str=Query(...),
     alpha: float=Query(0.05), usl: float=Query(None), lsl: float=Query(None)):
     c=await file.read()
-    try: r = await asyncio.to_thread(parse_any_file, c, file.filename)
+    try: r=parse_any_file(c,file.filename)
     except Exception as e: raise HTTPException(400,str(e))
     if column not in r.df.columns: raise HTTPException(404,f"Column '{column}' not found")
     import dataclasses as dc
@@ -1577,33 +1721,48 @@ async def fire_alert(request: Request):
 @app.post("/api/v1/ai/narrative")
 async def ai_narrative_endpoint(request: Request):
     """
-    Generate a written plain-English narrative from analysis results.
-    POST: { parameter, process_type, normality_result, capability_result,
-             spc_result, grr_result, capa_result }
+    StatMind Intelligence Engine — full analysis narrative.
+    Calls statmind_intelligence.py (zero external APIs, 100% deterministic).
+    Falls back to ai_narrative.py if intelligence engine unavailable.
     """
     b = await request.json()
-    # Sanitize all text fields to prevent prompt injection
-    for key in ["parameter", "process_type", "lot_id", "tool_id", "recipe"]:
+    for key in ["parameter","process_type","lot_id","tool_id","recipe"]:
         if key in b and isinstance(b[key], str):
             b[key] = _sanitize_text(b[key], max_len=200)
-    import dataclasses as dc
-    from ai_narrative import generate_narrative
     try:
-        r = generate_narrative(
-            parameter=b.get("parameter",""),
-            process_type=b.get("process_type",""),
-            normality_result=b.get("normality_result"),
-            capability_result=b.get("capability_result"),
-            spc_result=b.get("spc_result"),
-            grr_result=b.get("grr_result"),
-            capa_result=b.get("capa_result"),
+        from statmind_intelligence import generate_intelligence_report
+        result = await asyncio.to_thread(
+            generate_intelligence_report,
+            parameter        = b.get("parameter","Parameter"),
+            process_type     = b.get("process_type","General"),
+            normality_result = b.get("normality_result"),
+            capability_result= b.get("capability_result"),
+            spc_result       = b.get("spc_result"),
+            grr_result       = b.get("grr_result"),
+            capa_result      = b.get("capa_result"),
+            lot_id           = b.get("lot_id",""),
+            tool_id          = b.get("tool_id",""),
         )
-        return jd(dc.asdict(r))
-    except Exception as e:
-        raise HTTPException(500, str(e))
+        return jd(result)
+    except Exception as _ie:
+        logging.warning(f"Intelligence engine fallback: {_ie}")
+        import dataclasses as dc
+        from ai_narrative import generate_narrative, NarrativeResult
+        try:
+            r = await asyncio.to_thread(generate_narrative,
+                parameter=b.get("parameter","Parameter"),
+                process_type=b.get("process_type","General"),
+                normality_result=b.get("normality_result"),
+                capability_result=b.get("capability_result"),
+                spc_result=b.get("spc_result"),
+                grr_result=b.get("grr_result"),
+                capa_result=b.get("capa_result"),
+            )
+            return jd(dc.asdict(r))
+        except Exception as e:
+            raise HTTPException(500, f"Narrative generation failed: {e}")
 
 
-# ── N18: Shareable Analysis Links ─────────────────────────────────────────────
 @app.post("/api/v1/share/encode")
 async def share_encode(request: Request):
     """Encode analysis results into a shareable URL token."""
@@ -2274,7 +2433,7 @@ async def correlation_matrix(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     import dataclasses as dc
@@ -2293,7 +2452,7 @@ async def outliers_analyze(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -2420,7 +2579,7 @@ async def runchart_analyze(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
@@ -2688,7 +2847,7 @@ async def normality_probplot(
 ):
     c = await file.read()
     try:
-        result = await asyncio.to_thread(parse_any_file, c, file.filename)
+        result = parse_any_file(c, file.filename)
     except Exception as e:
         raise HTTPException(400, str(e))
     if column not in result.df.columns:

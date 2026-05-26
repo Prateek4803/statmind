@@ -583,20 +583,6 @@ textarea{resize:vertical;min-height:52px;}
   .mob-sidebar-toggle { display:none !important; }
 }
 
-@media(max-width:768px){
-  .chart-full{height:200px !important}
-  .chart-half{height:160px !important}
-  .spc-limits{grid-template-columns:repeat(3,1fr) !important}
-  .stat-grid{grid-template-columns:1fr 1fr !important}
-  .results-header{flex-direction:column;gap:8px}
-  aside{width:100% !important;min-width:unset !important}
-  .card{padding:10px 12px !important}
-  .sv{font-size:20px !important}
-  .feature-grid{grid-template-columns:1fr 1fr !important}
-  .welcome-actions{flex-direction:column !important}
-  .welcome{padding:20px 12px !important}
-}
-
 /* ── Capability index tooltip ── */
 .cap-tooltip {
   position: fixed;
@@ -675,8 +661,8 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-item" onclick="switchAnalysis('datastudio')"><span class="nav-dd-icon">🛠️</span><span class="nav-dd-label">Data Studio</span><span class="nav-dd-tag">Coming Soon</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Advanced Regression</div>
-        <div class="nav-dd-item" onclick="switchAnalysis('logistic')"><span class="nav-dd-icon">📈</span><span class="nav-dd-label">Logistic Regression</span><span class="nav-dd-tag">Coming Soon</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('stepwise')"><span class="nav-dd-icon">🪜</span><span class="nav-dd-label">Stepwise Regression</span><span class="nav-dd-tag">Coming Soon</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('logistic')"><span class="nav-dd-icon">📈</span><span class="nav-dd-label">Logistic Regression</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New ✓</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('stepwise')"><span class="nav-dd-icon">🪜</span><span class="nav-dd-label">Stepwise Regression</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New ✓</span></div>
       </div>
     </div>
   </div>
@@ -703,9 +689,9 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-item" onclick="switchAnalysis('samplesize')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">Sample Size Calculator</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Multivariate</div>
-        <div class="nav-dd-item" onclick="switchAnalysis('pca')"><span class="nav-dd-icon">🔭</span><span class="nav-dd-label">Principal Component Analysis</span><span class="nav-dd-tag">Coming Soon</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('scattermatrix')"><span class="nav-dd-icon">🔲</span><span class="nav-dd-label">Scatter Plot Matrix</span><span class="nav-dd-tag">Coming Soon</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('boxplot')"><span class="nav-dd-icon">📦</span><span class="nav-dd-label">Box Plot / Violin</span><span class="nav-dd-tag">Coming Soon</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('pca')"><span class="nav-dd-icon">🔭</span><span class="nav-dd-label">Principal Component Analysis</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New ✓</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('scattermatrix')"><span class="nav-dd-icon">🔲</span><span class="nav-dd-label">Scatter Plot Matrix</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New ✓</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('boxplot')"><span class="nav-dd-icon">📦</span><span class="nav-dd-label">Box Plot / Violin</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New ✓</span></div>
       </div>
     </div>
 
@@ -727,11 +713,11 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-section">Measurement Systems</div>
         <div class="nav-dd-item" onclick="switchAnalysis('grr')"><span class="nav-dd-icon">🔬</span><span class="nav-dd-label">Gauge R&amp;R (MSA)</span><span class="nav-dd-tag" id="dd-tag-grr"></span></div>
         <div class="nav-dd-item" onclick="switchAnalysis('aaa')"><span class="nav-dd-icon">✅</span><span class="nav-dd-label">Attribute Agreement</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('attrchart')"><span class="nav-dd-icon">📊</span><span class="nav-dd-label">Attribute Charts (p/np/u/c)</span><span class="nav-dd-tag">Coming Soon</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('attrchart')"><span class="nav-dd-icon">📊</span><span class="nav-dd-label">Attribute Charts (p/np/u/c)</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New ✓</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Reliability</div>
-        <div class="nav-dd-item" onclick="switchAnalysis('weibull')"><span class="nav-dd-icon">📉</span><span class="nav-dd-label">Weibull / Reliability</span><span class="nav-dd-tag">Coming Soon</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('linearity')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">MSA Linearity &amp; Bias</span><span class="nav-dd-tag">Coming Soon</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('weibull')"><span class="nav-dd-icon">📉</span><span class="nav-dd-label">Weibull / Reliability</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New ✓</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('linearity')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">MSA Linearity &amp; Bias</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New ✓</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Compliance</div>
         <div class="nav-dd-item" onclick="switchAnalysis('ppap')"><span class="nav-dd-icon">📦</span><span class="nav-dd-label">PPAP Package Generator</span><span class="nav-dd-tag">Coming Soon</span></div>
@@ -767,8 +753,8 @@ textarea{resize:vertical;min-height:52px;}
   <!-- Right side -->
   <div class="nav-right">
     <a href="/" style="font-size:11px;color:var(--text3);padding:4px 10px;border-radius:6px;border:1px solid var(--border);transition:all .15s;text-decoration:none;" onmouseover="this.style.color='var(--text2)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--text3)';this.style.borderColor='var(--border)'">← Home</a>
-    <div class="api-dot" id="status-dot" style="opacity:0;transition:opacity .6s"></div>
-    <span class="api-label" id="status-text" style="opacity:0;transition:opacity .6s"></span>
+    <div class="api-dot checking" id="status-dot"></div>
+    <span class="api-label" id="status-text">Checking…</span>
   </div>
 </nav>
 
@@ -995,6 +981,18 @@ textarea{resize:vertical;min-height:52px;}
             <div style="font-size:12px;font-weight:600" id="capa-direct-upload-title">Drop file or click to browse</div>
             <div style="font-size:10px;color:var(--text3);margin-top:2px">CSV · Excel · TSV</div>
           </div>
+        </div>
+        <!-- Column selector — pick which column to analyse -->
+        <div id="capa-col-select-row" style="margin-bottom:12px">
+          <div class="sl" style="margin-bottom:6px">Select column to analyse</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <select id="capa-col-select" style="flex:1;padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:8px;font-size:12px"
+              onchange="document.getElementById('capa-col-name').value=this.value">
+              <option value="">-- Upload a file first --</option>
+            </select>
+            <button onclick="refreshCapaColumns()" style="padding:6px 10px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);border-radius:8px;font-size:11px;cursor:pointer" title="Refresh columns from loaded file">↻</button>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px">Columns auto-loaded from your uploaded file. Select the parameter to investigate.</div>
         </div>
         <div class="sl" style="margin-bottom:6px">Prerequisite analyses</div>
         <div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5">CAPA uses results from completed analyses. Run them first for the best report quality.</div>
@@ -1755,29 +1753,10 @@ textarea{resize:vertical;min-height:52px;}
       <div class="welcome-actions">
         <button class="wa-btn primary" onclick="openNewFileWizard()"><span class="wa-icon">📄</span> New File — Create Data</button>
         <button class="wa-btn secondary" onclick="openFileWizard()"><span class="wa-icon">📂</span> Open File — Upload Data</button>
-        <button class="wa-btn" style="background:rgba(45,212,160,0.12);border:1.5px solid rgba(45,212,160,0.45);color:var(--teal);font-weight:700;box-shadow:0 0 18px rgba(45,212,160,0.12)" onclick="loadSampleDataset()" onmouseenter="this.style.boxShadow='0 0 28px rgba(45,212,160,0.25)'" onmouseleave="this.style.boxShadow='0 0 18px rgba(45,212,160,0.12)'"><span class="wa-icon">⚡</span> Try Sample Dataset — instant demo</button>
+        <button class="wa-btn" style="background:rgba(45,212,160,0.08);border:1px solid rgba(45,212,160,0.25);color:var(--teal);" onclick="loadSampleDataset()"><span class="wa-icon">⚡</span> Try Sample Dataset</button>
       </div>
       <div style="margin-top:12px;font-size:12px;color:var(--text3);">
         New here? Hit <strong style="color:var(--teal)">Try Sample Dataset</strong> for an instant demo — no file needed.
-      </div>
-      <div style="display:flex;align-items:center;gap:0;margin:16px 0 20px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 20px;max-width:480px;width:100%">
-        <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px">
-          <div style="width:30px;height:30px;background:var(--teal);color:#0f1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">1</div>
-          <div style="font-size:12px;font-weight:600;color:var(--text)">Upload</div>
-          <div style="font-size:10px;color:var(--text3)">CSV · Excel</div>
-        </div>
-        <div style="color:var(--border2);font-size:18px;padding:0 10px">→</div>
-        <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px">
-          <div style="width:30px;height:30px;background:rgba(79,124,255,0.15);border:1.5px solid rgba(79,124,255,0.4);color:#7fa8ff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">2</div>
-          <div style="font-size:12px;font-weight:600;color:var(--text)">Pick Analysis</div>
-          <div style="font-size:10px;color:var(--text3)">43 tools</div>
-        </div>
-        <div style="color:var(--border2);font-size:18px;padding:0 10px">→</div>
-        <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px">
-          <div style="width:30px;height:30px;background:rgba(240,180,41,0.12);border:1.5px solid rgba(240,180,41,0.3);color:var(--amber);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">3</div>
-          <div style="font-size:12px;font-weight:600;color:var(--text)">Results</div>
-          <div style="font-size:10px;color:var(--text3)">Charts · Cpk · PDF</div>
-        </div>
       </div>
       <div class="feature-grid">
         <div class="feat-card" onclick="openFileWizard();setTimeout(()=>switchAnalysis('normality'),500)"><div class="feat-icon">⚗️</div><div class="feat-title">Normality Testing</div><div class="feat-desc">Shapiro-Wilk, Anderson-Darling, Ryan-Joiner</div></div>
@@ -1956,13 +1935,8 @@ async function checkHealth(){
   try{const r=await fetch(`${API}/health`);setStatus(r.ok?'ok':'err',r.ok?'API connected':'API offline');}
   catch{setStatus('err','API offline');}
 }
-function setStatus(s,t){
-  const dot=document.getElementById('status-dot');
-  const txt=document.getElementById('status-text');
-  if(dot){dot.className=`api-dot ${s}`;dot.style.opacity='1';}
-  if(txt){txt.textContent=t;txt.style.opacity='1';}
-}
-setTimeout(checkHealth,3000);setInterval(checkHealth,20000);
+function setStatus(s,t){document.getElementById('status-dot').className=`api-dot ${s}`;document.getElementById('status-text').textContent=t;}
+checkHealth();setInterval(checkHealth,15000);
 
 // ── Open File Wizard ──────────────────────────────────────────────────────────
 function openFileWizard(){
@@ -2059,20 +2033,15 @@ function finalizeOpen(){
 }
 
 function distributeFileToSessions(file){
+  // Set the file on all upload inputs across sessions
+  const inputs = ['spc-file-input','cap-file-input','norm-file-input','hyp-file-input',
+    'pareto-file-input','sixpack-file-input','reg-file-input','trans-file-input',
+    'mv-file-input','tol-file-input'];
+  // We can't programmatically set file inputs for security, but we store globally
+  // and auto-load when user switches to each session
   globalFile = file;
-  // Assign to ALL tool file variables — upload once, analyze everywhere
-  if(typeof spcFile !== 'undefined')      spcFile     = file;
-  if(typeof capFile !== 'undefined')      capFile     = file;
-  if(typeof normFile !== 'undefined')     normFile    = file;
-  if(typeof hypFile !== 'undefined')      hypFile     = file;
-  if(typeof transFile !== 'undefined')    transFile   = file;
-  if(typeof regFile !== 'undefined')      regFile     = file;
-  if(typeof tolFile !== 'undefined')      tolFile     = file;
-  if(typeof sixpackFile !== 'undefined')  sixpackFile = file;
-  if(typeof mvFile !== 'undefined')       mvFile      = file;
-  if(typeof corrFile !== 'undefined')     corrFile    = file;
-  if(typeof outlFile !== 'undefined')     outlFile    = file;
-  if(typeof grrFile !== 'undefined')      grrFile     = file;
+  globalColumns = globalColumns; // already set
+  // Auto-trigger column load for normality as default first view
   setTimeout(()=>{ autoLoadGlobalFile(); }, 100);
 }
 
@@ -3175,6 +3144,29 @@ function autoPopulateCAPA(){
   updateAttachStatus();
 }
 
+function refreshCapaColumns(){
+  const sel=document.getElementById('capa-col-select');
+  if(!sel)return;
+  const file=window.globalFile||normFile||capFile||spcFile||grrFile;
+  if(!file){sel.innerHTML='<option value="">Upload a file first</option>';return;}
+  if(window.globalColumns&&window.globalColumns.length>0){
+    sel.innerHTML=window.globalColumns.map(c=>`<option value="${c.name}">${c.name} (n=${c.n}, x̅=${c.mean})</option>`).join('');
+    const cn=document.getElementById('capa-col-name');
+    if(cn&&!cn.value&&window.globalColumns[0]){cn.value=window.globalColumns[0].name;sel.value=window.globalColumns[0].name;}
+    return;
+  }
+  const fd=new FormData();fd.append('file',file);
+  sel.innerHTML='<option>Loading columns…</option>';
+  fetch(`${API}/api/v1/columns`,{method:'POST',body:fd})
+    .then(r=>r.json())
+    .then(d=>{
+      if(!d.columns||!d.columns.length){sel.innerHTML='<option value="">No numeric columns</option>';return;}
+      sel.innerHTML=d.columns.map(c=>`<option value="${c.name}">${c.name} (n=${c.n})</option>`).join('');
+      const cn=document.getElementById('capa-col-name');
+      if(cn&&!cn.value&&d.columns[0])cn.value=d.columns[0].name;
+    }).catch(()=>{sel.innerHTML='<option value="">Could not load columns</option>';});
+}
+
 function updateAttachStatus(){
   const set=(id,val,ok)=>{const el=document.getElementById(id);if(el){el.textContent=val;el.style.color=ok?'var(--green)':'var(--text3)';}};
   set('norm-attach-status',attachedNorm?'✓ attached':'—',!!attachedNorm);
@@ -3268,8 +3260,9 @@ function renderCAPA(r){
   const sevCls=sev==='Critical'?'sev-c':sev==='Major'?'sev-m':'sev-n';
   const conf=r.confidence_level||'Medium';const confCls=conf==='High'?'conf-h':'conf-m';
   const disp=r.disposition||{};
-  const dispCls=disp.recommendation==='Hold'||disp.recommendation==='Scrap'?'disp-hold':disp.recommendation==='Release'?'disp-rel':'disp-cond';
-  const dispIcon=disp.recommendation==='Hold'?'🚫':disp.recommendation==='Scrap'?'🗑':disp.recommendation==='Release'?'✅':'⚠️';
+  const dispRec=disp.recommendation||r.disposition_recommendation||'Conditional Release';
+  const dispCls=dispRec==='Hold'||dispRec==='Scrap'?'disp-hold':dispRec==='Release'?'disp-rel':'disp-cond';
+  const dispIcon=dispRec==='Hold'?'🚫':dispRec==='Scrap'?'🗑':dispRec==='Release'?'✅':'⚠️';
   const matchedRules=r._matched||[];
   const maxScore=matchedRules[0]?.score||1;
   const matchedHtml=matchedRules.length?`<div class="card" style="margin-bottom:14px"><div class="ch"><div class="ct">Auto-Detected Matches</div><div class="cs">sorted by confidence</div></div><div class="cb" style="padding:10px 14px"><div class="matches-bar">${matchedRules.map((m,i)=>{const sp=m.severity==='Critical'?'var(--red)':m.severity==='Major'?'var(--amber)':'var(--green)';const pct=Math.round((m.score/maxScore)*100);return `<div class="match-item ${i===0?'active':''}" onclick="loadMatchedRule('${m.rule_id}',this)"><span class="match-rule-id">${m.rule_id}</span><div style="flex:1"><div style="font-size:12px">${m.fault_pattern}</div><div class="score-bar-wrap" style="margin-top:3px"><div class="score-bar" style="width:${pct}%"></div></div></div><span style="font-size:11px;font-weight:600;color:${sp}">${m.severity}</span></div>`;}).join('')}</div></div></div>`:'';
@@ -3292,8 +3285,8 @@ function renderCAPA(r){
     <div class="capa-hero">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div>
-          <div style="font-size:18px;font-weight:700;margin-bottom:5px">${r.fault_pattern||r.rule_id}</div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:9px">${r.process} · ${r.parameter||''} ${r.process_context?'· '+r.process_context:''} · ${r._timestamp||''}</div>
+          <div style="font-size:18px;font-weight:700;margin-bottom:5px">${r.fault_pattern||r.rule_id||'CAPA Analysis'}</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:9px">${r.process||'General'} · ${r.parameter||r.affected_process||''} ${r.process_context?'· '+r.process_context:''} ${r._timestamp?'· '+r._timestamp:''}</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <span class="severity-badge ${sevCls}">${sev}</span>
             <span class="conf-badge ${confCls}">${conf} Confidence</span>
@@ -3306,7 +3299,7 @@ function renderCAPA(r){
     </div>
     ${mHtml?`<div class="metrics-grid">${mHtml}</div>`:''}
     <div class="disp-card ${dispCls}">
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px">${dispIcon} Disposition: ${disp.recommendation||'TBD'}</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">${dispIcon} Disposition: ${dispRec}</div>
       <div style="font-size:13px;color:var(--text2);margin-bottom:4px">${disp.rationale||''}</div>
       ${disp.containment?`<div style="font-size:12px;color:var(--text3)"><strong style="color:var(--text2)">Containment:</strong> ${disp.containment}</div>`:''}
     </div>
@@ -3403,7 +3396,8 @@ function renderCap(r){
       <div class="ic cap-idx-card" data-metric="σ" data-val="${r.sigma_level.toFixed(2)}" style="cursor:help;" title="Hover for sigma level interpretation"><div class="in">σ Level</div><div class="iv">${r.sigma_level.toFixed(2)}σ</div></div>
     </div>
     <div id="cap-ci-banner" style="display:none;margin-bottom:12px"></div>
-    <div class="card"><div class="ch"><div class="ct">Capability Histogram</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button></div></div><div class="cb"><div class="chart-half"><canvas id="cap-hist"></canvas></div></div></div>
+    <div class="card"><div class="ch"><div class="ct">Capability Histogram</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button>
+          <button id="ai-narrative-btn" onclick="generateAINarrative()" style="background:linear-gradient(135deg,rgba(45,212,160,0.15),rgba(79,124,255,0.15));border:1px solid rgba(45,212,160,0.4);color:var(--teal);padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px" title="StatMind Intelligence Engine — Bayesian diagnosis + 8D report">🧠 Intelligence Report</button></div></div><div class="cb"><div class="chart-half"><canvas id="cap-hist"></canvas></div></div></div>
     <div class="card"><div class="ch"><div class="ct">Analysis Notes</div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
   `);
 // ── Corrected Chart Initialization with Zoom & Modal ──────────────────────
@@ -3469,6 +3463,8 @@ setupUpload('norm-upload','norm-file-input','norm-upload-title',f=>{
 document.getElementById('run-norm-btn').addEventListener('click',async()=>{
   if(!normFile)return;
   const alpha=parseFloat(document.getElementById('alpha-select').value);
+  if(!normFile&&!globalFile){showToast('⚠ Upload a file first — use Open File or Try Sample Dataset',true);return;}
+  if(!normFile)normFile=globalFile;
   const btn=document.getElementById('run-norm-btn');btn.disabled=true;btn.textContent='Analyzing…';
   showContent(loadHtml('Running normality tests…'));const fd=new FormData();fd.append('file',normFile);
   try{
@@ -5372,7 +5368,7 @@ function capaGoStep(n){
     }
   });
   if(n===2){
-    updateAttachStatus(); capaCheckPrereqs(); updateCapaUploadZone();
+    updateAttachStatus(); capaCheckPrereqs(); updateCapaUploadZone(); refreshCapaColumns();
     // Always show USL/LSL row for inline capability
     const specRow=document.getElementById('capa-cap-spec-row');
     if(specRow) specRow.style.display='grid';
@@ -5439,14 +5435,29 @@ function capaCheckPrereqs(){
 }
 
 function populateOverrideList(){
+  const selectedProc = window.capaSelectedProc || '';
   fetch(`${API}/api/v1/capa/v2/catalog`)
     .then(r=>r.json())
     .then(d=>{
       const list=document.getElementById('override-list');
       if(!list||!d.rules) return;
       list.innerHTML='';
-      d.rules.forEach(rule=>{
-        // Catalog returns rule_id + fault_pattern (not rule.id / rule.name)
+
+      // Filter: show selected process + General rules (or all if no process selected)
+      const filtered = selectedProc
+        ? d.rules.filter(r=>!r.process||r.process===selectedProc||r.process==='General')
+        : d.rules;
+
+      // Filter header
+      const hdr=document.createElement('div');
+      hdr.style.cssText='font-size:11px;color:var(--text3);margin-bottom:8px;padding:6px 10px;background:var(--bg3);border-radius:6px;line-height:1.5';
+      hdr.innerHTML=selectedProc
+        ? `🔍 Showing <strong style="color:var(--teal)">${filtered.length}</strong> rules for <strong style="color:var(--teal)">${selectedProc}</strong> + General (${d.rules.length} total). Auto-match uses all rules.`
+        : `Showing all <strong>${d.rules.length}</strong> rules. Select a process in Step 1 to filter.`;
+      list.appendChild(hdr);
+
+      const toShow = filtered.length>0 ? filtered : d.rules;
+      toShow.forEach(rule=>{
         const ruleId   = rule.rule_id   || rule.id   || '—';
         const ruleName = rule.fault_pattern || rule.name  || rule.fault || ruleId;
         const severity = rule.severity || '';

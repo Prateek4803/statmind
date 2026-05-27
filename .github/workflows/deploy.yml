@@ -8,24 +8,18 @@ on:
 
 jobs:
 
-  # ── 1. Frontend checks ────────────────────────────────────────────────────
-  frontend:
-    name: Frontend sanity
+  # ── 1. Code quality checks ────────────────────────────────────────────────
+  lint:
+    name: Code quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: JS syntax check
-        run: |
-          node --check static/index.html 2>/dev/null || true
-          # Check braces balance
-          OPENS=$(grep -o '{' static/index.html | wc -l)
-          CLOSES=$(grep -o '}' static/index.html | wc -l)
-          echo "Braces: { $OPENS } $CLOSES"
-
       - name: Check no personal paths in codebase
         run: |
-          if grep -r "C:\\\\Users\\\\ASUS" . --include="*.py" --include="*.html" --include="*.md" 2>/dev/null | grep -v ".git"; then
+          if grep -rn "C:\\\\Users\\\\ASUS" . \
+            --include="*.py" --include="*.html" --include="*.md" \
+            --include="*.yml" --include="*.yaml" 2>/dev/null | grep -v ".git"; then
             echo "ERROR: Personal Windows path found in codebase"
             exit 1
           fi
@@ -33,11 +27,19 @@ jobs:
 
       - name: Check no dead sprint files
         run: |
-          if ls main_sprint*.py 2>/dev/null; then
-            echo "ERROR: Sprint artifacts still in repo"
+          if ls main_sprint*.py main_gapfill*.py 2>/dev/null; then
+            echo "ERROR: Sprint artifacts still in repo — delete them"
             exit 1
           fi
           echo "✓ No dead sprint files"
+
+      - name: Check no binary blobs in repo
+        run: |
+          if ls *.zip *.tar *.tar.gz 2>/dev/null; then
+            echo "ERROR: Binary blobs found — add to .gitignore and remove"
+            exit 1
+          fi
+          echo "✓ No binary blobs"
 
   # ── 2. Python statistical engine tests ───────────────────────────────────
   tests:
@@ -53,21 +55,21 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest pytest-asyncio
+        run: pip install -r requirements.txt pytest pytest-asyncio httpx
+
+      - name: Syntax check — all engine files
+        run: |
+          for f in capability.py normality.py gauge_rr.py control_charts.py \
+                   email_capture.py main.py; do
+            if [ -f "$f" ]; then
+              python -m py_compile "$f" && echo "✓ $f" || exit 1
+            fi
+          done
 
       - name: Run statistical engine tests
         run: |
           cd tests
-          python -m pytest test_statistical_engines.py -v --tb=short 2>&1 | tail -20
-
-      - name: Check all engine files syntax
-        run: |
-          python -m py_compile capability.py
-          python -m py_compile normality.py
-          python -m py_compile gauge_rr.py
-          python -m py_compile control_charts.py
-          python -m py_compile main.py
-          echo "✓ All Python files syntax valid"
+          python -m pytest test_statistical_engines.py -v --tb=short 2>&1 | tail -30
 
   # ── 3. API route coverage check ──────────────────────────────────────────
   api_routes:
@@ -89,48 +91,56 @@ jobs:
             "/api/v1/pca/analyze"
             "/api/v1/regression/logistic"
             "/api/v1/attribute-charts/p"
+            "/api/v1/email/capture"
             "/api/v1/health"
           )
           for route in "${REQUIRED[@]}"; do
             if ! grep -q "\"$route\"" main.py; then
-              echo "MISSING endpoint: $route"
+              echo "✗ MISSING endpoint: $route"
               exit 1
             fi
             echo "✓ $route"
           done
 
-  # ── 4. Docker build check ─────────────────────────────────────────────────
+  # ── 4. Docker build + smoke test ─────────────────────────────────────────
   docker_build:
     name: Docker build
     runs-on: ubuntu-latest
-    needs: [frontend, tests]
+    needs: [lint, tests]
     steps:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
         run: |
           docker build -t statmind:ci-${{ github.sha }} .
-          echo "✓ Docker image built successfully"
+          echo "✓ Docker image built"
 
-      - name: Quick smoke test
+      - name: Smoke test — health endpoint
         run: |
-          docker run -d --name statmind-test -p 8000:8000 statmind:ci-${{ github.sha }}
-          echo "=== Container started, waiting 40s for gunicorn ==="
-          sleep 40
-          echo "=== CONTAINER LOGS START ==="
-          docker logs statmind-test 2>&1 || true
-          echo "=== CONTAINER LOGS END ==="
-          echo "=== Checking health ==="
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/health || echo "000")
-          echo "HTTP response code: $HTTP_CODE"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "FAILED: health check returned $HTTP_CODE"
-            exit 1
-          fi
-          echo "✓ Health check passed"
-          docker stop statmind-test
+          docker run -d --name statmind-test \
+            -p 8000:8000 \
+            -e ENV=ci \
+            statmind:ci-${{ github.sha }}
 
-  # ── 5. Deploy to EC2 (only on main branch push, not PRs) ─────────────────
+          echo "Waiting for gunicorn to start (max 60s)..."
+          for i in $(seq 1 12); do
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+              http://localhost:8000/api/v1/health 2>/dev/null || echo "000")
+            echo "  Attempt $i/12 — HTTP $HTTP"
+            if [ "$HTTP" = "200" ]; then
+              echo "✓ Health check passed"
+              docker stop statmind-test
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "✗ Health check failed after 60s"
+          docker logs statmind-test --tail 40
+          docker stop statmind-test 2>/dev/null || true
+          exit 1
+
+  # ── 5. Deploy to EC2 — main branch pushes only ───────────────────────────
   deploy:
     name: Deploy to AWS EC2
     runs-on: ubuntu-latest
@@ -147,34 +157,37 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           timeout: 300s
           script: |
-            echo "=== Deploying StatMind $(date) ==="
+            echo "=== StatMind deploy started — $(date) ==="
 
-            # Fix ownership so git pull always works
+            # Fix ownership so git pull never fails
             sudo chown -R ec2-user:ec2-user /opt/statmind
 
             cd /opt/statmind
             git pull origin main
 
+            # Rebuild with new code
             docker build -t statmind:latest .
 
-            # Stop old container cleanly before restarting service
+            # Graceful container replacement
             docker stop statmind 2>/dev/null || true
-            docker rm statmind 2>/dev/null || true
+            docker rm   statmind 2>/dev/null || true
 
             sudo systemctl restart statmind
 
-            echo "=== Waiting for app to be healthy (max 120s) ==="
+            # Wait up to 120s for healthy response
+            echo "Waiting for app to be healthy..."
             for i in $(seq 1 24); do
-              HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/health 2>/dev/null || echo "000")
+              HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+                http://localhost:8000/api/v1/health 2>/dev/null || echo "000")
               echo "  Attempt $i/24 — HTTP $HTTP"
               if [ "$HTTP" = "200" ]; then
-                echo "✓ StatMind is healthy"
+                echo "✓ StatMind is healthy — deploy complete"
                 exit 0
               fi
               sleep 5
             done
 
-            echo "✗ App failed to become healthy in 120s"
+            echo "✗ Deploy failed — app not healthy after 120s"
             docker logs statmind --tail 50 2>/dev/null || true
             exit 1
 
@@ -185,11 +198,12 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/health)
+            HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+              http://localhost:8000/api/v1/health)
             if [ "$HTTP" = "200" ]; then
-              echo "✓ Deployment verified — StatMind is live"
+              echo "✓ Deployment verified — https://www.statmind.tech is live"
             else
-              echo "✗ Deployment verification failed (HTTP $HTTP)"
+              echo "✗ Verification failed (HTTP $HTTP)"
               docker logs statmind --tail 30 2>/dev/null || true
               exit 1
             fi

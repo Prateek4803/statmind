@@ -85,6 +85,16 @@ def _validate_upload(file: UploadFile) -> None:
     if ext in _BLOCKED_EXT:
         raise HTTPException(400, f"File type '.{ext}' is not allowed.")
 
+# ── ADD THIS RIGHT HERE ───────────────────────────────────────────────────────
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+
+async def _read_upload(file: UploadFile) -> bytes:
+    """Read upload content with size limit enforcement."""
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File exceeds 50 MB limit.")
+    return content
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _sanitize_text(text: str, max_len: int = 5000) -> str:
     """
@@ -401,6 +411,44 @@ async def download_report(report_id: str):
         path, media_type="application/pdf",
         filename=f"statmind_report_{report_id}.pdf",
     )
+# ── Email capture — paste this block right after the download_report endpoint ──
+# (After line 403 in main.py, before "# ── Session 3 Endpoints")
+
+@app.post("/api/v1/email/capture")
+async def capture_email(request: Request):
+    """
+    Called by the frontend before the first PDF download.
+    Stores email in SQLite. Idempotent — same email twice returns saved:True.
+    """
+    try:
+        body  = await request.json()
+        email = body.get("email", "").strip()
+        source = body.get("source", "pdf_download")
+    except Exception:
+        raise HTTPException(400, "Invalid JSON body")
+
+    from email_capture import save_email, validate_email
+    if not validate_email(email):
+        raise HTTPException(422, "Invalid email address")
+
+    result = save_email(email, source)
+    return jd(result)
+
+
+@app.get("/api/v1/admin/emails")
+async def list_emails(secret: str = Query(...)):
+    """
+    Admin endpoint — returns all captured emails.
+    Protected by a secret query param (set ADMIN_SECRET env var on EC2).
+    Usage: GET /api/v1/admin/emails?secret=YOUR_SECRET
+    """
+    expected = os.getenv("ADMIN_SECRET", "")
+    if not expected or secret != expected:
+        raise HTTPException(403, "Forbidden")
+
+    from email_capture import get_all_emails
+    emails = get_all_emails()
+    return jd({"count": len(emails), "emails": emails})
 
 # ── Session 3 Endpoints: Ghost features made real ────────────────────────────
 

@@ -1114,3 +1114,26 @@ async def rsm_analyze(request: Request):
         raise
     except Exception as e:
         raise HTTPException(400, str(e))
+ 
+@app.post("/api/v1/email/capture") 
+async def email_capture(request: Request): 
+    b = await request.json() 
+    email = b.get("email", "").strip() 
+    if not email or "@" not in email: 
+        raise HTTPException(400, "Valid email required.") 
+ 
+@app.post("/api/v1/email/capture") 
+async def email_capture(request: Request): 
+    b = await request.json() 
+    email = b.get("email", "").strip() 
+    if not email or "@" not in email: 
+        raise HTTPException(400, "Valid email required.") 
+    return jd({"success": True, "message": "Email captured.", "email": email}) 
+ 
+@app.post("/api/v1/email/capture") 
+async def email_capture(request: Request): 
+    b = await request.json() 
+    email = b.get("email", "").strip() 
+    if not email or "@" not in email: 
+        raise HTTPException(400, "Valid email required.") 
+    return jd({"success": True, "message": "Email captured.", "email": email}) 

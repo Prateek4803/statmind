@@ -772,7 +772,6 @@ if __name__ == "__main__":
     print(f"  API docs:      http://localhost:{PORT}/api/docs")
     print(f"  Sessions:      1-Normality 2-Capability 3-SPC 4-GRR 5-CAPA 6-PDF\n")
     uvicorn.run("main:app", host="0.0.0.0", port=PORT, reload=False)
-404: Not Found404: Not Found
 # ── Phase 2 Extensions ─────────────────────────────────────────────────────────
 
 @app.post("/api/v1/capability/ci")

@@ -115,7 +115,7 @@ jobs:
       - name: Quick smoke test
         run: |
           docker run -d --name statmind-test -p 8000:8000 statmind:ci-${{ github.sha }}
-          sleep 15
+          sleep 25
           # Health check
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/health)
           if [ "$HTTP_CODE" != "200" ]; then

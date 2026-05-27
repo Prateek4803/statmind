@@ -29,7 +29,7 @@ from capa_rules_engine import (                         # R2: expanded CAPA
 from pdf_report import generate_report
 
 # ── App ───────────────────────────────────────────────────────────────────────
-PORT    = int(os.getenv("PORT", 8010))
+PORT    = int(os.getenv("PORT", 8000))
 ENV     = os.getenv("ENV", "development")
 ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 

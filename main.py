@@ -19,7 +19,7 @@ from slowapi.errors import RateLimitExceeded
 from file_parser    import parse_any_file               # R1: universal parser
 from normality      import analyze_column
 from capability     import analyze_capability
-from control_charts import analyze_control_chart
+from control_charts import auto_select_and_build as analyze_control_chart
 from gauge_rr       import analyze_gauge_rr, parse_grr_csv
 from capa_rules_engine import (                         # R2: expanded CAPA
     run_capa_engine, run_capa_engine_v2,

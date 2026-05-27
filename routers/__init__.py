@@ -1,1 +1,0 @@
-# StatMind routers package

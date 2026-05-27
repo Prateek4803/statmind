@@ -138,6 +138,7 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
+@app.get("/api/v1/health")
 @app.get("/health")
 def health():
     return {

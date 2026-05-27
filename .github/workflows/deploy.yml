@@ -115,15 +115,19 @@ jobs:
       - name: Quick smoke test
         run: |
           docker run -d --name statmind-test -p 8000:8000 statmind:ci-${{ github.sha }}
-          sleep 25
-          # Health check
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/health)
+          echo "=== Container started, waiting 40s for gunicorn ==="
+          sleep 40
+          echo "=== CONTAINER LOGS START ==="
+          docker logs statmind-test 2>&1 || true
+          echo "=== CONTAINER LOGS END ==="
+          echo "=== Checking health ==="
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/health || echo "000")
+          echo "HTTP response code: $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "Health check failed: HTTP $HTTP_CODE"
-            docker logs statmind-test
+            echo "FAILED: health check returned $HTTP_CODE"
             exit 1
           fi
-          echo "✓ Health check passed (HTTP $HTTP_CODE)"
+          echo "✓ Health check passed"
           docker stop statmind-test
 
   # ── 5. Deploy to EC2 (only on main branch push, not PRs) ─────────────────

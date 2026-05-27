@@ -147,9 +147,12 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           timeout: 300s
           script: |
-            cd /opt/statmind
             echo "=== Deploying StatMind $(date) ==="
 
+            # Fix ownership so git pull always works
+            sudo chown -R ec2-user:ec2-user /opt/statmind
+
+            cd /opt/statmind
             git pull origin main
 
             docker build -t statmind:latest .
@@ -158,7 +161,7 @@ jobs:
             docker stop statmind 2>/dev/null || true
             docker rm statmind 2>/dev/null || true
 
-            systemctl restart statmind
+            sudo systemctl restart statmind
 
             echo "=== Waiting for app to be healthy (max 120s) ==="
             for i in $(seq 1 24); do

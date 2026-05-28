@@ -755,7 +755,7 @@ textarea{resize:vertical;min-height:52px;}
   <div class="nav-right">
     <a href="/" style="font-size:11px;color:var(--text3);padding:4px 10px;border-radius:6px;border:1px solid var(--border);transition:all .15s;text-decoration:none;" onmouseover="this.style.color='var(--text2)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--text3)';this.style.borderColor='var(--border)'">← Home</a>
     <div class="api-dot checking" id="status-dot" style="display:none"></div>
-    <span class="api-label" id="status-text" style="display:none">Checking…</span>
+    <span class="api-label" id="status-text" style="display:none"></span>
   </div>
 </nav>
 
@@ -811,7 +811,7 @@ textarea{resize:vertical;min-height:52px;}
     <!-- API status -->
     <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:11px;color:var(--text3)">
       <div class="api-dot checking" id="mob-status-dot" style="display:none"></div>
-      <span id="mob-status-text" style="display:none">Checking API…</span>
+      <span id="mob-status-text" style="display:none"></span>
     </div>
   </div>
 </div>
@@ -7831,5 +7831,6 @@ function _smShowEmailModal(downloadUrl, filename) {
 <script src="/static/ui_patch_v2.js"></script>
 <script src="/static/auth_persistence.js"></script>
 <script src="/static/session_persistence.js"></script>
+<script src="/static/onboarding_patch.js"></script>
 </body>
 </html>

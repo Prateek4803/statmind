@@ -13,3 +13,5 @@ pingouin>=0.5.4
 slowapi==0.1.9
 sqlalchemy>=2.0.0
 httpx>=0.27.0
+
+python-jose[cryptography]>=3.3.0

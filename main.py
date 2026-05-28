@@ -33,6 +33,7 @@ import threading
 
 import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
+from auth import auth_router
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -106,6 +107,8 @@ if _db_url and _db_url not in ("", "sqlite:///./statmind_dev.db"):
         logging.info("MES router loaded")
     except Exception as _mes_err:
         logging.warning(f"MES router not loaded: {_mes_err}")
+
+app.include_router(auth_router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

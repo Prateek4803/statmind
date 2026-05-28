@@ -18,7 +18,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from jose import jwt, JWTError
@@ -193,7 +193,7 @@ async def send_magic_link_email(email: str, token: str):
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @auth_router.post('/magic-link')
-async def send_magic_link(body: MagicLinkRequest):
+async def send_magic_link(body: MagicLinkRequest, background_tasks: BackgroundTasks):
     """Send a magic link to the user's email."""
     email = body.email.strip().lower()
     if not email or '@' not in email:
@@ -221,7 +221,8 @@ async def send_magic_link(body: MagicLinkRequest):
         db.close()
 
     # Send email
-    sent = await send_magic_link_email(email, raw_token)
+    background_tasks.add_task(send_magic_link_email, email, raw_token)
+    sent = True
 
     if not sent and RESEND_API_KEY:
         raise HTTPException(500, 'Failed to send email. Please try again.')

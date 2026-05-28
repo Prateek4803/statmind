@@ -27,7 +27,7 @@ from jose import jwt, JWTError
 JWT_SECRET      = os.environ.get('JWT_SECRET', secrets.token_hex(32))
 JWT_ALGORITHM   = 'HS256'
 JWT_EXPIRE_MINS = int(os.environ.get('JWT_EXPIRE_MINUTES', 10080))  # 7 days
-RESEND_API_KEY  = os.environ.get('RESEND_API_KEY', '')
+RESEND_API_KEY  = ''  # loaded dynamically in send_magic_link_email()
 APP_URL         = os.environ.get('APP_URL', 'https://statmind.tech')
 FROM_EMAIL      = 'StatMind <hello@statmind.tech>'
 MAGIC_EXPIRE_MINS = 15
@@ -126,6 +126,7 @@ async def require_auth(
 async def send_magic_link_email(email: str, token: str):
     link = f'{APP_URL}/app?auth_token={token}&email={email}'
 
+    RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
     if not RESEND_API_KEY:
         # Dev mode — print link to console
         print(f'\n[AUTH DEV MODE] Magic link for {email}:\n{link}\n')

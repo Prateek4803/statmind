@@ -34,6 +34,7 @@ import threading
 import numpy as np
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
 from auth import auth_router
+from ppap_generator import ppap_router
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -109,6 +110,7 @@ if _db_url and _db_url not in ("", "sqlite:///./statmind_dev.db"):
         logging.warning(f"MES router not loaded: {_mes_err}")
 
 app.include_router(auth_router)
+app.include_router(ppap_router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -769,6 +771,308 @@ async def serve_terms():
     return _serve_static_html("terms.html")
 
 # ── Dev runner ─────────────────────────────────────────────────────────────────
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SESSION 4 — REAL BACKENDS FOR STUB FEATURES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── 1. Weibull / Reliability Analysis ─────────────────────────────────────────
+@app.post("/api/v1/weibull/analyze")
+async def weibull_analyze(file: UploadFile = File(...), column: str = Form(...),
+                           censored_col: str = Form(""), confidence: float = Form(0.95)):
+    try:
+        contents = await file.read()
+        df = _parse_upload(contents, file.filename)
+        data = pd.to_numeric(df[column], errors="coerce").dropna().values
+        data = data[data > 0]
+        if len(data) < 3:
+            raise HTTPException(400, "Need at least 3 positive failure times for Weibull analysis")
+
+        from scipy.stats import weibull_min
+        from scipy.optimize import minimize
+
+        # MLE fit
+        shape, loc, scale = weibull_min.fit(data, floc=0)
+        beta  = float(shape)   # shape (Weibull modulus)
+        eta   = float(scale)   # characteristic life (63.2% failure point)
+
+        # Reliability at key time points
+        t_points = [float(np.percentile(data, p)) for p in [10, 25, 50, 75, 90]]
+        reliability = [float(np.exp(-(t/eta)**beta)) for t in t_points]
+
+        # B10, B50 life (time at 10%, 50% failure)
+        b10 = float(eta * (-np.log(0.90)) ** (1/beta))
+        b50 = float(eta * (-np.log(0.50)) ** (1/beta))
+        mttf = float(eta * float(__import__('math').gamma(1 + 1/beta)))
+
+        # Verdict
+        if beta < 1:
+            failure_mode = "Infant mortality / early failures (decreasing hazard rate)"
+        elif beta < 1.5:
+            failure_mode = "Random failures (near-constant hazard rate)"
+        else:
+            failure_mode = "Wear-out failures (increasing hazard rate)"
+
+        n = len(data)
+        # Probability plot data (median ranks)
+        sorted_data = np.sort(data)
+        median_ranks = [(i - 0.3) / (n + 0.4) for i in range(1, n + 1)]
+
+        return jd({
+            "beta":  round(beta, 4),
+            "eta":   round(eta, 4),
+            "mttf":  round(mttf, 4),
+            "b10_life": round(b10, 4),
+            "b50_life": round(b50, 4),
+            "failure_mode": failure_mode,
+            "sample_size": n,
+            "reliability_curve": {
+                "times": [round(t, 4) for t in t_points],
+                "reliability": [round(r, 4) for r in reliability],
+            },
+            "probability_plot": {
+                "times": [round(float(t), 4) for t in sorted_data],
+                "cumulative_failure": [round(r, 4) for r in median_ranks],
+            },
+            "verdict": f"β={beta:.2f} — {failure_mode}",
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ── 2. PCA — Principal Component Analysis ─────────────────────────────────────
+@app.post("/api/v1/pca/analyze")
+async def pca_analyze(file: UploadFile = File(...),
+                       columns: str = Form(...),
+                       n_components: int = Form(0),
+                       scale: bool = Form(True)):
+    try:
+        contents = await file.read()
+        df = _parse_upload(contents, file.filename)
+        cols = [c.strip() for c in columns.split(",") if c.strip() in df.columns]
+        if len(cols) < 2:
+            raise HTTPException(400, f"Need at least 2 numeric columns. Got: {cols}")
+
+        X = df[cols].apply(pd.to_numeric, errors="coerce").dropna()
+        if len(X) < len(cols) + 1:
+            raise HTTPException(400, f"Need at least {len(cols)+1} complete rows")
+
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.decomposition import PCA
+
+        if scale:
+            X_scaled = StandardScaler().fit_transform(X)
+        else:
+            X_scaled = X.values
+
+        n_comp = min(n_components if n_components > 0 else len(cols), len(cols), len(X))
+        pca = PCA(n_components=n_comp)
+        scores = pca.fit_transform(X_scaled)
+
+        explained = pca.explained_variance_ratio_
+        cumulative = np.cumsum(explained)
+
+        # Loadings
+        loadings = {}
+        for i, col in enumerate(cols):
+            loadings[col] = [round(float(pca.components_[j][i]), 4) for j in range(n_comp)]
+
+        # How many PCs explain 80% / 90%
+        n80 = int(np.argmax(cumulative >= 0.80)) + 1
+        n90 = int(np.argmax(cumulative >= 0.90)) + 1
+
+        return jd({
+            "n_components_computed": n_comp,
+            "n_variables": len(cols),
+            "n_observations": len(X),
+            "explained_variance_ratio": [round(float(e), 4) for e in explained],
+            "cumulative_variance": [round(float(c), 4) for c in cumulative],
+            "loadings": loadings,
+            "pc_labels": [f"PC{i+1}" for i in range(n_comp)],
+            "scores_sample": scores[:min(50, len(scores))].tolist(),
+            "components_for_80pct": n80,
+            "components_for_90pct": n90,
+            "verdict": f"{n80} component{'s' if n80>1 else ''} explain 80% of variance in {len(cols)} variables",
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ── 3. Logistic Regression ────────────────────────────────────────────────────
+@app.post("/api/v1/logistic/analyze")
+async def logistic_analyze(file: UploadFile = File(...),
+                            response: str = Form(...),
+                            predictors: str = Form(...)):
+    try:
+        contents = await file.read()
+        df = _parse_upload(contents, file.filename)
+        pred_cols = [c.strip() for c in predictors.split(",") if c.strip() in df.columns]
+        if response not in df.columns:
+            raise HTTPException(400, f"Response column '{response}' not found")
+        if not pred_cols:
+            raise HTTPException(400, "No valid predictor columns found")
+
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.metrics import (classification_report, roc_auc_score,
+                                      confusion_matrix, accuracy_score)
+        from sklearn.preprocessing import LabelEncoder
+
+        sub = df[[response] + pred_cols].apply(pd.to_numeric, errors="coerce").dropna()
+        if len(sub) < 10:
+            raise HTTPException(400, "Need at least 10 complete rows")
+
+        y = sub[response].values
+        X = sub[pred_cols].values
+        unique = np.unique(y)
+        if len(unique) < 2:
+            raise HTTPException(400, "Response must have at least 2 unique values")
+
+        model = LogisticRegression(max_iter=1000, random_state=42)
+        model.fit(X, y)
+
+        y_pred = model.predict(X)
+        y_prob = model.predict_proba(X)[:, 1] if len(unique) == 2 else None
+
+        acc = float(accuracy_score(y, y_pred))
+        auc = float(roc_auc_score(y, y_prob)) if y_prob is not None else None
+        cm  = confusion_matrix(y, y_pred).tolist()
+
+        coefs = {pred_cols[i]: round(float(model.coef_[0][i]), 4)
+                 for i in range(len(pred_cols))}
+        odds  = {k: round(float(np.exp(v)), 4) for k, v in coefs.items()}
+
+        return jd({
+            "accuracy": round(acc, 4),
+            "auc_roc":  round(auc, 4) if auc else None,
+            "confusion_matrix": cm,
+            "coefficients": coefs,
+            "odds_ratios": odds,
+            "intercept": round(float(model.intercept_[0]), 4),
+            "n_observations": len(sub),
+            "classes": [str(c) for c in unique],
+            "predictors": pred_cols,
+            "verdict": f"Model accuracy: {acc*100:.1f}%" + (f" | AUC: {auc:.3f}" if auc else ""),
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ── 4. Box Plot / Violin data endpoint ────────────────────────────────────────
+@app.post("/api/v1/boxplot/analyze")
+async def boxplot_analyze(file: UploadFile = File(...),
+                           columns: str = Form(...),
+                           group_col: str = Form("")):
+    try:
+        contents = await file.read()
+        df = _parse_upload(contents, file.filename)
+        cols = [c.strip() for c in columns.split(",") if c.strip() in df.columns]
+        if not cols:
+            raise HTTPException(400, "No valid columns specified")
+
+        result = {}
+        for col in cols:
+            series = pd.to_numeric(df[col], errors="coerce").dropna()
+            if len(series) < 4:
+                continue
+            q1, median, q3 = float(np.percentile(series, 25)), float(np.percentile(series, 50)), float(np.percentile(series, 75))
+            iqr = q3 - q1
+            lower_fence = q1 - 1.5 * iqr
+            upper_fence = q3 + 1.5 * iqr
+            outliers = series[(series < lower_fence) | (series > upper_fence)].tolist()
+
+            result[col] = {
+                "min":    round(float(series.min()), 4),
+                "q1":     round(q1, 4),
+                "median": round(median, 4),
+                "q3":     round(q3, 4),
+                "max":    round(float(series.max()), 4),
+                "mean":   round(float(series.mean()), 4),
+                "std":    round(float(series.std()), 4),
+                "iqr":    round(iqr, 4),
+                "lower_fence": round(lower_fence, 4),
+                "upper_fence": round(upper_fence, 4),
+                "outliers": [round(float(o), 4) for o in outliers[:20]],
+                "n_outliers": len(outliers),
+                "n": len(series),
+                "violin_data": series.sample(min(200, len(series)), random_state=42).sort_values().tolist(),
+            }
+
+        return jd({"columns": result, "n_columns": len(result)})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ── 5. MSA Linearity & Bias ───────────────────────────────────────────────────
+@app.post("/api/v1/msa/linearity")
+async def msa_linearity(file: UploadFile = File(...),
+                         reference_col: str = Form(...),
+                         measurement_col: str = Form(...),
+                         process_variation: float = Form(1.0)):
+    try:
+        contents = await file.read()
+        df = _parse_upload(contents, file.filename)
+        ref  = pd.to_numeric(df[reference_col], errors="coerce")
+        meas = pd.to_numeric(df[measurement_col], errors="coerce")
+        mask = ref.notna() & meas.notna()
+        ref, meas = ref[mask].values, meas[mask].values
+
+        if len(ref) < 5:
+            raise HTTPException(400, "Need at least 5 data points for linearity analysis")
+
+        bias = meas - ref
+        from scipy import stats
+
+        slope, intercept, r, p, se = stats.linregress(ref, bias)
+        mean_bias = float(np.mean(bias))
+        bias_pct  = float(mean_bias / process_variation * 100)
+
+        # Linearity = |slope| * process_variation
+        linearity = float(abs(slope) * process_variation)
+        linearity_pct = float(linearity / process_variation * 100)
+
+        # Per reference value stats
+        ref_unique = sorted(set(ref))
+        per_ref = {}
+        for rv in ref_unique:
+            mask2 = ref == rv
+            b = bias[mask2]
+            per_ref[str(round(rv, 4))] = {
+                "mean_bias": round(float(np.mean(b)), 4),
+                "std_bias":  round(float(np.std(b)), 4) if len(b) > 1 else 0,
+                "n": int(len(b)),
+            }
+
+        verdict = "Acceptable" if linearity_pct < 10 and abs(bias_pct) < 10 else "Unacceptable — recalibrate gauge"
+
+        return jd({
+            "mean_bias": round(mean_bias, 4),
+            "bias_pct_of_pv": round(bias_pct, 2),
+            "linearity": round(linearity, 4),
+            "linearity_pct_of_pv": round(linearity_pct, 2),
+            "regression_slope": round(float(slope), 4),
+            "regression_intercept": round(float(intercept), 4),
+            "r_squared": round(float(r**2), 4),
+            "p_value": round(float(p), 4),
+            "n": len(ref),
+            "per_reference_value": per_ref,
+            "process_variation": process_variation,
+            "verdict": verdict,
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     print(f"\n  StatMind v2.0  |  http://localhost:{PORT}")

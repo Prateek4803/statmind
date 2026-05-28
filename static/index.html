@@ -754,8 +754,8 @@ textarea{resize:vertical;min-height:52px;}
   <!-- Right side -->
   <div class="nav-right">
     <a href="/" style="font-size:11px;color:var(--text3);padding:4px 10px;border-radius:6px;border:1px solid var(--border);transition:all .15s;text-decoration:none;" onmouseover="this.style.color='var(--text2)';this.style.borderColor='var(--border2)'" onmouseout="this.style.color='var(--text3)';this.style.borderColor='var(--border)'">← Home</a>
-    <div class="api-dot checking" id="status-dot"></div>
-    <span class="api-label" id="status-text">Checking…</span>
+    <div class="api-dot checking" id="status-dot" style="display:none"></div>
+    <span class="api-label" id="status-text" style="display:none">Checking…</span>
   </div>
 </nav>
 
@@ -810,8 +810,8 @@ textarea{resize:vertical;min-height:52px;}
     <div class="mob-nav-sep"></div>
     <!-- API status -->
     <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:11px;color:var(--text3)">
-      <div class="api-dot checking" id="mob-status-dot"></div>
-      <span id="mob-status-text">Checking API…</span>
+      <div class="api-dot checking" id="mob-status-dot" style="display:none"></div>
+      <span id="mob-status-text" style="display:none">Checking API…</span>
     </div>
   </div>
 </div>

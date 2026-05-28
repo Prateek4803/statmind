@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Terms of Service — StatMind</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ── Design tokens matching StatMind exactly ─────────── */
+:root{
+  --bg:        #0b0d14;
+  --bg2:       #111420;
+  --bg3:       #171a26;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --text:      #e8eaf0;
+  --muted:     #8b8fa8;
+  --muted2:    #6b6f84;
+  --accent:    #6366f1;
+  --accent-h:  #818cf8;
+  --accent-bg: rgba(99,102,241,0.08);
+  --accent-border: rgba(99,102,241,0.2);
+  --green:     #10b981;
+  --green-bg:  rgba(16,185,129,0.08);
+  --r:         8px;
+  --r-lg:      12px;
+  --r-xl:      16px;
+  --font: -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+}
+
+html{font-size:16px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.65;min-height:100vh}
+
+/* ── Scrollbar ───────────────────────────────────────── */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── Nav ─────────────────────────────────────────────── */
+nav{
+  position:sticky;top:0;z-index:200;
+  height:56px;padding:0 24px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(11,13,20,0.85);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border-bottom:1px solid var(--border);
+}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--text);font-size:15px;font-weight:600;letter-spacing:-0.02em}
+.logo-mark{
+  width:28px;height:28px;border-radius:7px;
+  background:linear-gradient(135deg,#6366f1 0%,#818cf8 100%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:#fff;
+  box-shadow:0 2px 8px rgba(99,102,241,0.3);
+}
+.nav-back{
+  display:flex;align-items:center;gap:6px;
+  text-decoration:none;color:var(--muted);font-size:13px;
+  padding:6px 12px;border-radius:6px;border:1px solid var(--border);
+  transition:color .15s,border-color .15s,background .15s;
+}
+.nav-back:hover{color:var(--text);border-color:var(--border2);background:var(--bg3)}
+.nav-back svg{opacity:.7}
+
+/* ── Hero ────────────────────────────────────────────── */
+.hero{
+  padding:72px 24px 52px;
+  text-align:center;
+  border-bottom:1px solid var(--border);
+  position:relative;
+  overflow:hidden;
+}
+.hero::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(99,102,241,0.07) 0%,transparent 70%);
+  pointer-events:none;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--accent-bg);color:var(--accent-h);
+  border:1px solid var(--accent-border);
+  border-radius:99px;padding:4px 12px;
+  font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  margin-bottom:20px;
+}
+.hero-badge svg{width:12px;height:12px;flex-shrink:0}
+.hero h1{
+  font-size:clamp(28px,5vw,42px);font-weight:700;
+  color:var(--text);letter-spacing:-0.03em;line-height:1.15;
+  margin-bottom:12px;
+}
+.hero-meta{
+  color:var(--muted);font-size:13px;
+  display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
+}
+.hero-meta span{display:flex;align-items:center;gap:4px}
+.dot{width:3px;height:3px;border-radius:50%;background:var(--muted2)}
+
+/* ── Layout ──────────────────────────────────────────── */
+.layout{
+  max-width:1040px;margin:0 auto;
+  padding:48px 24px 80px;
+  display:grid;
+  grid-template-columns:220px 1fr;
+  gap:48px;
+  align-items:start;
+}
+@media(max-width:768px){
+  .layout{grid-template-columns:1fr;gap:32px}
+  .sidebar{display:none}
+}
+
+/* ── Sidebar / TOC ───────────────────────────────────── */
+.sidebar{position:sticky;top:72px}
+.toc-card{
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  padding:16px;
+  overflow:hidden;
+}
+.toc-label{
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted2);padding:0 8px;margin-bottom:8px;
+}
+.toc-link{
+  display:flex;align-items:center;gap:8px;
+  text-decoration:none;color:var(--muted);font-size:12.5px;
+  padding:6px 8px;border-radius:6px;
+  border-left:2px solid transparent;
+  transition:color .15s,background .15s,border-color .15s;
+  line-height:1.3;
+}
+.toc-link:hover{color:var(--text);background:var(--bg3);border-left-color:var(--accent)}
+.toc-link.active{color:var(--accent-h);border-left-color:var(--accent);background:var(--accent-bg)}
+.toc-num{
+  width:18px;height:18px;border-radius:4px;
+  background:var(--bg3);color:var(--muted2);
+  font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+
+/* ── Content ─────────────────────────────────────────── */
+.content section{margin-bottom:40px;scroll-margin-top:80px}
+
+.section-header{
+  display:flex;align-items:flex-start;gap:12px;
+  margin-bottom:16px;padding-bottom:14px;
+  border-bottom:1px solid var(--border);
+}
+.section-num{
+  width:28px;height:28px;border-radius:7px;flex-shrink:0;
+  background:var(--bg3);border:1px solid var(--border);
+  color:var(--accent-h);font-size:12px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;margin-top:1px;
+}
+.section-header h2{
+  font-size:17px;font-weight:600;color:var(--text);
+  letter-spacing:-0.01em;line-height:1.3;
+}
+
+p{color:var(--muted);font-size:14px;line-height:1.7;margin-bottom:10px}
+p:last-child{margin-bottom:0}
+
+ul{list-style:none;margin-bottom:10px}
+ul li{
+  font-size:14px;color:var(--muted);
+  padding:6px 0 6px 20px;position:relative;
+  border-bottom:1px solid var(--border);
+  line-height:1.6;
+}
+ul li:last-child{border-bottom:none}
+ul li::before{
+  content:'';position:absolute;left:4px;top:14px;
+  width:5px;height:5px;border-radius:50%;
+  background:var(--accent);opacity:.7;
+}
+
+/* ── Callout boxes ───────────────────────────────────── */
+.callout{
+  border-radius:var(--r-lg);padding:16px 18px;margin:14px 0;
+}
+.callout-info{
+  background:var(--accent-bg);border:1px solid var(--accent-border);
+}
+.callout-green{
+  background:var(--green-bg);border:1px solid rgba(16,185,129,0.2);
+}
+.callout-warn{
+  background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.2);
+}
+.callout-icon{
+  display:flex;align-items:flex-start;gap:12px;
+}
+.callout-icon svg{flex-shrink:0;margin-top:1px}
+.callout p{margin:0;font-size:13.5px;line-height:1.65}
+.callout strong{color:var(--text);font-weight:600}
+.callout-info p{color:var(--accent-h)}
+.callout-green p{color:#34d399}
+.callout-warn p{color:#fbbf24}
+
+/* ── Contact card ────────────────────────────────────── */
+.contact-section{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r-xl);padding:32px;
+  text-align:center;margin-top:48px;
+  position:relative;overflow:hidden;
+}
+.contact-section::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 60% at 50% 0%,rgba(99,102,241,0.05) 0%,transparent 70%);
+  pointer-events:none;
+}
+.contact-section h3{font-size:18px;font-weight:600;color:var(--text);margin-bottom:8px;letter-spacing:-0.01em}
+.contact-section p{font-size:14px;color:var(--muted);margin-bottom:20px}
+.contact-btns{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.btn-primary{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--accent);color:#fff;
+  text-decoration:none;font-size:14px;font-weight:600;
+  padding:10px 20px;border-radius:var(--r);
+  transition:background .15s,transform .1s;
+  border:none;cursor:pointer;letter-spacing:-0.01em;
+}
+.btn-primary:hover{background:var(--accent-h)}
+.btn-primary:active{transform:scale(0.98)}
+.btn-secondary{
+  display:inline-flex;align-items:center;gap:8px;
+  background:transparent;color:var(--text);
+  text-decoration:none;font-size:14px;font-weight:500;
+  padding:10px 20px;border-radius:var(--r);
+  border:1px solid var(--border2);
+  transition:background .15s,border-color .15s;
+}
+.btn-secondary:hover{background:var(--bg3);border-color:var(--accent)}
+
+/* ── Last updated bar ────────────────────────────────── */
+.last-updated{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);padding:12px 16px;margin-bottom:32px;
+  font-size:13px;color:var(--muted);
+}
+.last-updated svg{flex-shrink:0;color:var(--accent-h)}
+.last-updated strong{color:var(--text)}
+
+/* ── Footer ──────────────────────────────────────────── */
+footer{
+  border-top:1px solid var(--border);
+  padding:24px;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;
+}
+.footer-copy{font-size:12px;color:var(--muted2)}
+.footer-links{display:flex;align-items:center;gap:16px}
+.footer-links a{font-size:12px;color:var(--muted2);text-decoration:none;transition:color .15s}
+.footer-links a:hover{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- ── Nav ───────────────────────────────────────────── -->
+<nav>
+  <a class="logo" href="/">
+    <div class="logo-mark">S</div>
+    StatMind
+  </a>
+  <a class="nav-back" href="/app">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Back to App
+  </a>
+</nav>
+
+<!-- ── Hero ──────────────────────────────────────────── -->
+<div class="hero">
+  <div class="hero-badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    Legal
+  </div>
+  <h1>Terms of Service</h1>
+  <div class="hero-meta">
+    <span>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Last updated January 2025
+    </span>
+    <div class="dot"></div>
+    <span>Effective immediately</span>
+    <div class="dot"></div>
+    <span>Version 1.0</span>
+  </div>
+</div>
+
+<!-- ── Main layout ────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- Sidebar TOC -->
+  <aside class="sidebar">
+    <div class="toc-card">
+      <div class="toc-label">On this page</div>
+      <a class="toc-link" href="#acceptance"><span class="toc-num">1</span> Acceptance</a>
+      <a class="toc-link" href="#description"><span class="toc-num">2</span> Description</a>
+      <a class="toc-link" href="#data"><span class="toc-num">3</span> Your Data</a>
+      <a class="toc-link" href="#acceptable-use"><span class="toc-num">4</span> Acceptable Use</a>
+      <a class="toc-link" href="#ip"><span class="toc-num">5</span> Intellectual Property</a>
+      <a class="toc-link" href="#disclaimer"><span class="toc-num">6</span> Disclaimer</a>
+      <a class="toc-link" href="#limitation"><span class="toc-num">7</span> Limitation of Liability</a>
+      <a class="toc-link" href="#termination"><span class="toc-num">8</span> Termination</a>
+      <a class="toc-link" href="#changes"><span class="toc-num">9</span> Changes</a>
+      <a class="toc-link" href="#contact"><span class="toc-num">10</span> Contact</a>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <div class="content">
+
+    <div class="last-updated">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span>These Terms govern your use of StatMind at <strong>statmind.tech</strong>. By using the Service you agree to be bound by them.</span>
+    </div>
+
+    <section id="acceptance">
+      <div class="section-header">
+        <div class="section-num">1</div>
+        <h2>Acceptance of Terms</h2>
+      </div>
+      <p>By accessing or using StatMind ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Service.</p>
+      <p>These terms apply to all users including customers, contributors, and anyone who accesses or uses the Service.</p>
+    </section>
+
+    <section id="description">
+      <div class="section-header">
+        <div class="section-num">2</div>
+        <h2>Description of Service</h2>
+      </div>
+      <p>StatMind is a process statistics platform providing tools for manufacturing and quality engineering:</p>
+      <ul>
+        <li>Statistical process control (SPC) chart generation and alarm detection</li>
+        <li>Process capability analysis — Cp, Cpk, Pp, Ppk with confidence intervals</li>
+        <li>Gauge R&amp;R and Measurement System Analysis (MSA)</li>
+        <li>CAPA (Corrective and Preventive Action) intelligence engine</li>
+        <li>PDF report generation combining all analysis sessions</li>
+        <li>Design of Experiments (DOE) and Response Surface Methodology</li>
+      </ul>
+      <p>The Service is provided on an "as is" basis and may change without notice.</p>
+    </section>
+
+    <section id="data">
+      <div class="section-header">
+        <div class="section-num">3</div>
+        <h2>Your Data</h2>
+      </div>
+      <div class="callout callout-green">
+        <div class="callout-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <p><strong>Data privacy first.</strong> StatMind processes your uploaded files solely to perform the requested analysis. Raw measurement data is not persisted after the API response.</p>
+        </div>
+      </div>
+      <ul>
+        <li>Uploaded files are processed stateless — no data is written to a database or retained after the response</li>
+        <li>Generated PDF reports are cached temporarily (up to 1 hour) for download, then automatically deleted</li>
+        <li>We do not sell, share, or use your process data for any purpose other than delivering analysis results</li>
+        <li>You retain full ownership of any data you upload to the Service</li>
+        <li>All API communication is encrypted in transit via HTTPS/TLS</li>
+      </ul>
+      <p>For users subject to data sovereignty requirements (ITAR, EU GDPR Article 44+), please contact us about on-premises deployment options.</p>
+    </section>
+
+    <section id="acceptable-use">
+      <div class="section-header">
+        <div class="section-num">4</div>
+        <h2>Acceptable Use</h2>
+      </div>
+      <p>You agree not to use the Service to:</p>
+      <ul>
+        <li>Upload malicious files or attempt to exploit, compromise, or reverse-engineer the Service</li>
+        <li>Use automated scripts to overwhelm or degrade Service performance for other users</li>
+        <li>Upload data that violates applicable export control regulations, including ITAR-controlled technical data</li>
+        <li>Misrepresent statistical outputs or use them to make safety-critical engineering decisions without independent validation</li>
+        <li>Scrape, republish, or commercialise analysis outputs in ways that compete with StatMind</li>
+      </ul>
+      <p>StatMind reserves the right to suspend access for users who violate these terms.</p>
+    </section>
+
+    <section id="ip">
+      <div class="section-header">
+        <div class="section-num">5</div>
+        <h2>Intellectual Property</h2>
+      </div>
+      <p>The StatMind platform — including its statistical algorithms, CAPA intelligence engine, UI, and documentation — is the intellectual property of StatMind and its creators.</p>
+      <p>The statistical methods implemented (Cp, Cpk, SPC rules, GR&amp;R) are based on publicly documented industry standards including AIAG SPC 2nd Ed., AIAG MSA 4th Ed., ISO 22514, and NIST publications. These standards are referenced for correctness; they are not claimed as proprietary.</p>
+    </section>
+
+    <section id="disclaimer">
+      <div class="section-header">
+        <div class="section-num">6</div>
+        <h2>Disclaimer of Warranties</h2>
+      </div>
+      <p>StatMind is provided "as is" without warranty of any kind, express or implied. We do not warrant that the Service will be uninterrupted, error-free, or that statistical outputs are free from computational errors.</p>
+      <div class="callout callout-warn">
+        <div class="callout-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <p><strong>Regulated industries notice.</strong> If you use StatMind in regulated environments (FDA 21 CFR Part 11, IATF 16949, AS9100, ISO 13485), you are responsible for validating the software against your quality system requirements before use in production decisions. Enterprise customers can request IQ/OQ/PQ validation packages.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="limitation">
+      <div class="section-header">
+        <div class="section-num">7</div>
+        <h2>Limitation of Liability</h2>
+      </div>
+      <p>To the maximum extent permitted by applicable law, StatMind and its creators shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of or inability to use the Service.</p>
+      <p>This includes, without limitation, damages for loss of profits, data, goodwill, or other intangible losses, even if StatMind has been advised of the possibility of such damages.</p>
+    </section>
+
+    <section id="termination">
+      <div class="section-header">
+        <div class="section-num">8</div>
+        <h2>Termination</h2>
+      </div>
+      <p>We reserve the right to terminate or suspend your access to the Service at our sole discretion, without notice, for conduct that we believe violates these Terms or is harmful to other users, to us, to third parties, or to the Service itself.</p>
+      <p>Upon termination, your right to use the Service will immediately cease.</p>
+    </section>
+
+    <section id="changes">
+      <div class="section-header">
+        <div class="section-num">9</div>
+        <h2>Changes to Terms</h2>
+      </div>
+      <p>We reserve the right to modify these terms at any time. We will provide notice of significant changes by updating the "Last updated" date at the top of this page and, where possible, via in-app notice.</p>
+      <p>Your continued use of the Service after changes become effective constitutes your acceptance of the revised terms.</p>
+    </section>
+
+    <section id="contact">
+      <div class="section-header">
+        <div class="section-num">10</div>
+        <h2>Contact</h2>
+      </div>
+      <p>If you have questions about these Terms, enterprise compliance requirements, or want to discuss on-premises deployment options, please reach out:</p>
+    </section>
+
+    <div class="contact-section">
+      <h3>Questions about these terms?</h3>
+      <p>We're happy to clarify anything or discuss enterprise agreements and compliance documentation.</p>
+      <div class="contact-btns">
+        <a class="btn-primary" href="mailto:legal@statmind.tech">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          legal@statmind.tech
+        </a>
+        <a class="btn-secondary" href="/app">
+          Open App
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Footer ─────────────────────────────────────────── -->
+<footer>
+  <div class="footer-copy">© 2025 StatMind · v5.0 Public Beta</div>
+  <div class="footer-links">
+    <a href="/">Home</a>
+    <a href="/app">App</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+    <a href="mailto:hello@statmind.io">Contact</a>
+  </div>
+</footer>
+
+<script>
+/* Active TOC highlight on scroll */
+const sections=document.querySelectorAll('.content section[id]');
+const links=document.querySelectorAll('.toc-link');
+const obs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      links.forEach(l=>l.classList.remove('active'));
+      const a=document.querySelector(`.toc-link[href="#${e.target.id}"]`);
+      if(a)a.classList.add('active');
+    }
+  });
+},{rootMargin:'-20% 0px -70% 0px'});
+sections.forEach(s=>obs.observe(s));
+</script>
+
+</body>
+</html>

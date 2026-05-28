@@ -32,7 +32,7 @@ import logging
 import threading
 
 import numpy as np
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request, Form
 from auth import auth_router
 from ppap_generator import ppap_router
 from fastapi.middleware.cors import CORSMiddleware

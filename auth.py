@@ -36,7 +36,10 @@ auth_router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 security    = HTTPBearer(auto_error=False)
 
 # ── Database ──────────────────────────────────────────────────────────────────
-DB_PATH = os.path.join(os.path.dirname(__file__), 'auth.db')
+# Use /app/data if it exists (production), otherwise /tmp (CI/test)
+_data_dir = '/app/data' if os.path.isdir('/app/data') else os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(_data_dir, 'auth.db')
+os.makedirs(_data_dir, exist_ok=True)
 
 def get_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)

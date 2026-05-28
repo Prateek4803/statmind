@@ -126,6 +126,7 @@ async def require_auth(
 async def send_magic_link_email(email: str, token: str):
     link = f'{APP_URL}/app?auth_token={token}&email={email}'
 
+    RESEND_API_KEY = ''  # loaded dynamically
     RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
     if not RESEND_API_KEY:
         # Dev mode — print link to console

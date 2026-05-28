@@ -11,7 +11,7 @@ Fixes applied (audit findings P0 + P1):
   P0-STAT-3  cpk_confidence_interval() divided by zero when n<3 (variance
              formula has 1/(9n) + cpk²/(2(n-1))). Added n<5 guard.
   P0-STAT-4  _build_capa_notes() fired false positive when LSL is negative:
-             `mean - 3*sw < lsl * 1.02` → for lsl=-5 this checks < -4.9
+             `mean - 3*sw < lsl + (usl - lsl) * 0.02  # relative tolerance, safe for negative LSL` → for lsl=-5 this checks < -4.9
              which always fires. Fixed to use absolute spec-range distance.
   P0-STAT-5  analyze_capability() did not guard against zero-variance data
              before computing capability indices → ZeroDivisionError or inf.

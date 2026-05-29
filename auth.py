@@ -231,7 +231,7 @@ async def send_magic_link(body: MagicLinkRequest, background_tasks: BackgroundTa
         'success': True,
         'message': f'Magic link sent to {email}. Check your inbox.',
         'expires_in_minutes': MAGIC_EXPIRE_MINS,
-        'dev_mode': not bool(RESEND_API_KEY),
+        'dev_mode': not bool(os.environ.get('RESEND_API_KEY', '')),
     }
 
 

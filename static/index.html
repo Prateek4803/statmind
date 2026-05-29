@@ -5004,11 +5004,11 @@ function renderPareto(r){
 
 // ══ E3: CAPABILITY SIXPACK ════════════════════════════════════════════════════
 
-let sixpackFile=null, sixpackCol=null;
+let sixpackFile=null, sixpackCol=null; window.sixpackCol=null;
 
 setupUpload('sixpack-upload','sixpack-file-input','sixpack-upload-title',f=>{
   sixpackFile=f;document.getElementById('sixpack-upload-title').textContent=f.name;showToast(`📂 ${f.name}`);
-  loadCols(f,cols=>{buildColList('sixpack-col-list',cols,c=>{sixpackCol=c.name;hlt('sixpack-col-list',c.name);document.getElementById('sixpack-spec-form').style.display='flex';document.getElementById('sixpack-hint').innerHTML=`x̄=${c.mean} · σ=${c.std} · [${c.min},${c.max}]`;document.getElementById('sixpack-usl').value=(c.mean+3*c.std).toFixed(4);document.getElementById('sixpack-lsl').value=(c.mean-3*c.std).toFixed(4);});document.getElementById('sixpack-col-section').style.display='block';});
+  loadCols(f,cols=>{buildColList('sixpack-col-list',cols,c=>{sixpackCol=c.name; window.sixpackCol=c.name;hlt('sixpack-col-list',c.name);document.getElementById('sixpack-spec-form').style.display='flex';document.getElementById('sixpack-hint').innerHTML=`x̄=${c.mean} · σ=${c.std} · [${c.min},${c.max}]`;document.getElementById('sixpack-usl').value=(c.mean+3*c.std).toFixed(4);document.getElementById('sixpack-lsl').value=(c.mean-3*c.std).toFixed(4);});document.getElementById('sixpack-col-section').style.display='block';});
 });
 
 document.getElementById('run-sixpack-btn').addEventListener('click',runSixpack);
@@ -6017,10 +6017,38 @@ document.getElementById('run-twa-btn').addEventListener('click',async()=>{
       const fd=new FormData();fd.append('file',twaFile);
       const cr=await fetch(`${API}/api/v1/multivari/columns`,{method:'POST',body:fd});
       const cd=await cr.json();
-      showToast('Two-way ANOVA: upload a CSV with numeric Response + factor columns, then use the /api/v1/hypothesis/two-way-anova endpoint directly.',true);
-      showEmpty('🔢','Two-Way ANOVA','Upload a CSV with columns: Response (numeric), Factor_A (text), Factor_B (text). The backend endpoint /api/v1/hypothesis/two-way-anova accepts pre-parsed arrays.');
-    }catch(ex){showToast(ex.message,true);}
-    finally{btn.disabled=false;btn.textContent='Run Two-Way ANOVA';}
+      // Two-Way ANOVA - parse CSV and call backend
+      const reader2 = new FileReader();
+      reader2.onload = async function(ev) {
+        const text = ev.target.result;
+        const lines = text.trim().split('\n').filter(l=>l.trim());
+        const sep = lines[0].includes('\t') ? '\t' : ',';
+        const headers = lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,''));
+        const respCol = window.twaResponseCol || window.twaResp;
+        const factACol = window.twaFactorA || window.twaFactA;
+        const factBCol = window.twaFactorB || window.twaFactB;
+        if(!respCol) { showToast('Select a Response column', true); btn.disabled=false; btn.textContent='Run Two-Way ANOVA'; return; }
+        function getCol(name) {
+          const idx = headers.indexOf(name);
+          return idx===-1 ? [] : lines.slice(1).map(l=>l.split(sep)[idx]?.trim().replace(/^"|"$/g,''));
+        }
+        const data = getCol(respCol).map(Number).filter(v=>!isNaN(v));
+        const factA = factACol ? getCol(factACol) : data.map((_,i)=>`G${(i%2)+1}`);
+        const factB = factBCol ? getCol(factBCol) : data.map((_,i)=>`L${(i%3)+1}`);
+        if(!data.length) { showToast('Response column has no numeric data', true); btn.disabled=false; btn.textContent='Run Two-Way ANOVA'; return; }
+        try {
+          const r2 = await fetch(`${API}/api/v1/hypothesis/two-way-anova`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({data, factor_a:factA, factor_b:factB, name_a:factACol||'Factor A', name_b:factBCol||'Factor B', response:respCol, alpha:0.05})
+          });
+          if(!r2.ok) throw new Error((await r2.json()).detail);
+          const d = await r2.json();
+          renderTwoWayAnova(d);
+          showToast('✅ Two-Way ANOVA complete');
+        } catch(ex) { showToast(ex.message, true); showEmpty('❌', ex.message, ''); }
+        finally { btn.disabled=false; btn.textContent='Run Two-Way ANOVA'; }
+      };
+      reader2.readAsText(twaFile);}
   };
   reader.readAsText(twaFile);
 });
@@ -7833,6 +7861,53 @@ function _smShowEmailModal(downloadUrl, filename) {
 <script src="/static/auth_persistence.js"></script>
 <script src="/static/session_persistence.js"></script>
 <script src="/static/onboarding_patch.js"></script>
-<script src="/static/fix_analyses_v4.js"></script>
+<script src="/static/fix_analyses_v4.js">
+/* StatMind Fix: render function aliases */
+window.renderCorrelation = function(r) { if(typeof renderCorrMatrix==='function') renderCorrMatrix(r); };
+window.renderTwoWayAnova = function(r) {
+  destroyCharts();
+  const rows = (r.anova_table||[]).map(row =>
+    `<tr>
+      <td style="padding:6px 12px;color:#e8eaf0;font-size:12px">${row.source}</td>
+      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.ss!=null?parseFloat(row.ss.toFixed(4)):'-'}</td>
+      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.df}</td>
+      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.ms!=null?parseFloat(row.ms.toFixed(4)):'-'}</td>
+      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.f!=null?parseFloat(row.f.toFixed(4)):'-'}</td>
+      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.p!=null?parseFloat(row.p.toFixed(5)):'-'}</td>
+      <td style="padding:6px 12px;font-size:13px">${row.significant?'<span style="color:#34d980">✓</span>':'<span style="color:#4b4f66">-</span>'}</td>
+    </tr>`).join('');
+  const sigSrc = (r.anova_table||[]).filter(x=>x.significant&&x.source!='Error'&&x.source!='Total').map(x=>x.source);
+  const verdict = sigSrc.length ? 'Significant: '+sigSrc.join(', ') : 'No significant effects at α=0.05';
+  const vclass = sigSrc.length ? 'vb-warn' : 'vb-ok';
+  showContent(`
+    <div class="verdict-banner ${vclass}">
+      <div class="vi">${sigSrc.length?'⚠️':'✅'}</div>
+      <div><div class="vl">${verdict}</div><div class="vs">Two-Way ANOVA · n=${r.n_total||'?'} · Grand mean=${r.grand_mean||'?'}</div></div>
+    </div>
+    <div class="card"><div class="ch"><div class="ct">ANOVA Table</div></div><div class="cb">
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+        <tr style="background:rgba(99,102,241,.1)">${['Source','SS','df','MS','F','p','Sig'].map(h=>`<th style="padding:6px 12px;color:#818cf8;font-size:11px;text-align:left">${h}</th>`).join('')}</tr>
+        ${rows}
+      </table></div>
+    </div></div>`);
+};
+window.renderMultivari = function(r) {
+  destroyCharts();
+  if(!r) return;
+  const rows = Object.entries(r).filter(([k,v])=>typeof v !== 'object' && v!==null)
+    .map(([k,v])=>`<tr><td style="padding:6px 12px;color:#8b8fa8;font-size:12px">${k.replace(/_/g,' ')}</td><td style="padding:6px 12px;color:#e8eaf0;font-family:monospace;font-size:12px">${typeof v==='number'?parseFloat(v.toFixed(4)):v}</td></tr>`).join('');
+  showContent(`<div class="card"><div class="ch"><div class="ct">Multi-Vari Results</div></div><div class="cb"><table style="width:100%;border-collapse:collapse">${rows}</table></div></div>`);
+};
+window.renderTimeseries = function(r) {
+  destroyCharts();
+  if(!r) return;
+  const rows = Object.entries(r).filter(([k,v])=>typeof v !== 'object' && v!==null)
+    .map(([k,v])=>`<tr><td style="padding:6px 12px;color:#8b8fa8;font-size:12px">${k.replace(/_/g,' ')}</td><td style="padding:6px 12px;color:#e8eaf0;font-family:monospace;font-size:12px">${typeof v==='number'?parseFloat(v.toFixed(4)):v}</td></tr>`).join('');
+  const verdict = r.verdict || r.conclusion || '';
+  showContent(`
+    ${verdict ? `<div class="verdict-banner vb-ok"><div class="vi">📈</div><div><div class="vl">${verdict}</div></div></div>` : ''}
+    <div class="card"><div class="ch"><div class="ct">Time Series Analysis</div></div><div class="cb"><table style="width:100%;border-collapse:collapse">${rows}</table></div></div>`);
+};
+</script>
 </body>
 </html>

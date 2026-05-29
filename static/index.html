@@ -663,8 +663,8 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-item" onclick="switchAnalysis('datastudio')"><span class="nav-dd-icon">🛠️</span><span class="nav-dd-label">Data Studio</span><span class="nav-dd-tag">Coming Soon</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Advanced Regression</div>
-        <div class="nav-dd-item" onclick="switchAnalysis('logistic')"><span class="nav-dd-icon">📈</span><span class="nav-dd-label">Logistic Regression</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('stepwise')"><span class="nav-dd-icon">🪜</span><span class="nav-dd-label">Stepwise Regression</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('logistic')"><span class="nav-dd-icon">📈</span><span class="nav-dd-label">Logistic Regression</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('stepwise')"><span class="nav-dd-icon">🪜</span><span class="nav-dd-label">Stepwise Regression</span></div>
       </div>
     </div>
   </div>
@@ -691,9 +691,9 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-item" onclick="switchAnalysis('samplesize')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">Sample Size Calculator</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Multivariate</div>
-        <div class="nav-dd-item" onclick="switchAnalysis('pca')"><span class="nav-dd-icon">🔭</span><span class="nav-dd-label">Principal Component Analysis</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('scattermatrix')"><span class="nav-dd-icon">🔲</span><span class="nav-dd-label">Scatter Plot Matrix</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('boxplot')"><span class="nav-dd-icon">📦</span><span class="nav-dd-label">Box Plot / Violin</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('pca')"><span class="nav-dd-icon">🔭</span><span class="nav-dd-label">Principal Component Analysis</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('scattermatrix')"><span class="nav-dd-icon">🔲</span><span class="nav-dd-label">Scatter Plot Matrix</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('boxplot')"><span class="nav-dd-icon">📦</span><span class="nav-dd-label">Box Plot / Violin</span></div>
       </div>
     </div>
 
@@ -715,11 +715,11 @@ textarea{resize:vertical;min-height:52px;}
         <div class="nav-dd-section">Measurement Systems</div>
         <div class="nav-dd-item" onclick="switchAnalysis('grr')"><span class="nav-dd-icon">🔬</span><span class="nav-dd-label">Gauge R&amp;R (MSA)</span><span class="nav-dd-tag" id="dd-tag-grr"></span></div>
         <div class="nav-dd-item" onclick="switchAnalysis('aaa')"><span class="nav-dd-icon">✅</span><span class="nav-dd-label">Attribute Agreement</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('attrchart')"><span class="nav-dd-icon">📊</span><span class="nav-dd-label">Attribute Charts (p/np/u/c)</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('attrchart')"><span class="nav-dd-icon">📊</span><span class="nav-dd-label">Attribute Charts (p/np/u/c)</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Reliability</div>
-        <div class="nav-dd-item" onclick="switchAnalysis('weibull')"><span class="nav-dd-icon">📉</span><span class="nav-dd-label">Weibull / Reliability</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New</span></div>
-        <div class="nav-dd-item" onclick="switchAnalysis('linearity')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">MSA Linearity &amp; Bias</span><span class="nav-dd-tag" style="background:rgba(45,212,160,0.15);color:var(--teal);border:1px solid rgba(45,212,160,0.3)">New</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('weibull')"><span class="nav-dd-icon">📉</span><span class="nav-dd-label">Weibull / Reliability</span></div>
+        <div class="nav-dd-item" onclick="switchAnalysis('linearity')"><span class="nav-dd-icon">📏</span><span class="nav-dd-label">MSA Linearity &amp; Bias</span></div>
         <div class="nav-dd-sep"></div>
         <div class="nav-dd-section">Compliance</div>
         <div class="nav-dd-item" onclick="switchAnalysis('ppap')"><span class="nav-dd-icon">📦</span><span class="nav-dd-label">PPAP Package Generator</span><span class="nav-dd-tag">Coming Soon</span></div>
@@ -6006,51 +6006,23 @@ setupUpload('twa-upload','twa-file-input','twa-upload-title',f=>{
 });
 function checkTwaReady(){document.getElementById('run-twa-btn').disabled=!(twaFile&&twaResp&&twaA&&twaB);}
 document.getElementById('run-twa-btn').addEventListener('click',async()=>{
-  if(!twaFile||!twaResp||!twaA||!twaB)return;
+  if(!twaFile||!twaResp||!twaA||!twaB){showToast('Select Response, Factor A and Factor B columns',true);return;}
+  if(twaA===twaB){showToast('Factor A and Factor B must be different columns',true);return;}
   const btn=document.getElementById('run-twa-btn');btn.disabled=true;btn.textContent='Analyzing…';
   showContent(loadHtml('Running two-way ANOVA…'));
-  // Read file and extract columns
-  const reader=new FileReader();
-  reader.onload=async(e)=>{
-    try{
-      // Use columns endpoint to get data
-      const fd=new FormData();fd.append('file',twaFile);
-      const cr=await fetch(`${API}/api/v1/multivari/columns`,{method:'POST',body:fd});
-      const cd=await cr.json();
-      // Two-Way ANOVA - parse CSV and call backend
-      const reader2 = new FileReader();
-      reader2.onload = async function(ev) {
-        const text = ev.target.result;
-        const lines = text.trim().split('\n').filter(l=>l.trim());
-        const sep = lines[0].includes('\t') ? '\t' : ',';
-        const headers = lines[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,''));
-        const respCol = window.twaResponseCol || window.twaResp;
-        const factACol = window.twaFactorA || window.twaFactA;
-        const factBCol = window.twaFactorB || window.twaFactB;
-        if(!respCol) { showToast('Select a Response column', true); btn.disabled=false; btn.textContent='Run Two-Way ANOVA'; return; }
-        function getCol(name) {
-          const idx = headers.indexOf(name);
-          return idx===-1 ? [] : lines.slice(1).map(l=>l.split(sep)[idx]?.trim().replace(/^"|"$/g,''));
-        }
-        const data = getCol(respCol).map(Number).filter(v=>!isNaN(v));
-        const factA = factACol ? getCol(factACol) : data.map((_,i)=>`G${(i%2)+1}`);
-        const factB = factBCol ? getCol(factBCol) : data.map((_,i)=>`L${(i%3)+1}`);
-        if(!data.length) { showToast('Response column has no numeric data', true); btn.disabled=false; btn.textContent='Run Two-Way ANOVA'; return; }
-        try {
-          const r2 = await fetch(`${API}/api/v1/hypothesis/two-way-anova`, {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({data, factor_a:factA, factor_b:factB, name_a:factACol||'Factor A', name_b:factBCol||'Factor B', response:respCol, alpha:0.05})
-          });
-          if(!r2.ok) throw new Error((await r2.json()).detail);
-          const d = await r2.json();
-          renderTwoWayAnova(d);
-          showToast('✅ Two-Way ANOVA complete');
-        } catch(ex) { showToast(ex.message, true); showEmpty('❌', ex.message, ''); }
-        finally { btn.disabled=false; btn.textContent='Run Two-Way ANOVA'; }
-      };
-      reader2.readAsText(twaFile);}
-  };
-  reader.readAsText(twaFile);
+  const fd=new FormData();fd.append('file',twaFile);
+  const url=`${API}/api/v1/hypothesis/two-way-anova`
+    +`?response=${encodeURIComponent(twaResp)}`
+    +`&factor_a=${encodeURIComponent(twaA)}`
+    +`&factor_b=${encodeURIComponent(twaB)}`
+    +`&alpha=0.05`;
+  try{
+    const r=await fetch(url,{method:'POST',body:fd});
+    if(!r.ok) throw new Error((await r.json()).detail||'Two-way ANOVA failed');
+    renderTwoWayAnova(await r.json());
+    showToast('✅ Two-Way ANOVA complete');
+  }catch(ex){showToast(ex.message,true);showEmpty('❌',ex.message,'Check that Factor A/B are categorical and Response is numeric.');}
+  finally{btn.disabled=false;btn.textContent='Run Two-Way ANOVA';}
 });
 
 /* ── TASK 2h: RSM ────────────────────────────────────────────────────── */
@@ -7866,23 +7838,25 @@ function _smShowEmailModal(downloadUrl, filename) {
 window.renderCorrelation = function(r) { if(typeof renderCorrMatrix==='function') renderCorrMatrix(r); };
 window.renderTwoWayAnova = function(r) {
   destroyCharts();
-  const rows = (r.anova_table||[]).map(row =>
-    `<tr>
+  const rows = (r.anova_table||[]).map(row => {
+    const F = (row.F!=null?row.F:row.f);
+    const P = (row.p_value!=null?row.p_value:row.p);
+    return `<tr>
       <td style="padding:6px 12px;color:#e8eaf0;font-size:12px">${row.source}</td>
-      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.ss!=null?parseFloat(row.ss.toFixed(4)):'-'}</td>
-      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.df}</td>
-      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.ms!=null?parseFloat(row.ms.toFixed(4)):'-'}</td>
-      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.f!=null?parseFloat(row.f.toFixed(4)):'-'}</td>
-      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.p!=null?parseFloat(row.p.toFixed(5)):'-'}</td>
+      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.ss!=null?parseFloat(Number(row.ss).toFixed(4)):'-'}</td>
+      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.df!=null?row.df:'-'}</td>
+      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${row.ms!=null?parseFloat(Number(row.ms).toFixed(4)):'-'}</td>
+      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${F!=null?parseFloat(Number(F).toFixed(4)):'-'}</td>
+      <td style="padding:6px 12px;color:#c8cae0;font-family:monospace;font-size:12px">${P!=null?parseFloat(Number(P).toFixed(5)):'-'}</td>
       <td style="padding:6px 12px;font-size:13px">${row.significant?'<span style="color:#34d980">✓</span>':'<span style="color:#4b4f66">-</span>'}</td>
-    </tr>`).join('');
-  const sigSrc = (r.anova_table||[]).filter(x=>x.significant&&x.source!='Error'&&x.source!='Total').map(x=>x.source);
+    </tr>`;}).join('');
+  const sigSrc = (r.anova_table||[]).filter(x=>x.significant&&x.source!='Residual'&&x.source!='Error'&&x.source!='Total').map(x=>x.source);
   const verdict = sigSrc.length ? 'Significant: '+sigSrc.join(', ') : 'No significant effects at α=0.05';
   const vclass = sigSrc.length ? 'vb-warn' : 'vb-ok';
   showContent(`
     <div class="verdict-banner ${vclass}">
       <div class="vi">${sigSrc.length?'⚠️':'✅'}</div>
-      <div><div class="vl">${verdict}</div><div class="vs">Two-Way ANOVA · n=${r.n_total||'?'} · Grand mean=${r.grand_mean||'?'}</div></div>
+      <div><div class="vl">${verdict}</div><div class="vs">Two-Way ANOVA · ${r.response||''} ~ ${r.factor_a||''} + ${r.factor_b||''}${r.r_squared!=null?' · R²='+r.r_squared:''}</div></div>
     </div>
     <div class="card"><div class="ch"><div class="ct">ANOVA Table</div></div><div class="cb">
       <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">

@@ -141,13 +141,6 @@ def paired_t(a: np.ndarray, b: np.ndarray,
     ci = (round(mean_diff - t_crit*se_diff,5), round(mean_diff + t_crit*se_diff,5))
     d = float(mean_diff / np.std(diff_data,ddof=1)) if np.std(diff_data,ddof=1)>0 else 0.0
     conclusion = (
-        f"The {name_before} vs {name_after} difference IS statistically significant "
-        f"(p={p:.4f} < α={alpha}). Mean change = {mean_diff:+.4f}."
-        if reject else
-        f"No statistically significant change detected between {name_before} and {name_after} "
-        f"(p={p:.4f} ≥ α={alpha})."
-    ).replace("name_before", name_a).replace("name_after", name_b)
-    conclusion = (
         f"The {name_a} vs {name_b} difference IS statistically significant "
         f"(p={p:.4f} < α={alpha}). Mean change = {mean_diff:+.4f}."
         if reject else

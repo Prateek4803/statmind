@@ -395,9 +395,14 @@ async def spc(
         data = data[start_index:end_index]
 
     try:
-        spc_result = dataclasses.asdict(
-            await asyncio.to_thread(analyze_control_chart, data, column, subgroup_size)
+        # auto_select_and_build() already returns a plain dict of native types.
+        # Wrapping it in dataclasses.asdict() raised
+        # "asdict() should be called on dataclass instances".
+        spc_result = await asyncio.to_thread(
+            analyze_control_chart, data, column, subgroup_size
         )
+        if dataclasses.is_dataclass(spc_result):
+            spc_result = dataclasses.asdict(spc_result)
         spc_result["subrange"] = {
             "start":            start_index,
             "end":              end_index,
@@ -1128,20 +1133,40 @@ async def outliers_analyze(
 
 
 @app.post("/api/v1/equivalence/analyze")
-async def equivalence_analyze(request: Request):
-    """TOST equivalence testing between two groups."""
-    b = await request.json()
+async def equivalence_analyze(
+    file: UploadFile = File(...),
+    col_a: str       = Query(...),
+    col_b: str       = Query(...),
+    delta: float     = Query(None),
+    alpha: float     = Query(0.05),
+):
+    """TOST equivalence testing between two columns of an uploaded file.
+
+    The frontend uploads a file and selects two columns (col_a/col_b), so this
+    endpoint reads multipart form-data + query params. The previous version
+    called request.json() and raised "Expecting value: line 1 column 1 (char 0)".
+    """
+    c = await file.read()
+    _validate_upload(file, c)
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    for col in (col_a, col_b):
+        if col not in result.df.columns:
+            raise HTTPException(404, f"Column '{col}' not found")
     try:
         from equivalence_test import tost_equivalence
-        a     = np.array(b["group_a"], dtype=float)
-        grp_b = np.array(b["group_b"], dtype=float)
-        delta = float(b.get("delta", 0.074))
-        alpha = float(b.get("alpha", 0.05))
+        a     = result.df[col_a].dropna().values.astype(float)
+        grp_b = result.df[col_b].dropna().values.astype(float)
         r = await asyncio.to_thread(
-            tost_equivalence, a, grp_b, delta, alpha,
-            b.get("name_a", "Group A"), b.get("name_b", "Group B"),
+            tost_equivalence, a, grp_b,
+            float(delta) if delta is not None else None,
+            float(alpha), col_a, col_b,
         )
         return jd(dataclasses.asdict(r))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -1151,7 +1176,13 @@ async def runchart_analyze(
     file: UploadFile = File(...),
     column: str      = Query(...),
 ):
-    """Run chart with runs-above/below-median and trend tests."""
+    """Run chart with runs-above/below-median (Swed-Eisenhart) and trend (Cox-Stuart) tests.
+
+    Returns the nested shape the frontend renders:
+      { column, n, median, data, above_median, runs_test{...}, trend_test{...}, overall_verdict }
+    The previous version returned only a flat run count, so the UI threw
+    "Cannot read properties of undefined (reading 'p')" when reading runs_test.p.
+    """
     c = await file.read()
     _validate_upload(file, c)
     try:
@@ -1160,34 +1191,95 @@ async def runchart_analyze(
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
         raise HTTPException(404, f"Column '{column}' not found")
-    data   = result.df[column].dropna().values.astype(float)
+    data = result.df[column].dropna().values.astype(float)
+    n    = int(len(data))
+    if n < 4:
+        raise HTTPException(400, "Need at least 4 data points for a run chart.")
     median = float(np.median(data))
-    above  = [int(v > median) for v in data]
-    runs, current = 1, above[0]
-    for v in above[1:]:
-        if v != current:
+
+    # ── Runs test (Swed-Eisenhart / Wald-Wolfowitz) about the median ──────────
+    # Ignore points exactly on the median (standard convention).
+    signs  = [1 if v > median else (0 if v < median else -1) for v in data]
+    seq    = [s for s in signs if s != -1]
+    n1     = sum(1 for s in seq if s == 1)
+    n2     = sum(1 for s in seq if s == 0)
+    runs   = 1
+    for i in range(1, len(seq)):
+        if seq[i] != seq[i - 1]:
             runs += 1
-            current = v
+    if len(seq) < 2 or n1 == 0 or n2 == 0:
+        runs_p, expected_runs, runs_z = 1.0, float(runs), 0.0
+    else:
+        N = n1 + n2
+        expected_runs = (2.0 * n1 * n2) / N + 1.0
+        var_runs = (2.0 * n1 * n2 * (2.0 * n1 * n2 - N)) / (N * N * (N - 1))
+        sd_runs  = float(np.sqrt(var_runs)) if var_runs > 0 else 0.0
+        if sd_runs == 0:
+            runs_z, runs_p = 0.0, 1.0
+        else:
+            runs_z = (runs - expected_runs) / sd_runs
+            from scipy import stats as _stats
+            runs_p = float(2.0 * _stats.norm.sf(abs(runs_z)))
+    runs_random = runs_p >= 0.05
+
+    # ── Trend test (Cox-Stuart) ───────────────────────────────────────────────
+    m       = n // 2
+    first   = data[:m]
+    second  = data[-m:] if n % 2 == 0 else data[-m:]
+    n_plus  = int(np.sum(second > first))
+    n_minus = int(np.sum(second < first))
+    n_eff   = n_plus + n_minus
+    if n_eff == 0:
+        trend_p = 1.0
+    else:
+        from scipy import stats as _stats
+        k = min(n_plus, n_minus)
+        # two-sided sign test
+        trend_p = float(min(1.0, 2.0 * _stats.binom.cdf(k, n_eff, 0.5)))
+    trend_random = trend_p >= 0.05
+
+    overall = ("Process appears random — no runs or trend signals"
+               if (runs_random and trend_random)
+               else "Non-random pattern detected — investigate assignable cause")
+
     return jd({
         "column":       column,
-        "n":            int(len(data)),
-        "median":       median,
+        "n":            n,
+        "median":       round(median, 6),
+        "data":         data.tolist(),
         "values":       data.tolist(),
-        "above_median": above,
-        "n_runs":       runs,
-        "verdict":      "Too few runs — possible trend or shift" if runs < max(1, int(len(data) * 0.3)) else "Run pattern appears random",
+        "above_median": [1 if v > median else 0 for v in data],
+        "overall_verdict": overall,
+        "runs_test": {
+            "runs":     int(runs),
+            "expected": round(float(expected_runs), 2),
+            "z":        round(float(runs_z), 4),
+            "p":        round(float(runs_p), 4),
+            "verdict":  "Random" if runs_random else "Non-random (clustering/shift)",
+        },
+        "trend_test": {
+            "n_plus":  n_plus,
+            "n_minus": n_minus,
+            "p":       round(float(trend_p), 4),
+            "verdict": "No trend" if trend_random else "Trend detected",
+        },
     })
 
 
-@app.post("/api/v1/cusum/analyze")
-async def cusum_analyze(
+# ══════════════════════════════════════════════════════════════════════════════
+#  Previously-missing endpoints (frontend called these; backend had no route,
+#  producing "Not Found" / stuck "Running…"). Wired to existing engine modules.
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.post("/api/v1/transformation/analyze")
+@app.post("/api/v1/data/transform")
+async def transformation_analyze(
     file: UploadFile = File(...),
     column: str      = Query(...),
-    k: float         = Query(0.5),
-    h: float         = Query(4.0),
-    target: float    = Query(None),
+    usl: float       = Query(None),
+    lsl: float       = Query(None),
 ):
-    """CUSUM chart for detecting small sustained process shifts."""
+    """Auto Box-Cox / Johnson transformation + non-normal capability."""
     c = await file.read()
     _validate_upload(file, c)
     try:
@@ -1196,45 +1288,99 @@ async def cusum_analyze(
         raise HTTPException(400, str(e))
     if column not in result.df.columns:
         raise HTTPException(404, f"Column '{column}' not found")
-    data    = result.df[column].dropna().values.astype(float)
-    mu      = float(target) if target is not None else float(np.mean(data))
-    sigma   = float(np.std(data, ddof=1))
-    if sigma == 0:
-        raise HTTPException(400, "Standard deviation is zero — CUSUM undefined.")
-    cusum_pos, cusum_neg = [0.0], [0.0]
-    alarms = []
-    for i, x in enumerate(data):
-        zi = (x - mu) / sigma
-        cp = max(0.0, cusum_pos[-1] + zi - k)
-        cn = max(0.0, cusum_neg[-1] - zi - k)
-        cusum_pos.append(cp)
-        cusum_neg.append(cn)
-        if cp > h or cn > h:
-            alarms.append({"index": i, "value": float(x),
-                           "cusum_pos": round(cp, 4), "cusum_neg": round(cn, 4)})
-    return jd({
-        "column":     column,
-        "n":          int(len(data)),
-        "target":     mu,
-        "sigma":      round(sigma, 6),
-        "k":          k,
-        "h":          h,
-        "cusum_pos":  cusum_pos[1:],
-        "cusum_neg":  cusum_neg[1:],
-        "alarms":     alarms,
-        "n_alarms":   len(alarms),
-        "in_control": len(alarms) == 0,
-        "verdict":    "In control" if len(alarms) == 0 else f"{len(alarms)} CUSUM alarm(s) detected",
-    })
+    data = result.df[column].dropna().values.astype(float)
+    try:
+        from transformation import auto_transform
+        r = await asyncio.to_thread(
+            auto_transform, data, column,
+            float(usl) if usl is not None else None,
+            float(lsl) if lsl is not None else None,
+        )
+        return jd(dataclasses.asdict(r) if dataclasses.is_dataclass(r) else r)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
 
 
-@app.post("/api/v1/correlation/matrix")
-async def correlation_matrix(
-    file: UploadFile  = File(...),
-    columns: str      = Query(...),
-    method: str       = Query("pearson"),
+@app.post("/api/v1/sixpack/analyze")
+async def sixpack_analyze(
+    file: UploadFile = File(...),
+    column: str      = Query(...),
+    usl: float       = Query(...),
+    lsl: float       = Query(...),
+    target: float    = Query(None),
 ):
-    """Correlation matrix with significance p-values."""
+    """Capability Sixpack — 6 panels (histogram, prob plot, I-MR, capability, run chart, summary)."""
+    c = await file.read()
+    _validate_upload(file, c)
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if column not in result.df.columns:
+        raise HTTPException(404, f"Column '{column}' not found")
+    data = result.df[column].dropna().values.astype(float)
+    try:
+        from sixpack import build_sixpack
+        r = await asyncio.to_thread(
+            build_sixpack, data, column, float(usl), float(lsl),
+            float(target) if target is not None else None,
+        )
+        return jd(dataclasses.asdict(r) if dataclasses.is_dataclass(r) else r)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/tolerance/analyze")
+async def tolerance_analyze(
+    file: UploadFile   = File(...),
+    column: str        = Query(...),
+    coverage: float    = Query(0.99),
+    confidence: float  = Query(0.95),
+    interval_type: str = Query("two_sided"),
+    usl: float         = Query(None),
+    lsl: float         = Query(None),
+):
+    """Statistical tolerance interval (ASTM E2810 / ISO 16269-6)."""
+    c = await file.read()
+    _validate_upload(file, c)
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if column not in result.df.columns:
+        raise HTTPException(404, f"Column '{column}' not found")
+    data = result.df[column].dropna().values.astype(float)
+    try:
+        from tolerance_interval import tolerance_interval
+        r = await asyncio.to_thread(
+            tolerance_interval, data, column,
+            float(coverage), float(confidence), interval_type,
+            float(usl) if usl is not None else None,
+            float(lsl) if lsl is not None else None,
+        )
+        return jd(dataclasses.asdict(r) if dataclasses.is_dataclass(r) else r)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/hypothesis/from-file")
+async def hypothesis_from_file(
+    file: UploadFile = File(...),
+    test: str        = Query(...),
+    columns: str     = Query(...),
+    alpha: float     = Query(0.05),
+):
+    """Run a hypothesis test on selected columns of an uploaded file.
+
+    test ∈ {two_t, paired_t, anova, mann_whitney, kruskal, variance}
+    columns: comma-separated; 2 columns for two-group tests, 2+ for ANOVA/Kruskal.
+    """
     c = await file.read()
     _validate_upload(file, c)
     try:
@@ -1245,23 +1391,258 @@ async def correlation_matrix(
     for col in cols:
         if col not in result.df.columns:
             raise HTTPException(404, f"Column '{col}' not found")
+    if len(cols) < 2:
+        raise HTTPException(400, "Select at least 2 columns.")
+
+    def _col(name):
+        return result.df[name].dropna().values.astype(float)
+
+    try:
+        import hypothesis as H
+        if test in ("two_t", "two_sample_t"):
+            r = H.two_sample_t(_col(cols[0]), _col(cols[1]), cols[0], cols[1], alpha)
+        elif test == "paired_t":
+            # paired_t needs aligned rows — drop rows missing either column
+            sub = result.df[[cols[0], cols[1]]].dropna()
+            r = H.paired_t(sub[cols[0]].values.astype(float),
+                           sub[cols[1]].values.astype(float), cols[0], cols[1], alpha)
+        elif test == "mann_whitney":
+            r = H.mann_whitney(_col(cols[0]), _col(cols[1]), cols[0], cols[1], alpha)
+        elif test == "anova":
+            groups = [_col(c) for c in cols]
+            r = H.one_way_anova(groups, cols, alpha)
+        elif test == "kruskal":
+            groups = [_col(c) for c in cols]
+            r = H.kruskal_wallis(groups, cols, alpha)
+        elif test == "variance":
+            groups = [_col(c) for c in cols]
+            r = H.variance_test(groups, cols, alpha)
+        else:
+            raise HTTPException(400, f"Unknown test type '{test}'.")
+        return jd(dataclasses.asdict(r) if dataclasses.is_dataclass(r) else r)
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/aaa/analyze")
+async def aaa_analyze(
+    file: UploadFile     = File(...),
+    decision_col: str    = Query(...),
+    sample_col: str      = Query(...),
+    appraiser_col: str   = Query(...),
+    replicate_col: str   = Query(None),
+    reference_col: str   = Query(None),
+):
+    """Attribute Agreement Analysis — Fleiss' kappa + per-appraiser agreement (AIAG MSA)."""
+    c = await file.read()
+    _validate_upload(file, c)
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    df = result.df
+    for col in [decision_col, sample_col, appraiser_col]:
+        if col not in df.columns:
+            raise HTTPException(404, f"Column '{col}' not found")
+    for col in [replicate_col, reference_col]:
+        if col and col not in df.columns:
+            raise HTTPException(404, f"Column '{col}' not found")
+
+    sub = df.dropna(subset=[decision_col, sample_col, appraiser_col])
+    decisions  = sub[decision_col].astype(str).values
+    sample_ids = sub[sample_col].astype(str).values
+    appraisers = sub[appraiser_col].astype(str).values
+    if replicate_col:
+        replicates = sub[replicate_col].astype(str).values
+    else:
+        # Synthesize replicate ids per (sample, appraiser) group.
+        from collections import defaultdict
+        counter = defaultdict(int)
+        replicates = []
+        for s, a in zip(sample_ids, appraisers):
+            counter[(s, a)] += 1
+            replicates.append(str(counter[(s, a)]))
+        replicates = np.array(replicates)
+    reference = sub[reference_col].astype(str).values if reference_col else None
+
+    try:
+        from routers.attribute_agreement import analyze_aaa
+        r = await asyncio.to_thread(
+            analyze_aaa, decisions, sample_ids, appraisers, replicates, reference,
+        )
+        return jd(dataclasses.asdict(r) if dataclasses.is_dataclass(r) else r)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/cusum/analyze")
+async def cusum_analyze(
+    file: UploadFile = File(...),
+    column: str      = Query(...),
+    k: float         = Query(0.5),
+    h: float         = Query(4.0),
+    lam: float       = Query(0.2),
+    L: float         = Query(3.0),
+    target: float    = Query(None),
+):
+    """CUSUM + EWMA charts for detecting small sustained process shifts.
+
+    Returns nested {cusum:{...}, ewma:{...}} — the frontend reads r.cusum.* and
+    r.ewma.*, so the previous flat payload left both charts empty.
+    """
+    c = await file.read()
+    _validate_upload(file, c)
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    if column not in result.df.columns:
+        raise HTTPException(404, f"Column '{column}' not found")
+    data    = result.df[column].dropna().values.astype(float)
+    n       = int(len(data))
+    if n < 2:
+        raise HTTPException(400, "Need at least 2 data points.")
+    mu      = float(target) if target is not None else float(np.mean(data))
+    sigma   = float(np.std(data, ddof=1))
+    if sigma == 0:
+        raise HTTPException(400, "Standard deviation is zero — CUSUM/EWMA undefined.")
+
+    # ── CUSUM ─────────────────────────────────────────────────────────────────
+    cusum_pos, cusum_neg = [0.0], [0.0]
+    cusum_signals = []
+    for i, x in enumerate(data):
+        zi = (x - mu) / sigma
+        cp = max(0.0, cusum_pos[-1] + zi - k)
+        cn = max(0.0, cusum_neg[-1] - zi - k)
+        cusum_pos.append(cp)
+        cusum_neg.append(cn)
+        if cp > h or cn > h:
+            cusum_signals.append({"index": i, "value": float(x),
+                                  "cusum_pos": round(cp, 4), "cusum_neg": round(cn, 4)})
+    cusum_pos = cusum_pos[1:]
+    cusum_neg = cusum_neg[1:]
+
+    # ── EWMA ──────────────────────────────────────────────────────────────────
+    ewma_vals = []
+    z_prev    = mu
+    ewma_signals = []
+    ucl_list, lcl_list = [], []
+    for i, x in enumerate(data):
+        z = lam * x + (1 - lam) * z_prev
+        ewma_vals.append(z)
+        z_prev = z
+        # time-varying control limits
+        var_factor = (lam / (2 - lam)) * (1 - (1 - lam) ** (2 * (i + 1)))
+        limit = L * sigma * float(np.sqrt(var_factor))
+        ucl_i = mu + limit
+        lcl_i = mu - limit
+        ucl_list.append(ucl_i)
+        lcl_list.append(lcl_i)
+        if z > ucl_i or z < lcl_i:
+            ewma_signals.append({"index": i, "value": float(x), "ewma": round(z, 4)})
+    # steady-state limits for the simple horizontal-line rendering in the UI
+    ss_limit = L * sigma * float(np.sqrt(lam / (2 - lam)))
+
+    return jd({
+        "column":     column,
+        "n":          n,
+        "target":     round(mu, 6),
+        "sigma":      round(sigma, 6),
+        "cusum": {
+            "k":          k,
+            "h":          h,
+            "cusum_pos":  [round(v, 4) for v in cusum_pos],
+            "cusum_neg":  [round(v, 4) for v in cusum_neg],
+            "signals":    cusum_signals,
+            "n_alarms":   len(cusum_signals),
+        },
+        "ewma": {
+            "lambda":       lam,
+            "L":            L,
+            "ewma_values":  [round(v, 4) for v in ewma_vals],
+            "ucl":          round(mu + ss_limit, 6),
+            "lcl":          round(mu - ss_limit, 6),
+            "ucl_series":   [round(v, 6) for v in ucl_list],
+            "lcl_series":   [round(v, 6) for v in lcl_list],
+            "center_line":  round(mu, 6),
+            "signals":      ewma_signals,
+            "n_alarms":     len(ewma_signals),
+        },
+        "in_control": (len(cusum_signals) + len(ewma_signals)) == 0,
+    })
+
+
+@app.post("/api/v1/correlation/matrix")
+async def correlation_matrix(
+    file: UploadFile  = File(...),
+    columns: str      = Query(None),
+    method: str       = Query("pearson"),
+):
+    """Correlation matrix with significance p-values.
+
+    `columns` is optional — when omitted, all numeric columns are used (the
+    frontend does not send it). Returns matrices both as nested arrays
+    (r_matrix/p_matrix) and as objects keyed by column name
+    (correlation_matrix/p_values), which is what the UI reads.
+    """
+    c = await file.read()
+    _validate_upload(file, c)
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+    if columns:
+        cols = [col.strip() for col in columns.split(",") if col.strip()]
+        for col in cols:
+            if col not in result.df.columns:
+                raise HTTPException(404, f"Column '{col}' not found")
+    else:
+        # Auto-select numeric columns with at least some variation.
+        numeric = result.df.select_dtypes(include=[np.number])
+        cols = [c for c in numeric.columns if numeric[c].dropna().nunique() > 1]
+
+    if len(cols) < 2:
+        raise HTTPException(400, "Need at least 2 numeric columns for a correlation matrix.")
+
     df  = result.df[cols].dropna()
+    if len(df) < 3:
+        raise HTTPException(400, "Need at least 3 complete rows across the selected columns.")
+
+    from scipy import stats as _stats
     mat, pmat = [], []
+    corr_obj, p_obj = {}, {}
     for c1 in cols:
         row_r, row_p = [], []
+        corr_obj[c1], p_obj[c1] = {}, {}
         for c2 in cols:
             if c1 == c2:
-                row_r.append(1.0); row_p.append(0.0)
+                r, p = 1.0, 0.0
+            elif method == "spearman":
+                r, p = _stats.spearmanr(df[c1], df[c2])
             else:
-                from scipy import stats as _stats
-                if method == "spearman":
-                    r, p = _stats.spearmanr(df[c1], df[c2])
-                else:
-                    r, p = _stats.pearsonr(df[c1], df[c2])
-                row_r.append(round(float(r), 4))
-                row_p.append(round(float(p), 4))
+                r, p = _stats.pearsonr(df[c1], df[c2])
+            r, p = round(float(r), 4), round(float(p), 4)
+            row_r.append(r); row_p.append(p)
+            corr_obj[c1][c2] = r
+            p_obj[c1][c2]    = p
         mat.append(row_r); pmat.append(row_p)
-    return jd({"columns": cols, "r_matrix": mat, "p_matrix": pmat, "method": method, "n": int(len(df))})
+
+    return jd({
+        "columns": cols,
+        "method": method,
+        "n": int(len(df)),
+        "r_matrix": mat,
+        "p_matrix": pmat,
+        "correlation_matrix": corr_obj,
+        "p_values": p_obj,
+    })
 
 
 @app.post("/api/v1/sample-size/calculate")
@@ -1326,8 +1707,20 @@ async def two_way_anova(
         table   = anova_lm.anova_lm(model, typ=2)
         rows = []
         for idx, row in table.iterrows():
+            src = str(idx)
+            # Convert raw patsy/statsmodels formula terms to friendly labels.
+            if src == "Residual":
+                label = "Residual"
+            elif ":" in src:
+                label = f"{factor_a} × {factor_b}"
+            elif factor_a in src:
+                label = factor_a
+            elif factor_b in src:
+                label = factor_b
+            else:
+                label = src
             rows.append({
-                "source":   str(idx),
+                "source":   label,
                 "ss":       round(float(row.get("sum_sq", 0)), 4),
                 "df":       round(float(row.get("df", 0)), 1),
                 "ms":       round(float(row.get("sum_sq", 0) / max(row.get("df", 1), 1)), 4),

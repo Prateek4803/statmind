@@ -67,11 +67,16 @@ def build_sixpack(data: np.ndarray, column: str,
     # Import engines
     from normality import analyze_column
     from capability import analyze_capability
-    from control_charts import analyze_control_chart
+    from control_charts import auto_select_and_build as analyze_control_chart
+    from types import SimpleNamespace as _SimpleNamespace
 
     norm = analyze_column(data, column)
     cap  = analyze_capability(data, column, usl, lsl, target)
     spc  = analyze_control_chart(data, column, subgroup_size=1)
+    # auto_select_and_build() returns a dict; wrap it so the attribute-style
+    # access used throughout this function (spc.primary_values, etc.) works.
+    if isinstance(spc, dict):
+        spc = _SimpleNamespace(**spc)
 
     # ── Panel 1: Histogram ────────────────────────────────────────────────────
     hd = cap.histogram_data

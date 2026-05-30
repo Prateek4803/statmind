@@ -63,7 +63,7 @@ from report_cache        import ReportCache
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 PORT           = int(os.getenv("PORT", 8010))
-ENV            = os.getenv("ENV", "development")
+ENV            = os.getenv("ENV") or os.getenv("ENVIRONMENT", "development")
 ORIGINS        = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 MAX_UPLOAD_MB  = int(os.getenv("MAX_UPLOAD_MB", 25))      # P0-SEC-1
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024

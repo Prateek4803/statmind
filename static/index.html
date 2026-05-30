@@ -1673,40 +1673,30 @@ textarea{resize:vertical;min-height:52px;}
 
     <!-- Logistic Regression sidebar -->
     <div id="sb-logistic" style="display:none">
-      <div style="padding:4px 0 12px">
-        <div style="font-size:28px;margin-bottom:8px;text-align:center">📈</div>
-        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Logistic Regression</div>
-        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">Binary outcome modeling with ROC curve and odds ratios</div>
-        <div style="background:rgba(45,212,160,0.1);border:1px solid rgba(45,212,160,0.35);border-radius:8px;padding:10px 12px">
-          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">✅ LIVE — UPLOAD &amp; RUN</div>
-          <div style="font-size:11px;color:var(--text2)">Click the tool to upload your data and run the analysis.</div>
-        </div>
-        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
-          ← Back to Capability Analysis
-        </button>
-        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
-          ← Back to Normality Tests
-        </button>
+      <div class="upload-zone" id="logit-upload"><input type="file" id="logit-file-input" accept=".csv,.xlsx,.xls,.tsv,.txt"/><div style="font-size:20px;margin-bottom:5px">📈</div><div style="font-size:13px;font-weight:600" id="logit-upload-title">Drop file or click</div></div>
+      <div id="logit-col-section" style="display:none">
+        <div class="sl">Response Y <span style="color:var(--text3);font-weight:400">(binary 0/1)</span></div>
+        <div class="col-list" id="logit-y-list" style="max-height:130px"></div>
+        <div class="sl" style="margin-top:8px">Predictor(s) X <span style="color:var(--text3);font-weight:400">(select one or more)</span></div>
+        <div class="col-list" id="logit-x-list" style="max-height:150px"></div>
+        <div id="logit-selected" style="font-size:11px;color:var(--teal);margin-top:5px;padding:6px 9px;background:var(--bg3);border-radius:7px;display:none"></div>
       </div>
+      <div class="ctrl-row"><label>Threshold</label><input type="number" id="logit-threshold" value="0.5" min="0" max="1" step="0.05" style="width:auto"/></div>
+      <button class="run-btn" id="run-logit-btn" disabled>Run Logistic Regression</button>
     </div>
 
     <!-- Stepwise Regression sidebar -->
     <div id="sb-stepwise" style="display:none">
-      <div style="padding:4px 0 12px">
-        <div style="font-size:28px;margin-bottom:8px;text-align:center">🪜</div>
-        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Stepwise Regression</div>
-        <div style="font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:12px">Auto variable selection: forward, backward, or both</div>
-        <div style="background:rgba(45,212,160,0.1);border:1px solid rgba(45,212,160,0.35);border-radius:8px;padding:10px 12px">
-          <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.06em;margin-bottom:3px">✅ LIVE — UPLOAD &amp; RUN</div>
-          <div style="font-size:11px;color:var(--text2)">Click the tool to upload your data and run the analysis.</div>
-        </div>
-        <button onclick="switchAnalysis('capability')" style="width:100%;margin-top:10px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
-          ← Back to Capability Analysis
-        </button>
-        <button onclick="switchAnalysis('normality')" style="width:100%;margin-top:5px;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text2);font-size:11px;cursor:pointer">
-          ← Back to Normality Tests
-        </button>
+      <div class="upload-zone" id="step-upload"><input type="file" id="step-file-input" accept=".csv,.xlsx,.xls,.tsv,.txt"/><div style="font-size:20px;margin-bottom:5px">🪜</div><div style="font-size:13px;font-weight:600" id="step-upload-title">Drop file or click</div></div>
+      <div id="step-col-section" style="display:none">
+        <div class="sl">Response Y</div>
+        <div class="col-list" id="step-y-list" style="max-height:130px"></div>
+        <div class="sl" style="margin-top:8px">Candidate Predictors X <span style="color:var(--text3);font-weight:400">(select one or more)</span></div>
+        <div class="col-list" id="step-x-list" style="max-height:150px"></div>
+        <div id="step-selected" style="font-size:11px;color:var(--teal);margin-top:5px;padding:6px 9px;background:var(--bg3);border-radius:7px;display:none"></div>
       </div>
+      <div class="ctrl-row"><label>Direction</label><select id="step-direction" style="width:auto"><option value="both" selected>Both</option><option value="forward">Forward</option><option value="backward">Backward</option></select></div>
+      <button class="run-btn" id="run-step-btn" disabled>Run Stepwise</button>
     </div>
 
 
@@ -2866,39 +2856,7 @@ else if(tab==='capability'){
           <button onclick="switchAnalysis('capa')" style="padding:9px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">Try CAPA Engine →</button>
         </div>
       </div>
-    `);}    else if(tab==='logistic'){showContent(`
-      <div style="max-width:680px;margin:32px auto;padding:0 16px">
-        <div style="text-align:center;margin-bottom:24px">
-          <div style="font-size:48px;margin-bottom:10px">📈</div>
-          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">Logistic Regression</div>
-          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">Model binary outcomes (pass/fail, defect/no-defect) as a function of continuous process variables. Odds ratios, ROC curve, and classification performance.</div>
-        </div>
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px">1 · Upload Data File</div>
-          <div style="border:2px dashed var(--border2);border-radius:10px;padding:14px;text-align:center;cursor:pointer"
-               onclick="document.getElementById('logistic-file-input').click()">
-            <input type="file" id="logistic-file-input" accept=".csv,.xlsx,.xls,.tsv" style="display:none"
-              onchange="handleToolFile(this.files[0],'logistic')">
-            <div id="logistic-file-label" style="font-size:13px;color:var(--text3)">📂 Drop CSV/Excel or click to browse</div>
-          </div>
-        </div>
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px">2 · Select Columns &amp; Parameters</div>
-          <div id="logistic-cols" style="font-size:12px;color:var(--text3);margin-bottom:8px">Upload a file to see available columns</div>
-          <div style="margin-top:8px">
-          <label style="font-size:11px;color:var(--text2)">Response column (binary 0/1):</label>
-          <input id="logistic-response" placeholder="pass_fail_col" style="width:100%;margin-top:4px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;font-size:11px">
-          <label style="font-size:11px;color:var(--text2);margin-top:6px;display:block">Classification threshold (default 0.5):</label>
-          <input id="logistic-threshold" type="number" value="0.5" min="0" max="1" step="0.05" style="width:100%;margin-top:4px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;font-size:11px">
-        </div>
-        </div>
-        <button id="logistic-run-btn" onclick="runTool('logistic','/api/v1/regression/logistic')"
-          style="width:100%;padding:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px">
-          ▶ Run Logistic Regression
-        </button>
-        <div id="logistic-results" style="display:none;margin-top:8px"></div>
-      </div>
-    `);}    else if(tab==='ppap'){showContent(`
+    `);}    else if(tab==='logistic'){/* sidebar-driven UI */}    else if(tab==='ppap'){showContent(`
       <div style="max-width:620px;margin:32px auto;padding:0 16px;text-align:center">
         <div style="font-size:52px;margin-bottom:12px">📦</div>
         <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">PPAP Package Generator</div>
@@ -2921,54 +2879,8 @@ else if(tab==='capability'){
         </div>
       </div>
     `);}
-    else if(tab==='stepwise'){showContent(`
-      <div style="max-width:680px;margin:32px auto;padding:0 16px">
-        <div style="text-align:center;margin-bottom:24px">
-          <div style="font-size:48px;margin-bottom:10px">🪜</div>
-          <div style="font-size:22px;font-weight:700;color:var(--text);margin-bottom:6px">Stepwise Regression</div>
-          <div style="font-size:14px;color:var(--text2);line-height:1.7;max-width:480px;margin:0 auto">Auto variable selection using AIC or BIC. Forward, backward, or bidirectional selection to find the best model.</div>
-        </div>
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px">1 · Upload Data File</div>
-          <div style="border:2px dashed var(--border2);border-radius:10px;padding:14px;text-align:center;cursor:pointer"
-               onclick="document.getElementById('stepwise-file-input').click()">
-            <input type="file" id="stepwise-file-input" accept=".csv,.xlsx,.xls,.tsv" style="display:none"
-              onchange="handleToolFile(this.files[0],'stepwise')">
-            <div id="stepwise-file-label" style="font-size:13px;color:var(--text3)">📂 Drop CSV/Excel or click to browse</div>
-          </div>
-        </div>
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px">2 · Select Columns &amp; Parameters</div>
-          <div id="stepwise-cols" style="font-size:12px;color:var(--text3);margin-bottom:8px">Upload a file to see available columns</div>
-          <div style="margin-top:8px">
-          <label style="font-size:11px;color:var(--text2)">Response column (binary 0/1):</label>
-          <input id="stepwise-response" placeholder="pass_fail_col" style="width:100%;margin-top:4px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;font-size:11px">
-          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-            <div style="flex:1">
-              <label style="font-size:11px;color:var(--text2)">Method:</label>
-              <select id="stepwise-method" style="width:100%;margin-top:4px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;font-size:11px">
-                <option value="both">Bidirectional (recommended)</option>
-                <option value="forward">Forward only</option>
-                <option value="backward">Backward only</option>
-              </select>
-            </div>
-            <div style="flex:1">
-              <label style="font-size:11px;color:var(--text2)">Criterion:</label>
-              <select id="stepwise-criterion" style="width:100%;margin-top:4px;padding:5px 8px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;font-size:11px">
-                <option value="AIC">AIC</option>
-                <option value="BIC">BIC</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        </div>
-        <button id="stepwise-run-btn" onclick="runTool('stepwise','/api/v1/regression/stepwise')"
-          style="width:100%;padding:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0f1117;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px">
-          ▶ Run Stepwise Regression
-        </button>
-        <div id="stepwise-results" style="display:none;margin-top:8px"></div>
-      </div>
-    `);}    else{ showEmpty('📊', tab.charAt(0).toUpperCase()+tab.slice(1), 'Select options in the sidebar and run the analysis.'); }
+    else if(tab==='stepwise'){/* sidebar-driven UI */}
+    else{ showEmpty('📊', tab.charAt(0).toUpperCase()+tab.slice(1), 'Select options in the sidebar and run the analysis.'); }
 }
 
 function switchTab(name){switchAnalysis(name);}
@@ -5153,6 +5065,75 @@ function renderSixpack(r){
 // ══ E4: REGRESSION ════════════════════════════════════════════════════════════
 
 let regFile=null, regYCol=null, regXCols=[], regColStats=[];
+
+// ── Logistic Regression (sidebar-driven) ───────────────────────────────────────
+let logitFile=null, logitYCol=null, logitXCols=[];
+setupUpload('logit-upload','logit-file-input','logit-upload-title',f=>{
+  logitFile=f;document.getElementById('logit-upload-title').textContent=f.name;showToast(`📂 ${f.name}`);
+  loadCols(f,cols=>{
+    buildColList('logit-y-list',cols,c=>{logitYCol=c.name;hlt('logit-y-list',c.name);updateLogitSelected();});
+    const xList=document.getElementById('logit-x-list');xList.innerHTML='';
+    cols.forEach(c=>{const el=document.createElement('div');el.className='col-item';el.dataset.col=c.name;el.innerHTML=`<div><div class="ci-name">${c.name}</div><div class="ci-meta">n=${c.n}·x̄=${c.mean}</div></div>`;el.addEventListener('click',()=>{const i=logitXCols.indexOf(c.name);if(i>=0)logitXCols.splice(i,1);else logitXCols.push(c.name);el.classList.toggle('active',logitXCols.includes(c.name));updateLogitSelected();});xList.appendChild(el);});
+    document.getElementById('logit-col-section').style.display='block';
+  });
+});
+function updateLogitSelected(){
+  const sel=document.getElementById('logit-selected');
+  if(logitYCol&&logitXCols.length>0){sel.style.display='block';sel.textContent=`Y: ${logitYCol} · X: ${logitXCols.join(', ')}`;document.getElementById('run-logit-btn').disabled=false;}
+  else{sel.style.display='none';document.getElementById('run-logit-btn').disabled=true;}
+}
+document.getElementById('run-logit-btn').addEventListener('click',runLogistic);
+async function runLogistic(){
+  if(!logitFile||!logitYCol||logitXCols.length===0)return;
+  const thr=parseFloat(document.getElementById('logit-threshold').value)||0.5;
+  const btn=document.getElementById('run-logit-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Running logistic regression…'));
+  const fd=new FormData();fd.append('file',logitFile);
+  const url=`${API}/api/v1/regression/logistic?response=${encodeURIComponent(logitYCol)}&predictors=${encodeURIComponent(logitXCols.join(','))}&threshold=${thr}`;
+  try{
+    const r=await fetch(url,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const d=await r.json();
+    if(typeof renderLogistic==='function')renderLogistic(d);
+    else showContent(`<div style="max-width:760px;margin:24px auto;padding:0 16px"><pre style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;color:var(--text2);overflow:auto;font-size:12px">${JSON.stringify(d,null,2)}</pre></div>`);
+  }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Run Logistic Regression';}
+}
+
+// ── Stepwise Regression (sidebar-driven) ────────────────────────────────────────
+let stepFile=null, stepYCol=null, stepXCols=[];
+setupUpload('step-upload','step-file-input','step-upload-title',f=>{
+  stepFile=f;document.getElementById('step-upload-title').textContent=f.name;showToast(`📂 ${f.name}`);
+  loadCols(f,cols=>{
+    buildColList('step-y-list',cols,c=>{stepYCol=c.name;hlt('step-y-list',c.name);updateStepSelected();});
+    const xList=document.getElementById('step-x-list');xList.innerHTML='';
+    cols.forEach(c=>{const el=document.createElement('div');el.className='col-item';el.dataset.col=c.name;el.innerHTML=`<div><div class="ci-name">${c.name}</div><div class="ci-meta">n=${c.n}·x̄=${c.mean}</div></div>`;el.addEventListener('click',()=>{const i=stepXCols.indexOf(c.name);if(i>=0)stepXCols.splice(i,1);else stepXCols.push(c.name);el.classList.toggle('active',stepXCols.includes(c.name));updateStepSelected();});xList.appendChild(el);});
+    document.getElementById('step-col-section').style.display='block';
+  });
+});
+function updateStepSelected(){
+  const sel=document.getElementById('step-selected');
+  if(stepYCol&&stepXCols.length>0){sel.style.display='block';sel.textContent=`Y: ${stepYCol} · X: ${stepXCols.join(', ')}`;document.getElementById('run-step-btn').disabled=false;}
+  else{sel.style.display='none';document.getElementById('run-step-btn').disabled=true;}
+}
+document.getElementById('run-step-btn').addEventListener('click',runStepwise);
+async function runStepwise(){
+  if(!stepFile||!stepYCol||stepXCols.length===0)return;
+  const method=document.getElementById('step-direction').value||'both';
+  const btn=document.getElementById('run-step-btn');btn.disabled=true;btn.textContent='Analyzing…';
+  showContent(loadHtml('Running stepwise selection…'));
+  const fd=new FormData();fd.append('file',stepFile);
+  const url=`${API}/api/v1/regression/stepwise?response=${encodeURIComponent(stepYCol)}&predictors=${encodeURIComponent(stepXCols.join(','))}&method=${method}&criterion=AIC`;
+  try{
+    const r=await fetch(url,{method:'POST',body:fd});
+    if(!r.ok)throw new Error((await r.json()).detail);
+    const d=await r.json();
+    if(typeof renderStepwise==='function')renderStepwise(d);
+    else showContent(`<div style="max-width:760px;margin:24px auto;padding:0 16px"><pre style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;color:var(--text2);overflow:auto;font-size:12px">${JSON.stringify(d,null,2)}</pre></div>`);
+  }catch(e){showToast(e.message,true);showEmpty('❌',e.message,'');}
+  finally{btn.disabled=false;btn.textContent='Run Stepwise';}
+}
+
 
 setupUpload('reg-upload','reg-file-input','reg-upload-title',f=>{
   regFile=f;document.getElementById('reg-upload-title').textContent=f.name;showToast(`📂 ${f.name}`);

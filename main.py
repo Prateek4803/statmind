@@ -246,7 +246,17 @@ class NpEnc(json.JSONEncoder):
         return super().default(o)
 
 
-def jd(d):   return JSONResponse(content=json.loads(json.dumps(d, cls=NpEnc)))
+def _json_safe(o):
+    """Recursively replace inf/-inf/NaN with None so output is valid JSON."""
+    import math as _math
+    if isinstance(o, float):
+        if _math.isinf(o) or _math.isnan(o): return None
+        return o
+    if isinstance(o, dict):  return {k: _json_safe(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)): return [_json_safe(v) for v in o]
+    return o
+
+def jd(d):   return JSONResponse(content=_json_safe(json.loads(json.dumps(d, cls=NpEnc))))
 def jobj(o): return jd(dataclasses.asdict(o))
 
 # ── Security headers middleware ────────────────────────────────────────────────

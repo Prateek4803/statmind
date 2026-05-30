@@ -64,7 +64,9 @@ from report_cache        import ReportCache
 # ── Configuration ─────────────────────────────────────────────────────────────
 PORT           = int(os.getenv("PORT", 8010))
 ENV            = os.getenv("ENV") or os.getenv("ENVIRONMENT", "development")
-ORIGINS        = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+IS_PROD        = ENV.lower() in ("production", "prod")
+_default_origins = "https://statmind.tech,https://www.statmind.tech" if IS_PROD else "*"
+ORIGINS        = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", _default_origins).split(",") if o.strip()]
 MAX_UPLOAD_MB  = int(os.getenv("MAX_UPLOAD_MB", 25))      # P0-SEC-1
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 CACHE_TTL_SEC  = int(os.getenv("REPORT_CACHE_TTL", 3600)) # 1 hour default
@@ -75,8 +77,9 @@ app = FastAPI(
     title="StatMind",
     description="Process Statistics Engine — Universal measurement analysis",
     version="2.0.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
+    docs_url=None if IS_PROD else "/api/docs",
+    redoc_url=None if IS_PROD else "/api/redoc",
+    openapi_url=None if IS_PROD else "/openapi.json",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -86,7 +89,7 @@ app.add_middleware(
 )
 
 # ── Rate limiting ──────────────────────────────────────────────────────────────
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute", "600/hour"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -309,6 +312,23 @@ async def get_columns(request: Request, file: UploadFile = File(...)):
         "metadata":      result.metadata,
         "warnings":      result.warnings,
         "n_rows":        result.n_rows,
+    })
+
+
+@app.post("/api/v1/aaa/columns")
+@limiter.limit("30/minute")
+async def get_aaa_columns(request: Request, file: UploadFile = File(...)):
+    """All columns (numeric + categorical) for Attribute Agreement Analysis."""
+    c = await file.read()
+    _validate_upload(file, c)
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    return jd({
+        "all_columns":     list(result.all_columns),
+        "numeric_columns": list(result.numeric_columns),
+        "n_rows":          result.n_rows,
     })
 
 # ── Session 1: Normality ───────────────────────────────────────────────────────

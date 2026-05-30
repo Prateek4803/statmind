@@ -3272,7 +3272,7 @@ function updateAttachStatus(){
 }
 
 async function loadCatalog(){
-  try{const r=await fetch(`${API}/api/v1/capa/v2/catalog`);if(!r.ok)return;const d=await r.json();buildOverrideList(d.rules);}catch{}
+  try{const r=await fetch(`${API}/api/v1/capa/v2/catalog`);if(!r.ok)return;const d=await r.json();buildOverrideList(Array.isArray(d)?d:(d.rules||[]));}catch(e){console.error('loadCatalog failed',e);}
 }
 
 function buildOverrideList(rules){
@@ -5536,9 +5536,10 @@ function populateOverrideList(){
     .then(r=>r.json())
     .then(d=>{
       const list=document.getElementById('override-list');
-      if(!list||!d.rules) return;
+      const rules=Array.isArray(d)?d:(d.rules||[]);
+      if(!list||!rules.length) return;
       list.innerHTML='';
-      d.rules.forEach(rule=>{
+      rules.forEach(rule=>{
         // Catalog returns rule_id + fault_pattern (not rule.id / rule.name)
         const ruleId   = rule.rule_id   || rule.id   || '—';
         const ruleName = rule.fault_pattern || rule.name  || rule.fault || ruleId;

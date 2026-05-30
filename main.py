@@ -246,17 +246,7 @@ class NpEnc(json.JSONEncoder):
         return super().default(o)
 
 
-def _json_safe(o):
-    """Recursively replace inf/-inf/NaN with None so output is valid JSON."""
-    import math as _math
-    if isinstance(o, float):
-        if _math.isinf(o) or _math.isnan(o): return None
-        return o
-    if isinstance(o, dict):  return {k: _json_safe(v) for k, v in o.items()}
-    if isinstance(o, (list, tuple)): return [_json_safe(v) for v in o]
-    return o
-
-def jd(d):   return JSONResponse(content=_json_safe(json.loads(json.dumps(d, cls=NpEnc))))
+def jd(d):   return JSONResponse(content=json.loads(json.dumps(d, cls=NpEnc)))
 def jobj(o): return jd(dataclasses.asdict(o))
 
 # ── Security headers middleware ────────────────────────────────────────────────
@@ -741,7 +731,13 @@ async def logistic_regression_ep(
     for col in [response] + pred_cols:
         if col not in r.df.columns:
             raise HTTPException(404, f"Column '{col}' not found")
-    y = r.df[response].dropna().values.astype(int)
+    _yraw = r.df[response].dropna()
+    _uniq = sorted(set(_yraw.unique().tolist()))
+    if len(_uniq) > 2 or not set(_uniq).issubset({0, 1, 0.0, 1.0}):
+        raise HTTPException(400,
+            f"Logistic regression needs a binary 0/1 response. '{response}' has "
+            f"{len(_uniq)} distinct values — for a continuous response, use Linear Regression instead.")
+    y = _yraw.values.astype(int)
     X = r.df[pred_cols].dropna().values.astype(float)
     try:
         result = await asyncio.to_thread(analyze_logistic, X, y, response, pred_cols, threshold)

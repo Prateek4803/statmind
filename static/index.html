@@ -2638,8 +2638,8 @@ else if(tab==='capability'){
     else if(tab==='transformation'){showEmpty('🔄','Data Transformation','Upload non-normal data. Auto-finds the best λ and shows before/after probability plots.');}
     else if(tab==='multivari'){showEmpty('📉','Multi-Vari Chart','Upload data with measurement + part ID columns. Decomposes within-part, part-to-part, and time-to-time variation.');}
     else if(tab==='doe'){showEmpty('🧫','Design of Experiments','Use the 4-step wizard in the sidebar: pick design type, define factors, generate run matrix, analyze effects.');}
-    else if(tab==='tolerance'){showEmpty('📏','Tolerance Intervals','Upload data and enter spec limits. Answers: what range covers 99% of future parts with 95% confidence?');}
-    else if(tab==='aaa'){showEmpty('✅','Attribute Agreement Analysis','Upload pass/fail inspection data. Calculates Fleiss kappa and identifies disagreement between inspectors.');}
+    else if(tab==='tolerance'){if(globalFile){loadTolCols(globalFile);}else showEmpty('📏','Tolerance Intervals','Upload data and enter spec limits. Answers: what range covers 99% of future parts with 95% confidence?');}
+    else if(tab==='aaa'){if(globalFile){loadAaaCols(globalFile);}else showEmpty('✅','Attribute Agreement Analysis','Upload pass/fail inspection data. Calculates Fleiss kappa and identifies disagreement between inspectors.');}
     else if(tab==='comparison'){buildCompDatasets();showEmpty('⚖️','Multi-Dataset Comparison','Add 2–10 datasets and compare Cpk, SPC, normality, and distributions side by side.');}
     else if(tab==='livestream'){showEmpty('📡','Live Data Stream','Create a stream, then send measurements. Control charts update in real-time.');}
     else if(tab==='processdash'){buildDashStatus();showEmpty('🚦','Process Dashboard','Executive traffic-light view of all parameters. Click Build Dashboard to generate.');}
@@ -3040,7 +3040,8 @@ function renderSPC(r, isSubrange=false){
   const allAlarms=[...r.western_electric_alarms,...r.nelson_alarms].sort((a,b)=>a.index-b.index);
   const alarmIdx=new Set(allAlarms.map(a=>a.index));
   const tabs=Object.keys(spcData).map(k=>`<div class="col-tab ${k===r.column?'active':''}" onclick="renderSPC(spcData['${k}'])">${k}</div>`).join('');
-  const alarmRows=allAlarms.slice(0,12).map(a=>{const rc=a.rule==='WE1'?'rb-we1':a.rule==='WE2'?'rb-we2':a.rule==='WE3'?'rb-we3':a.rule==='WE4'?'rb-we4':'rb-ne';return `<tr><td>${a.index+1}</td><td><span class="rule-badge ${rc}">${a.rule}</span></td><td>${a.value.toFixed(4)}</td><td style="font-family:var(--font);color:var(--text2);font-size:12px">${a.description}</td></tr>`;}).join('');
+function toggleAlarmExtra(el){var rows=el.closest('table').querySelectorAll('.alarm-extra');var h=rows[0]&&rows[0].style.display==='none';rows.forEach(function(r){r.style.display=h?'table-row':'none';});el.textContent=h?'Show fewer':'Show all alarms';}
+  const alarmRows=allAlarms.map((a,i)=>{const _hide=i>=12;const rc=a.rule==='WE1'?'rb-we1':a.rule==='WE2'?'rb-we2':a.rule==='WE3'?'rb-we3':a.rule==='WE4'?'rb-we4':'rb-ne';return `<tr${_hide?' style="display:none" class="alarm-extra"':''}><td>${a.index+1}</td><td><span class="rule-badge ${rc}">${a.rule}</span></td><td>${a.value.toFixed(4)}</td><td style="font-family:var(--font);color:var(--text2);font-size:12px">${a.description}</td></tr>`;}).join('');
 
   const subrangeInfo = r.subrange && r.subrange.start !== null ? `
     <div style="background:rgba(45,212,160,0.08);border:1px solid rgba(45,212,160,0.25);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
@@ -3106,7 +3107,7 @@ function renderSPC(r, isSubrange=false){
     ${allAlarms.length?`
     <div class="card">
       <div class="ch"><div class="ct">Rule Violations (${allAlarms.length})</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button></div></div>
-      <div class="cb"><div style="overflow-x:auto"><table class="alarm-table"><tr><th>Pt</th><th>Rule</th><th>Value</th><th>Description</th></tr>${alarmRows}${allAlarms.length>12?`<tr><td colspan="4" style="color:var(--text3);font-size:11px">…${allAlarms.length-12} more</td></tr>`:''}</table></div></div>
+      <div class="cb"><div style="overflow-x:auto"><table class="alarm-table"><tr><th>Pt</th><th>Rule</th><th>Value</th><th>Description</th></tr>${alarmRows}${allAlarms.length>12?`<tr><td colspan="4" style="color:var(--teal);font-size:11px;cursor:pointer;user-select:none" onclick="toggleAlarmExtra(this)">▾ Show all ${allAlarms.length} alarms (${allAlarms.length-12} more)</td></tr>`:''}</table></div></div>
     </div>`:''}
   `);
 
@@ -3320,7 +3321,8 @@ async function runCAPA(){
         process_type:selectedProcess})});
     if(!r.ok)throw new Error((await r.json()).detail);
     const data=await r.json();
-    if(!data.success)throw new Error('CAPA generation failed');
+    if(!data.primary_capa || !(data.matched_rules&&data.matched_rules.length))
+      throw new Error(data.message||'No CAPA rules matched the attached results.');
     const key=`${document.getElementById('capa-col-name').value||'param'}_${Date.now()}`;
     capaReports[key]={...data.primary_capa,_matched:data.matched_rules,_timestamp:new Date().toLocaleTimeString()};
     buildCAPANav();renderCAPA(capaReports[key]);
@@ -4632,10 +4634,13 @@ function renderDOEAnalysis(r){
 
 // ══ E8: TOLERANCE INTERVALS ═══════════════════════════════════════════════════
 let tolFile=null,tolCol=null;
-setupUpload('tol-upload','tol-file-input','tol-upload-title',f=>{
-  tolFile=f;document.getElementById('tol-upload-title').textContent=f.name;showToast(`📂 ${f.name}`);
+function loadTolCols(f){
+  if(!f) return;
+  tolFile=f;
+  const t=document.getElementById('tol-upload-title'); if(t)t.textContent=f.name;
   loadCols(f,cols=>{buildColList('tol-col-list',cols,c=>{tolCol=c.name;hlt('tol-col-list',c.name);document.getElementById('tol-spec-form').style.display='flex';document.getElementById('tol-hint').innerHTML=`x̄=${c.mean} · σ=${c.std} · n=${c.n}`;});document.getElementById('tol-col-section').style.display='block';});
-});
+}
+setupUpload('tol-upload','tol-file-input','tol-upload-title',f=>{ showToast(`📂 ${f.name}`); loadTolCols(f); });
 document.getElementById('run-tol-btn').addEventListener('click',async()=>{
   if(!tolFile||!tolCol)return;
   const coverage=parseFloat(document.getElementById('tol-coverage').value);
@@ -4690,24 +4695,27 @@ function renderTolerance(r){
 
 // ══ E9: ATTRIBUTE AGREEMENT ════════════════════════════════════════════════════
 let aaaFile=null,aaaDecCol=null,aaaSampCol=null,aaaAppCol=null,aaaRepCol=null,aaaRefCol=null;
-setupUpload('aaa-upload','aaa-file-input','aaa-upload-title',async f=>{
-  aaaFile=f;document.getElementById('aaa-upload-title').textContent=f.name;showToast(`📂 ${f.name}`);
-  const fd=new FormData();fd.append('file',f);
+async function loadAaaCols(f){
+  if(!f) return;
+  aaaFile=f;
+  var t=document.getElementById('aaa-upload-title'); if(t)t.textContent=f.name;
+  var fd=new FormData();fd.append('file',f);
   try{
-    const r=await fetch(`${API}/api/v1/aaa/columns`,{method:'POST',body:fd});
+    var r=await fetch(API+'/api/v1/aaa/columns',{method:'POST',body:fd});
     if(!r.ok)throw new Error((await r.json()).detail);
-    const d=await r.json();
-    function buildAaaList(listId,cols,onClick){const l=document.getElementById(listId);l.innerHTML='';cols.forEach(c=>{const el=document.createElement('div');el.className='col-item';el.dataset.col=c;el.innerHTML=`<div class="ci-name">${c}</div>`;el.addEventListener('click',()=>{onClick(c);document.querySelectorAll(`#${listId} .col-item`).forEach(x=>x.classList.toggle('active',x.dataset.col===c));updateAaaBtn();});l.appendChild(el);});}
-    buildAaaList('aaa-dec-list',d.all_columns,c=>aaaDecCol=c);
-    buildAaaList('aaa-samp-list',d.all_columns,c=>aaaSampCol=c);
-    buildAaaList('aaa-app-list',d.all_columns,c=>aaaAppCol=c);
-    const optBase=`<div class="col-item active" data-col=""><div class="ci-name" style="color:var(--text3)">None</div></div>`;
-    ['aaa-rep-list','aaa-ref-list'].forEach(id=>{document.getElementById(id).innerHTML=optBase;});
-    buildAaaList('aaa-rep-list',d.all_columns,c=>aaaRepCol=c);
-    buildAaaList('aaa-ref-list',d.all_columns,c=>aaaRefCol=c);
+    var d=await r.json();
+    function buildAaaList(listId,cols,onClick){var l=document.getElementById(listId);l.innerHTML='';cols.forEach(function(c){var el=document.createElement('div');el.className='col-item';el.dataset.col=c;el.innerHTML='<div class="ci-name">'+c+'</div>';el.addEventListener('click',function(){onClick(c);document.querySelectorAll('#'+listId+' .col-item').forEach(function(x){x.classList.toggle('active',x.dataset.col===c);});updateAaaBtn();});l.appendChild(el);});}
+    buildAaaList('aaa-dec-list',d.all_columns,function(c){aaaDecCol=c;});
+    buildAaaList('aaa-samp-list',d.all_columns,function(c){aaaSampCol=c;});
+    buildAaaList('aaa-app-list',d.all_columns,function(c){aaaAppCol=c;});
+    var optBase='<div class="col-item active" data-col=""><div class="ci-name" style="color:var(--text3)">None</div></div>';
+    ['aaa-rep-list','aaa-ref-list'].forEach(function(id){document.getElementById(id).innerHTML=optBase;});
+    buildAaaList('aaa-rep-list',d.all_columns,function(c){aaaRepCol=c;});
+    buildAaaList('aaa-ref-list',d.all_columns,function(c){aaaRefCol=c;});
     document.getElementById('aaa-col-section').style.display='block';
   }catch(e){showToast(e.message,true);}
-});
+}
+setupUpload('aaa-upload','aaa-file-input','aaa-upload-title',function(f){ showToast('Loaded '+f.name); loadAaaCols(f); });
 function updateAaaBtn(){document.getElementById('run-aaa-btn').disabled=!(aaaDecCol&&aaaSampCol&&aaaAppCol);}
 document.getElementById('run-aaa-btn').addEventListener('click',async()=>{
   if(!aaaFile||!aaaDecCol||!aaaSampCol||!aaaAppCol){showToast('Select Decision, Sample, and Appraiser columns',true);return;}

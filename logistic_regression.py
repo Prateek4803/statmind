@@ -108,7 +108,8 @@ def _auc_roc(y_true: np.ndarray, y_prob: np.ndarray) -> float:
         tpr_list.append(tp / pos)
         fpr_list.append(fp / neg)
     tpr_list.append(1.0); fpr_list.append(1.0)
-    return float(np.trapz(tpr_list, fpr_list))
+    _trap = getattr(np, 'trapezoid', None) or getattr(np, 'trapz')
+    return float(_trap(tpr_list, fpr_list))
 
 
 def analyze_logistic(

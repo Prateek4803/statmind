@@ -7276,47 +7276,40 @@ function renderBoxPlot(r) {
 }
 
 function renderLogistic(r) {
+  destroyCharts();
   const roc = (typeof r.auc==='number'?r.auc:(r.roc_auc||0));
   const preds = r.predictor_columns || Object.keys(r.coefficients||{});
-  const coefs = preds.map(name=>({
-    name,
-    coef: (r.coefficients||{})[name],
-    odds_ratio: (r.odds_ratios||{})[name],
-    std_err: (r.std_errors||{})[name],
-    p_value: (r.p_values||{})[name],
-  }));
-  const f2=(v)=>(v==null||isNaN(v))?'—':Number(v).toFixed(4);
+  const coefs = preds.map(name=>({name,coef:(r.coefficients||{})[name],odds_ratio:(r.odds_ratios||{})[name],std_err:(r.std_errors||{})[name],p_value:(r.p_values||{})[name]}));
+  const f2=(v)=>(v==null||isNaN(v))?'—':Number(v).toFixed(2);
   const f3=(v)=>(v==null||isNaN(v))?'—':Number(v).toFixed(3);
+  const f4=(v)=>(v==null||isNaN(v))?'—':Number(v).toFixed(4);
+  const vc=roc>0.8?'vb-ok':roc>0.6?'vb-warn':'vb-bad';
+  const vi=roc>0.8?'✅':roc>0.6?'⚠️':'❌';
+  const vcc=roc>0.8?'var(--teal)':roc>0.6?'var(--amber)':'var(--red)';
   showContent(`
-    <div class="results-header">
-      <div class="rh-title">Logistic Regression</div>
-      <div class="verdict-badge ${roc>0.8?'vb-ok':roc>0.6?'vb-warn':'vb-bad'}">AUC = ${f3(roc)}</div>
+    <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl" style="color:${vcc}">${r.verdict||('AUC = '+f3(roc))}</div><div class="vd">Binary classifier on ${preds.length} predictor(s) · n=${r.n??'—'} (${r.n_positive??'—'}+ / ${r.n_negative??'—'}−)</div></div></div>
+    <div class="metrics-grid">
+      <div class="mc"><div class="ml">ROC-AUC</div><div class="mv" style="color:${vcc}">${f3(roc)}</div></div>
+      <div class="mc"><div class="ml">Accuracy</div><div class="mv">${r.accuracy==null?'—':(r.accuracy*100).toFixed(1)+'%'}</div></div>
+      <div class="mc"><div class="ml">Log-Likelihood</div><div class="mv" style="font-size:14px">${f2(r.log_likelihood)}</div></div>
+      <div class="mc"><div class="ml">AIC</div><div class="mv" style="font-size:14px">${f2(r.aic)}</div></div>
+      <div class="mc"><div class="ml">BIC</div><div class="mv" style="font-size:14px">${f2(r.bic)}</div></div>
+      <div class="mc"><div class="ml">Threshold</div><div class="mv">${f2(r.classification_threshold)}</div></div>
     </div>
-    <div class="stats-grid">
-      <div class="sg-item"><div class="sg-label">ROC-AUC</div><div class="sg-val">${f3(roc)}</div></div>
-      <div class="sg-item"><div class="sg-label">Accuracy</div><div class="sg-val">${r.accuracy==null?'—':(r.accuracy*100).toFixed(1)+'%'}</div></div>
-      <div class="sg-item"><div class="sg-label">Log-Likelihood</div><div class="sg-val">${f2(r.log_likelihood)}</div></div>
-      <div class="sg-item"><div class="sg-label">AIC</div><div class="sg-val">${f2(r.aic)}</div></div>
-    </div>
-    <div class="card"><div class="ch"><div class="ct">Odds Ratios</div></div><div class="cb" style="height:240px"><canvas id="logit-or"></canvas></div></div>
-    <div class="card"><div class="ch"><div class="ct">Coefficients Table</div></div><div class="cb"><table class="alarm-table">
+    <div class="card"><div class="ch"><div class="ct">Odds Ratios</div></div><div class="cb" style="height:230px"><canvas id="logit-or"></canvas></div></div>
+    <div class="card"><div class="ch"><div class="ct">Coefficients</div></div><div class="cb" style="overflow-x:auto"><table class="alarm-table">
       <tr><th>Variable</th><th>Coef (β)</th><th>Odds Ratio</th><th>Std Err</th><th>p-value</th><th>Sig</th></tr>
-      <tr><td>Intercept</td><td>${f2(r.intercept)}</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
-      ${coefs.map(c=>`<tr><td>${c.name}</td><td>${f2(c.coef)}</td><td style="font-weight:600">${f3(c.odds_ratio)}</td><td>${f2(c.std_err)}</td><td style="color:${(c.p_value!=null&&c.p_value<0.05)?'var(--red)':'var(--text2)'}">${c.p_value==null?'—':Number(c.p_value).toFixed(4)}</td><td>${c.p_value==null?'':c.p_value<0.001?'***':c.p_value<0.01?'**':c.p_value<0.05?'*':''}</td></tr>`).join('')}
-    </table>
-    <div style="font-size:11px;color:var(--text3);margin-top:8px">${r.verdict||''}</div>
-    </div>
+      <tr><td>Intercept</td><td>${f4(r.intercept)}</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+      ${coefs.map(c=>`<tr><td>${c.name}</td><td>${f4(c.coef)}</td><td style="font-weight:600">${f3(c.odds_ratio)}</td><td>${f4(c.std_err)}</td><td style="color:${(c.p_value!=null&&c.p_value<0.05)?'var(--teal)':'var(--text2)'}">${c.p_value==null?'—':Number(c.p_value).toFixed(4)}</td><td>${c.p_value==null?'':c.p_value<0.001?'***':c.p_value<0.01?'**':c.p_value<0.05?'*':''}</td></tr>`).join('')}
+    </table></div></div>
   `);
-  if(coefs.length) {
-    charts['lr2'] = new Chart(document.getElementById('logit-or').getContext('2d'), {
-      type:'bar',
-      data:{labels:coefs.map(c=>c.name),datasets:[{label:'Odds Ratio',data:coefs.map(c=>(c.odds_ratio==null||isNaN(c.odds_ratio))?0:c.odds_ratio),backgroundColor:coefs.map(c=>(c.p_value!=null&&c.p_value<0.05)?'rgba(45,212,160,0.7)':'rgba(100,120,140,0.4)'),borderColor:'transparent',borderWidth:0}]},
-      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}}},y:{grid:{display:false},ticks:{color:'#b8c4bb',font:{size:10}}}}}
-    });
+  if(coefs.length){
+    charts['lr2']=new Chart(document.getElementById('logit-or').getContext('2d'),{type:'bar',data:{labels:coefs.map(c=>c.name),datasets:[{label:'Odds Ratio',data:coefs.map(c=>(c.odds_ratio==null||isNaN(c.odds_ratio))?0:c.odds_ratio),backgroundColor:coefs.map(c=>(c.p_value!=null&&c.p_value<0.05)?'rgba(45,212,160,0.7)':'rgba(100,120,140,0.4)'),borderWidth:0}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}}},y:{grid:{display:false},ticks:{color:'#b8c4bb',font:{size:10}}}}}});
   }
 }
 
 function renderStepwise(r) {
+  destroyCharts();
   const steps = r.steps || [];
   const finalCols = r.selected_predictors || [];
   const fm = r.final_model || null;
@@ -7327,30 +7320,25 @@ function renderStepwise(r) {
     const preds = fm.predictor_columns || Object.keys(fm.coefficients||{});
     coefRows = `<tr><td>Intercept</td><td>${f4(fm.intercept)}</td><td>—</td><td>—</td></tr>` + preds.map(name=>{
       const p=(fm.p_values||{})[name];
-      return `<tr><td style="font-weight:600">${name}</td><td>${f4((fm.coefficients||{})[name])}</td><td>${f4((fm.odds_ratios||{})[name])}</td><td style="color:${(p!=null&&p<0.05)?'var(--red)':'var(--text2)'}">${p==null?'—':Number(p).toFixed(4)}</td></tr>`;
+      return `<tr><td style="font-weight:600">${name}</td><td>${f4((fm.coefficients||{})[name])}</td><td>${f4((fm.odds_ratios||{})[name])}</td><td style="color:${(p!=null&&p<0.05)?'var(--teal)':'var(--text2)'}">${p==null?'—':Number(p).toFixed(4)}</td></tr>`;
     }).join('');
   }
   showContent(`
-    <div class="results-header">
-      <div class="rh-title">Stepwise Regression</div>
-      <div class="verdict-badge vb-ok">${finalCols.length} variable(s) selected</div>
+    <div class="verdict-banner vb-ok"><div class="vi">📋</div><div><div class="vl" style="color:var(--teal)">${finalCols.length} predictor(s) selected</div><div class="vd">${r.method||'both'} selection · ${r.criterion||'AIC'} criterion</div></div></div>
+    <div class="metrics-grid">
+      <div class="mc"><div class="ml">Final AIC</div><div class="mv" style="font-size:15px">${f2(r.final_aic)}</div></div>
+      <div class="mc"><div class="ml">Final BIC</div><div class="mv" style="font-size:15px">${f2(r.final_bic)}</div></div>
+      <div class="mc"><div class="ml">Full-model AIC</div><div class="mv" style="font-size:15px">${f2(r.full_model_aic)}</div></div>
+      <div class="mc"><div class="ml">Improvement</div><div class="mv" style="font-size:15px;color:${(r.improvement||0)>0?'var(--green)':'var(--text2)'}">${f2(r.improvement)}</div></div>
     </div>
-    <div class="stats-grid">
-      <div class="sg-item"><div class="sg-label">Method</div><div class="sg-val" style="font-size:14px">${r.method||'—'}</div></div>
-      <div class="sg-item"><div class="sg-label">Final AIC</div><div class="sg-val">${f2(r.final_aic)}</div></div>
-      <div class="sg-item"><div class="sg-label">Final BIC</div><div class="sg-val">${f2(r.final_bic)}</div></div>
-      <div class="sg-item"><div class="sg-label">Improvement</div><div class="sg-val">${f2(r.improvement)}</div></div>
-    </div>
-    <div class="card"><div class="ch"><div class="ct">Selected Predictors</div></div><div class="cb">
-      <div style="font-size:13px;color:var(--text);padding:4px 0">${finalCols.length?finalCols.join(', '):'(none selected)'}</div>
-    </div></div>
-    ${coefRows?`<div class="card"><div class="ch"><div class="ct">Final Model Coefficients</div></div><div class="cb"><table class="alarm-table">
+    <div class="card"><div class="ch"><div class="ct">Selected Predictors</div></div><div class="cb"><div style="font-size:13px;color:var(--text);padding:4px 0">${finalCols.length?finalCols.join(' · '):'(none selected)'}</div></div></div>
+    ${coefRows?`<div class="card"><div class="ch"><div class="ct">Final Model Coefficients</div></div><div class="cb" style="overflow-x:auto"><table class="alarm-table">
       <tr><th>Variable</th><th>Coef (β)</th><th>Odds Ratio</th><th>p-value</th></tr>
       ${coefRows}
     </table></div></div>`:''}
-    <div class="card"><div class="ch"><div class="ct">Selection Steps</div></div><div class="cb"><table class="alarm-table">
+    <div class="card"><div class="ch"><div class="ct">Selection Steps</div></div><div class="cb" style="overflow-x:auto"><table class="alarm-table">
       <tr><th>Step</th><th>Action</th><th>Variable</th><th>Criterion</th></tr>
-      ${steps.map(s=>`<tr><td>${s.step==null?'—':s.step}</td><td>${s.action||'—'}</td><td>${s.variable||'—'}</td><td>${s.criterion_value==null?'—':Number(s.criterion_value).toFixed(2)}</td></tr>`).join('')}
+      ${steps.length?steps.map(s=>`<tr><td>${s.step==null?'—':s.step}</td><td>${s.action||'—'}</td><td>${s.variable||'—'}</td><td>${s.criterion_value==null?'—':Number(s.criterion_value).toFixed(2)}</td></tr>`).join(''):'<tr><td colspan="4" style="color:var(--text3)">No selection steps recorded</td></tr>'}
     </table></div></div>
   `);
 }

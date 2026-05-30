@@ -568,6 +568,151 @@ async def download_report(report_id: str):
         filename=f"statmind_report_{report_id}.pdf",
     )
 
+
+def _all_cols_response(result):
+    return jd({
+        "all_columns":     list(result.all_columns),
+        "numeric_columns": list(result.numeric_columns),
+        "n_rows":          result.n_rows,
+    })
+
+
+@app.post("/api/v1/regression/analyze")
+@limiter.limit("30/minute")
+async def regression_analyze(request: Request, file: UploadFile = File(...), y_col: str = Query(...), x_cols: str = Query(...), alpha: float = Query(0.05)):
+    c = await file.read(); _validate_upload(file, c)
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    xs = [x.strip() for x in x_cols.split(",") if x.strip()]
+    for col in [y_col] + xs:
+        if col not in result.df.columns:
+            raise HTTPException(404, f"Column '{col}' not found")
+    try:
+        import regression as R
+        y = result.df[y_col].values.astype(float)
+        if len(xs) == 1:
+            res = await asyncio.to_thread(R.simple_linear_regression, result.df[xs[0]].values.astype(float), y, xs[0], y_col, alpha)
+        else:
+            res = await asyncio.to_thread(R.multiple_regression, result.df[xs].values.astype(float), y, xs, y_col, alpha)
+        return jd(dataclasses.asdict(res) if dataclasses.is_dataclass(res) else res)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/doe/generate")
+@limiter.limit("30/minute")
+async def doe_generate(request: Request):
+    b = await request.json()
+    try:
+        import doe as D
+        res = await asyncio.to_thread(D.generate_design, b["factor_names"], b["factor_levels"], b.get("design_type", "auto"), None)
+        return jd(dataclasses.asdict(res) if dataclasses.is_dataclass(res) else res)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/doe/analyze")
+@limiter.limit("30/minute")
+async def doe_analyze(request: Request):
+    b = await request.json()
+    try:
+        import doe as D
+        res = await asyncio.to_thread(D.generate_design, b["factor_names"], b["factor_levels"], b.get("design_type", "auto"), b.get("responses"))
+        return jd(dataclasses.asdict(res) if dataclasses.is_dataclass(res) else res)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/multivari/columns")
+@limiter.limit("30/minute")
+async def multivari_columns(request: Request, file: UploadFile = File(...)):
+    c = await file.read(); _validate_upload(file, c)
+    try:
+        return _all_cols_response(parse_any_file(c, file.filename))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/multivari/analyze")
+@limiter.limit("30/minute")
+async def multivari_analyze(request: Request, file: UploadFile = File(...), value_col: str = Query(...), part_col: str = Query(...), position_col: str = Query(None), time_col: str = Query(None)):
+    c = await file.read(); _validate_upload(file, c)
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    for col in [value_col, part_col, position_col, time_col]:
+        if col and col not in result.df.columns:
+            raise HTTPException(404, f"Column '{col}' not found")
+    try:
+        import multivari as M
+        df = result.df
+        res = await asyncio.to_thread(M.analyze_multivari, df[value_col].values.astype(float), df[part_col].values, df[position_col].values if position_col else None, df[time_col].values if time_col else None, value_col)
+        return jd(dataclasses.asdict(res) if dataclasses.is_dataclass(res) else res)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/pareto/columns")
+@limiter.limit("30/minute")
+async def pareto_columns(request: Request, file: UploadFile = File(...)):
+    c = await file.read(); _validate_upload(file, c)
+    try:
+        return _all_cols_response(parse_any_file(c, file.filename))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/pareto/analyze")
+@limiter.limit("30/minute")
+async def pareto_analyze(request: Request, file: UploadFile = File(...), category_col: str = Query(...), count_col: str = Query(None), threshold: float = Query(80.0)):
+    c = await file.read(); _validate_upload(file, c)
+    try:
+        result = parse_any_file(c, file.filename)
+    except Exception as e:
+        raise HTTPException(400, str(e))
+    for col in [category_col, count_col]:
+        if col and col not in result.df.columns:
+            raise HTTPException(404, f"Column '{col}' not found")
+    try:
+        import pareto as P
+        df = result.df
+        cats = df[category_col].astype(str).tolist()
+        counts = df[count_col].values.astype(float).tolist() if count_col else None
+        res = await asyncio.to_thread(P.analyze_pareto, cats, counts, f"{category_col} Pareto", threshold)
+        return jd(dataclasses.asdict(res) if dataclasses.is_dataclass(res) else res)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/api/v1/comparison/analyze")
+@limiter.limit("30/minute")
+async def comparison_analyze(request: Request):
+    b = await request.json()
+    try:
+        from routers.comparison import compare_datasets
+        import numpy as _np
+        datasets = [(d["name"], _np.array(d["values"], dtype=float)) for d in b["datasets"]]
+        res = await asyncio.to_thread(compare_datasets, datasets, b.get("parameter", "Measurement"), b.get("usl"), b.get("lsl"), b.get("alpha", 0.05))
+        return jd(dataclasses.asdict(res) if dataclasses.is_dataclass(res) else res)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
 # ── Regression ─────────────────────────────────────────────────────────────────
 @app.post("/api/v1/regression/logistic")
 async def logistic_regression_ep(

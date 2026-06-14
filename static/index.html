@@ -7095,43 +7095,26 @@ function renderAttrChart(r) {
 }
 
 function renderWeibull(r) {
-  const b10 = r.b10_life, b50 = r.b50_life, beta = r.beta, eta = r.eta;
-  showContent(`
-    <div class="results-header">
-      <div class="rh-title">Weibull / Reliability Analysis</div>
-      <div class="verdict-badge vb-ok">${r.distribution} Fit</div>
-    </div>
-    <div class="stats-grid">
-      <div class="sg-item"><div class="sg-label">β (Shape)</div><div class="sg-val">${(beta||0).toFixed(3)}</div></div>
-      <div class="sg-item"><div class="sg-label">η (Scale)</div><div class="sg-val">${(eta||0).toFixed(2)}</div></div>
-      <div class="sg-item"><div class="sg-label">B10 Life</div><div class="sg-val">${b10?(b10.toFixed(2)):'—'}</div></div>
-      <div class="sg-item"><div class="sg-label">B50 Life (Median)</div><div class="sg-val">${b50?(b50.toFixed(2)):'—'}</div></div>
-      <div class="sg-item"><div class="sg-label">Mean Life</div><div class="sg-val">${r.mean_life?(r.mean_life.toFixed(2)):'—'}</div></div>
-      <div class="sg-item"><div class="sg-label">R² (fit)</div><div class="sg-val">${r.r_squared?(r.r_squared.toFixed(4)):'—'}</div></div>
-    </div>
-    <div class="cb" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="card"><div class="ch"><div class="ct">Weibull Probability Plot</div></div><div class="cb" style="height:240px"><canvas id="weibull-prob-canvas"></canvas></div></div>
-      <div class="card"><div class="ch"><div class="ct">Hazard Rate</div></div><div class="cb" style="height:240px"><canvas id="weibull-hz-canvas"></canvas></div></div>
-    </div>
-    <div class="card"><div class="ch"><div class="ct">Interpretation</div></div><div class="cb">
-      <div style="font-size:13px;color:var(--text2)">
-        ${beta<1?'<strong style="color:var(--amber)">β &lt; 1: Infant mortality</strong> — Failure rate decreasing. Burn-in testing recommended.':beta<1.5?'<strong style="color:var(--green)">β ≈ 1: Random failures</strong> — Constant failure rate. Exponential distribution fits equally well.':'<strong style="color:var(--red)">β &gt; 1: Wear-out failures</strong> — Failure rate increasing with age. Preventive maintenance or design improvement needed.'}
-        <br><br>B10 life (10% have failed) = ${b10?b10.toFixed(2):'—'} | B50 life (median) = ${b50?b50.toFixed(2):'—'}
-      </div>
-    </div></div>
-  `);
-  if(r.prob_x && r.prob_y) {
-    charts['wb1'] = new Chart(document.getElementById('weibull-prob-canvas').getContext('2d'), {
-      type:'scatter', data:{datasets:[{label:'Data',data:r.prob_x.map((x,i)=>({x,y:r.prob_y[i]})),pointRadius:4,pointBackgroundColor:'#2dd4a0'},{label:'Fit',data:r.fit_x.map((x,i)=>({x,y:r.fit_y[i]})),type:'line',borderColor:'#4f7cff',borderWidth:2,pointRadius:0,fill:false}]},
-      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'ln(time)',color:'#8b92b0',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'ln(-ln(1-F))',color:'#8b92b0',font:{size:10}}}}}
-    });
-  }
-  if(r.hz_x && r.hz_y) {
-    charts['wb2'] = new Chart(document.getElementById('weibull-hz-canvas').getContext('2d'), {
-      type:'line', data:{datasets:[{label:'Hazard Rate',data:r.hz_x.map((x,i)=>({x,y:r.hz_y[i]})),borderColor:'#f05c5c',borderWidth:2,pointRadius:0,fill:true,backgroundColor:'rgba(240,92,92,0.08)'}]},
-      options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}}}}}
-    });
-  }
+destroyCharts();
+const beta=r.beta, eta=r.eta;
+const vc = beta<1 ? 'vb-warn' : (beta<1.5 ? 'vb-ok' : 'vb-bad');
+const vi = beta<1 ? '⚠️' : (beta<1.5 ? '✓' : '⚙️');
+const pp = r.probability_plot||{}, rc = r.reliability_curve||{};
+const f2=v=>(v==null||isNaN(v))?'—':Number(v).toFixed(2);
+const f3=v=>(v==null||isNaN(v))?'—':Number(v).toFixed(3);
+showContent(    <div style="max-width:920px;margin:0 auto">     <div class="verdict-banner ${vc}"><div class="vi">${vi}</div><div><div class="vl">${r.verdict||('β='+f2(beta))}</div><div class="vd">${r.failure_mode||''} · n=${r.sample_size||'—'}</div></div></div>     <div class="metrics-grid">       <div class="mc"><div class="ml">β (Shape)</div><div class="mv">${f3(beta)}</div></div>       <div class="mc"><div class="ml">η (Scale)</div><div class="mv">${f2(eta)}</div></div>       <div class="mc"><div class="ml">MTTF</div><div class="mv">${f2(r.mttf)}</div></div>       <div class="mc"><div class="ml">B10 Life</div><div class="mv">${f2(r.b10_life)}</div></div>       <div class="mc"><div class="ml">B50 Life</div><div class="mv">${f2(r.b50_life)}</div></div>       <div class="mc"><div class="ml">Sample Size</div><div class="mv">${r.sample_size||'—'}</div></div>     </div>     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">       <div class="card"><div class="ch"><div class="ct">Probability Plot (median ranks)</div></div><div class="cb" style="height:240px"><canvas id="weibull-prob-canvas"></canvas></div></div>       <div class="card"><div class="ch"><div class="ct">Reliability Curve</div></div><div class="cb" style="height:240px"><canvas id="weibull-rel-canvas"></canvas></div></div>     </div>     <div class="card"><div class="ch"><div class="ct">Interpretation</div></div><div class="cb">       <div style="font-size:13px;color:var(--text2);line-height:1.6">         ${beta<1?'<strong style="color:var(--amber)">β &lt; 1: Infant mortality</strong> — failure rate decreasing. Burn-in testing recommended.':beta<1.5?'<strong style="color:var(--green)">β ≈ 1: Random failures</strong> — near-constant failure rate; exponential fits comparably.':'<strong style="color:var(--red)">β &gt; 1: Wear-out failures</strong> — failure rate increases with age. Preventive maintenance or design improvement indicated.'}         <br><br>B10 (10% failed) = ${f2(r.b10_life)} · B50 (median) = ${f2(r.b50_life)} · MTTF = ${f2(r.mttf)}       </div>     </div></div>     </div>  );
+if(pp.times && pp.cumulative_failure){
+charts['wb1'] = new Chart(document.getElementById('weibull-prob-canvas').getContext('2d'), {
+type:'scatter', data:{datasets:[{label:'Median ranks',data:pp.times.map((x,i)=>({x,y:pp.cumulative_failure[i]})),pointRadius:4,pointBackgroundColor:'#2dd4a0'}]},
+options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'Time',color:'#8b92b0',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'Cumulative failure',color:'#8b92b0',font:{size:10}}}}}
+});
+}
+if(rc.times && rc.reliability){
+charts['wb2'] = new Chart(document.getElementById('weibull-rel-canvas').getContext('2d'), {
+type:'line', data:{datasets:[{label:'Reliability R(t)',data:rc.times.map((x,i)=>({x,y:rc.reliability[i]})),borderColor:'#4f7cff',borderWidth:2,pointRadius:3,fill:true,backgroundColor:'rgba(79,124,255,0.08)'}]},
+options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{labels:{color:'#b8c4bb',font:{size:10}}}},scales:{x:{type:'linear',grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'Time',color:'#8b92b0',font:{size:10}}},y:{grid:{color:'rgba(100,200,180,0.1)'},ticks:{color:'#b8c4bb',font:{size:10}},title:{display:true,text:'R(t)',color:'#8b92b0',font:{size:10}}}}}
+});
+}
 }
 
 function renderLinearity(r) {
@@ -7620,8 +7603,9 @@ async function runTool(toolId, endpoint){
       throw new Error(err.detail||'Analysis failed');
     }
     const d = await r.json();
-    renderToolResult(toolId, d, resDiv);
-    showToast(`✅ ${toolId} analysis complete`);
+        if(toolId==='weibull'){ renderWeibull(d); }
+        else { renderToolResult(toolId, d, resDiv); }
+        showToast(✅ ${toolId} analysis complete);
   }catch(e){
     if(resDiv) resDiv.innerHTML=`<div style="color:var(--red);padding:10px;background:rgba(240,92,92,0.08);border-radius:8px;font-size:13px">❌ ${e.message}</div>`;
     showToast(e.message,true);

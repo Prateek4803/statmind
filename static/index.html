@@ -7035,7 +7035,7 @@ function loadSampleDataset() {
   // Trigger the sidebar pipeline
   autoLoadGlobalFile();
 
-  setTimeout(() => switchAnalysis('capability'), 100);
+  switchAnalysis('capability');
 
   // Toast notification
   const toast = document.createElement('div');
@@ -7049,6 +7049,24 @@ function loadSampleDataset() {
   toast.innerHTML = '<span style="font-size:18px">⚡</span><div><strong>Sample dataset loaded!</strong><br><span style="color:var(--text2);font-size:12px">40 etch measurements · 3 parameters · Semiconductor process. Set USL/LSL and run Capability →</span></div>';
   document.body.appendChild(toast);
   setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .4s'; setTimeout(() => toast.remove(), 500); }, 5000);
+
+  // Resilient auto-run: wait for column auto-select + spec form, then run.
+  let _t0 = Date.now();
+  const _autoRun = setInterval(() => {
+    const uslEl = document.getElementById('usl-input');
+    const lslEl = document.getElementById('lsl-input');
+    const runBtn = document.getElementById('run-cap-btn');
+    const sf = document.getElementById('spec-form');
+    const ready = selectedCapCol && uslEl && lslEl && runBtn && sf && sf.style.display !== 'none';
+    if (ready) {
+      clearInterval(_autoRun);
+      uslEl.value = '240';
+      lslEl.value = '180';
+      runBtn.click();
+    } else if (Date.now() - _t0 > 8000) {
+      clearInterval(_autoRun);
+    }
+  }, 100);
 }
 
 

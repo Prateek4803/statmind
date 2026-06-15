@@ -7347,11 +7347,11 @@ function dsAddFormulaColumn() {
 
 /* ── Transformation download / apply ─────────────────────────────────────── */
 function downloadTransformedData(r, fmt) {
-  if(!r || !r.transformed_values || !r.transformed_values.length){
+  if(!r || !r.exported_data || !r.exported_data.length){
     showToast('No transformed data available', true); return;
   }
-  const col = (r.column||'value').replace(/[^a-z0-9_]/gi,'_') + '_' + (r.best_transform||'tx').replace(/[^a-z0-9]/gi,'');
-  const rows = r.transformed_values.map((v,i) => (i+1) + ',' + v.toFixed(6));
+  const col = (r.exported_column_name || 'transformed_data').replace(/[^a-z0-9_]/gi,'_');
+  const rows = r.exported_data.map((v,i) => (i+1) + ',' + Number(v).toFixed(6));
   const csv = [col, ...rows].join('\n');
   const ext = fmt === 'xlsx' ? 'xlsx' : 'csv';
   const mime = fmt === 'xlsx' ? 'application/vnd.ms-excel' : 'text/csv';
@@ -7364,11 +7364,11 @@ function downloadTransformedData(r, fmt) {
 }
 
 function applyTransformedDataToNextAnalysis(r) {
-  if(!r || !r.transformed_values || !r.transformed_values.length){
+  if(!r || !r.exported_data || !r.exported_data.length){
     showToast('No transformed data available', true); return;
   }
-  const col = (r.column||'value') + '_transformed';
-  const csv = [col, ...r.transformed_values.map(v => v.toFixed(6))].join('\n');
+  const col = (r.exported_column_name || 'transformed_data').replace(/[^a-z0-9_]/gi,'_');
+  const csv = [col, ...r.exported_data.map(v => Number(v).toFixed(6))].join('\n');
   const blob = new Blob([csv], {type: 'text/csv'});
   globalFile = new File([blob], col + '.csv', {type: 'text/csv'});
   autoLoadGlobalFile();

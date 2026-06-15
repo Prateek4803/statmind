@@ -15,6 +15,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate index.html JavaScript syntax
+        run: |
+          node -e '
+            const fs = require("fs");
+            const html = fs.readFileSync("static/index.html", "utf8");
+            const re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+            let m, js = "";
+            while ((m = re.exec(html)) !== null) { js += m[1] + "\n;\n"; }
+            fs.writeFileSync("/tmp/_inline.js", js);
+          '
+          if node --check /tmp/_inline.js; then
+            echo "index.html inline JavaScript parses cleanly"
+          else
+            echo "CRITICAL: index.html inline JavaScript has a SYNTAX ERROR - do NOT deploy"
+            exit 1
+          fi
+
       - name: Check for if(false) dead-code bug
         run: |
           COUNT=$(grep -c "if(false)" static/index.html || true)

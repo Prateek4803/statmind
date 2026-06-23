@@ -48,6 +48,7 @@ from normality      import analyze_column
 from capability     import analyze_capability
 from control_charts import auto_select_and_build as analyze_control_chart
 from gauge_rr       import analyze_gauge_rr, parse_grr_csv
+from recommendations import recommend_next_step
 from capa_rules_engine import (
     run_capa_engine, run_capa_engine_v2,
     get_capa_for_rule, get_all_rules_catalog,
@@ -259,6 +260,22 @@ def _json_safe(o):
 def jd(d):   return JSONResponse(content=_json_safe(json.loads(json.dumps(d, cls=NpEnc))))
 def jobj(o): return jd(dataclasses.asdict(o))
 
+def _with_next_step(d: dict, analysis_type: str, *, in_control=None, normality_verdict=None) -> dict:
+    """Attach a single next-step recommendation to a result dict (in place).
+    Safe: never raises into the response."""
+    try:
+        ns = recommend_next_step(
+            analysis_type,
+            verdict=d.get("verdict") or d.get("overall_verdict"),
+            in_control=in_control if in_control is not None else d.get("in_control"),
+            normality_verdict=normality_verdict,
+        )
+        if ns is not None:
+            d["next_step"] = ns.to_dict()
+    except Exception:
+        pass
+    return d
+
 # ── Security headers middleware ────────────────────────────────────────────────
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -354,9 +371,10 @@ async def normality(request: Request, file: UploadFile = File(...), alpha: float
     results, errors = [], []
     for col in result.numeric_columns:
         try:
-            results.append(dataclasses.asdict(
+            _r = dataclasses.asdict(
                 analyze_column(result.df[col].dropna().values.astype(float), col, alpha)
-            ))
+            )
+            results.append(_with_next_step(_r, "normality"))
         except Exception as e:
             errors.append({"column": col, "error": str(e)})
     return jd({
@@ -391,11 +409,12 @@ async def capability(
     if column not in result.df.columns:
         raise HTTPException(404, f"Column '{column}' not found. Available: {result.numeric_columns}")
     try:
-        return jobj(await asyncio.to_thread(
+        cap = await asyncio.to_thread(
             analyze_capability,
             result.df[column].dropna().values.astype(float),
             column, usl, lsl, target, subgroup_size,
-        ))
+        )
+        return jd(_with_next_step(dataclasses.asdict(cap), "capability"))
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -439,7 +458,7 @@ async def spc(
             "total_points":     total_points,
             "selected_points":  len(data),
         }
-        return jd(spc_result)
+        return jd(_with_next_step(spc_result, "spc"))
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -457,9 +476,10 @@ async def grr_analyze(
     except Exception as e:
         raise HTTPException(400, str(e))
     try:
-        return jobj(await asyncio.to_thread(
+        grr = await asyncio.to_thread(
             analyze_gauge_rr, measurements, parts, operators, col_name, tolerance, method
-        ))
+        )
+        return jd(_with_next_step(dataclasses.asdict(grr), "grr"))
     except Exception as e:
         raise HTTPException(400, str(e))
 

@@ -3454,6 +3454,7 @@ charts.ch = new Chart(document.getElementById('cap-hist').getContext('2d'), {
   makeChartInteractive(cht, document.getElementById('cap-hist'));
     // Fetch Cpk CI (non-blocking, enhances display)
   setTimeout(()=>{ if(typeof fetchAndShowCapCI==='function') fetchAndShowCapCI(r); },400);
+  renderNextStep(r);
 }
 
 // ══ SESSION 1: NORMALITY ════════════════════════════════════════════════════
@@ -3719,6 +3720,26 @@ function buildNav(navId,dataObj,renderFn,verdictFn,metaFn){
 }
 function hlt(id,name){document.querySelectorAll(`#${id} .col-item`).forEach(el=>el.classList.toggle('active',el.dataset.col===name));}
 function destroyCharts(){Object.values(charts).forEach(c=>{try{c.destroy();}catch{}});charts={};}
+function renderNextStep(r){
+  try{
+    if(!r || !r.next_step) return;
+    const ns = r.next_step;
+    const pal = ns.priority==='critical' ? {bd:'var(--red)',bg:'rgba(229,72,77,0.07)',ic:'\u26a0\ufe0f'}
+              : ns.priority==='action'   ? {bd:'var(--amber)',bg:'rgba(245,176,65,0.07)',ic:'\u27a1\ufe0f'}
+              : {bd:'var(--teal)',bg:'rgba(45,212,160,0.07)',ic:'\u2705'};
+    const el = document.getElementById('content');
+    if(!el) return;
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'max-width:920px;margin:18px auto 0;border:1px solid '+pal.bd+';background:'+pal.bg+';border-radius:12px;padding:16px 18px';
+    wrap.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--text);margin-bottom:6px">'
+      + '<span style="font-size:16px">'+pal.ic+'</span> Recommended Next Step</div>'
+      + '<div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:12px">'+ns.reason+'</div>'
+      + '<button class="wa-btn" style="background:'+pal.bg+';border:1px solid '+pal.bd+';color:'+pal.bd+';font-weight:600" '
+      + 'onclick="switchAnalysis(\''+ns.next_tool+'\')">'+ns.title+' \u2192</button>';
+    el.appendChild(wrap);
+  }catch(e){ /* never break the result render over a recommendation */ }
+}
 function showContent(html){
   const el = document.getElementById('content');
   el.innerHTML = html;

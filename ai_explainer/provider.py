@@ -84,6 +84,54 @@ class HostedAnthropicProvider(LLMProvider):
                                  error=f"{type(e).__name__} from provider.")
 
 
+class HostedGeminiProvider(LLMProvider):
+    """Hosted Google Gemini via the Generative Language API. Free tier available
+    through Google AI Studio. Requires GEMINI_API_KEY in env.
+
+    PRIVACY: verify the data-use terms of whichever Gemini tier you use. The
+    free tier may use inputs to improve products unless configured otherwise —
+    disclose accordingly on the security page. We send only computed scalar
+    facts (Cpk, verdict, etc.), never the user's raw rows.
+    """
+    name = "gemini"
+
+    def __init__(self, model: str = "gemini-1.5-flash"):
+        self.model = model
+
+    def complete(self, messages: list[dict], *, max_tokens: int = 600) -> ExplainResult:
+        api_key = os.getenv("GEMINI_API_KEY", "")
+        if not api_key:
+            return ExplainResult(False, provider=self.name,
+                                 error="GEMINI_API_KEY not set in environment.")
+        try:
+            import google.generativeai as genai
+        except ImportError:
+            return ExplainResult(False, provider=self.name,
+                                 error="google-generativeai package not installed.")
+        # Gemini takes a system instruction separately; the rest becomes the prompt.
+        system = next((m["content"] for m in messages if m["role"] == "system"), "")
+        user_text = "\n\n".join(m["content"] for m in messages if m["role"] != "system")
+        try:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(
+                model_name=self.model,
+                system_instruction=system or None,
+            )
+            resp = model.generate_content(
+                user_text,
+                generation_config={"max_output_tokens": max_tokens},
+            )
+            text = (resp.text or "").strip()
+            if not text:
+                return ExplainResult(False, provider=self.name,
+                                     error="Empty response from provider.")
+            return ExplainResult(True, text=text, provider=self.name)
+        except Exception as e:
+            # Never leak data: return only the error TYPE.
+            return ExplainResult(False, provider=self.name,
+                                 error=f"{type(e).__name__} from provider.")
+
+
 class LocalModelProvider(LLMProvider):
     """Placeholder for a self-hosted model (e.g. quantized 7B on an Oracle ARM
     instance via an OpenAI-compatible local server like llama.cpp / Ollama).
@@ -112,10 +160,16 @@ class LocalModelProvider(LLMProvider):
 
 
 def get_provider() -> LLMProvider:
-    """Select the provider from env. Defaults to hosted Anthropic."""
-    choice = os.getenv("LLM_PROVIDER", "anthropic").strip().lower()
+    """Select the provider from env. Defaults to hosted Gemini (free tier).
+
+    LLM_PROVIDER = gemini (default) | anthropic | local
+    """
+    choice = os.getenv("LLM_PROVIDER", "gemini").strip().lower()
     if choice == "local":
         return LocalModelProvider()
-    # default / "anthropic"
-    model = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
-    return HostedAnthropicProvider(model=model)
+    if choice == "anthropic":
+        model = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
+        return HostedAnthropicProvider(model=model)
+    # default / "gemini"
+    model = os.getenv("LLM_MODEL", "gemini-1.5-flash")
+    return HostedGeminiProvider(model=model)

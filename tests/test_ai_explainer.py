@@ -19,6 +19,7 @@ from ai_explainer.grounding import (
     build_messages, build_grounding, SYSTEM_INSTRUCTION,
 )
 from ai_explainer.provider import (
+    HostedGeminiProvider,
     get_provider, HostedAnthropicProvider, LocalModelProvider, ExplainResult,
 )
 from ai_explainer import explain_result
@@ -119,10 +120,25 @@ def test_explain_result_declines_unsupported():
 
 # ── Provider selection ───────────────────────────────────────────────────────
 
-def test_default_provider_is_hosted():
+def test_default_provider_is_gemini():
     os.environ.pop("LLM_PROVIDER", None)
     p = get_provider()
+    assert isinstance(p, HostedGeminiProvider)
+
+
+def test_anthropic_provider_selected_by_env(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    p = get_provider()
     assert isinstance(p, HostedAnthropicProvider)
+
+
+def test_gemini_provider_fails_safe_without_key(monkeypatch):
+    """No Gemini key -> clean failure, never a crash, never a leaked key."""
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    p = HostedGeminiProvider()
+    res = p.complete([{"role": "user", "content": "hi"}])
+    assert res.ok is False
+    assert "GEMINI_API_KEY" in res.error
 
 
 def test_local_provider_selected_by_env(monkeypatch):

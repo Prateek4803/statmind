@@ -84,6 +84,69 @@ class HostedAnthropicProvider(LLMProvider):
                                  error=f"{type(e).__name__} from provider.")
 
 
+class HostedGeminiProvider(LLMProvider):
+    """Hosted Google Gemini via the current `google-genai` SDK. Free tier
+    available through Google AI Studio. Requires GEMINI_API_KEY in env.
+
+    Uses the supported `google-genai` package (NOT the deprecated
+    `google-generativeai`). Default model `gemini-flash-latest` auto-tracks the
+    current stable flash model so we don't get stranded on a retired version.
+
+    PRIVACY: verify the data-use terms of whichever Gemini tier you use. Free
+    tiers may use inputs to improve products; paid/enterprise tiers typically
+    do not. Disclose accordingly on the security page. We send only computed
+    scalar facts (Cpk, verdict, etc.), never the user's raw rows.
+    """
+    name = "gemini"
+
+    def __init__(self, model: str = "gemini-2.5-flash"):
+        self.model = model
+
+    def complete(self, messages: list[dict], *, max_tokens: int = 1500) -> ExplainResult:
+        api_key = os.getenv("GEMINI_API_KEY", "")
+        if not api_key:
+            return ExplainResult(False, provider=self.name,
+                                 error="GEMINI_API_KEY not set in environment.")
+        try:
+            from google import genai
+            from google.genai import types
+        except ImportError:
+            return ExplainResult(False, provider=self.name,
+                                 error="google-genai package not installed.")
+        # New SDK: system instruction goes in config; the rest is the prompt.
+        system = next((m["content"] for m in messages if m["role"] == "system"), "")
+        user_text = "\n\n".join(m["content"] for m in messages if m["role"] != "system")
+        try:
+            client = genai.Client(api_key=api_key)
+            resp = client.models.generate_content(
+                model=self.model,
+                contents=user_text,
+                config=types.GenerateContentConfig(
+                    system_instruction=system or None,
+                    max_output_tokens=max_tokens,
+                ),
+            )
+            text = (getattr(resp, "text", "") or "").strip()
+            if not text:
+                return ExplainResult(False, provider=self.name,
+                                     error="Empty response from provider.")
+            return ExplainResult(True, text=text, provider=self.name)
+        except Exception as e:
+            # Distinguish transient overload/rate-limit (retryable) from other
+            # errors, so the UI can show a friendly "try again" message. Never
+            # leak data — only the error type/class is surfaced.
+            name = type(e).__name__
+            msg = str(e)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                return ExplainResult(False, provider=self.name,
+                                     error="rate_limited")
+            if "503" in msg or "UNAVAILABLE" in msg:
+                return ExplainResult(False, provider=self.name,
+                                     error="temporarily_unavailable")
+            return ExplainResult(False, provider=self.name,
+                                 error=f"{name} from provider.")
+
+
 class LocalModelProvider(LLMProvider):
     """Placeholder for a self-hosted model (e.g. quantized 7B on an Oracle ARM
     instance via an OpenAI-compatible local server like llama.cpp / Ollama).
@@ -112,10 +175,16 @@ class LocalModelProvider(LLMProvider):
 
 
 def get_provider() -> LLMProvider:
-    """Select the provider from env. Defaults to hosted Anthropic."""
-    choice = os.getenv("LLM_PROVIDER", "anthropic").strip().lower()
+    """Select the provider from env. Defaults to hosted Gemini (free tier).
+
+    LLM_PROVIDER = gemini (default) | anthropic | local
+    """
+    choice = os.getenv("LLM_PROVIDER", "gemini").strip().lower()
     if choice == "local":
         return LocalModelProvider()
-    # default / "anthropic"
-    model = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
-    return HostedAnthropicProvider(model=model)
+    if choice == "anthropic":
+        model = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
+        return HostedAnthropicProvider(model=model)
+    # default / "gemini"
+    model = os.getenv("LLM_MODEL", "gemini-2.5-flash")
+    return HostedGeminiProvider(model=model)

@@ -85,51 +85,66 @@ class HostedAnthropicProvider(LLMProvider):
 
 
 class HostedGeminiProvider(LLMProvider):
-    """Hosted Google Gemini via the Generative Language API. Free tier available
-    through Google AI Studio. Requires GEMINI_API_KEY in env.
+    """Hosted Google Gemini via the current `google-genai` SDK. Free tier
+    available through Google AI Studio. Requires GEMINI_API_KEY in env.
 
-    PRIVACY: verify the data-use terms of whichever Gemini tier you use. The
-    free tier may use inputs to improve products unless configured otherwise —
-    disclose accordingly on the security page. We send only computed scalar
-    facts (Cpk, verdict, etc.), never the user's raw rows.
+    Uses the supported `google-genai` package (NOT the deprecated
+    `google-generativeai`). Default model `gemini-flash-latest` auto-tracks the
+    current stable flash model so we don't get stranded on a retired version.
+
+    PRIVACY: verify the data-use terms of whichever Gemini tier you use. Free
+    tiers may use inputs to improve products; paid/enterprise tiers typically
+    do not. Disclose accordingly on the security page. We send only computed
+    scalar facts (Cpk, verdict, etc.), never the user's raw rows.
     """
     name = "gemini"
 
-    def __init__(self, model: str = "gemini-1.5-flash"):
+    def __init__(self, model: str = "gemini-2.5-flash"):
         self.model = model
 
-    def complete(self, messages: list[dict], *, max_tokens: int = 600) -> ExplainResult:
+    def complete(self, messages: list[dict], *, max_tokens: int = 1500) -> ExplainResult:
         api_key = os.getenv("GEMINI_API_KEY", "")
         if not api_key:
             return ExplainResult(False, provider=self.name,
                                  error="GEMINI_API_KEY not set in environment.")
         try:
-            import google.generativeai as genai
+            from google import genai
+            from google.genai import types
         except ImportError:
             return ExplainResult(False, provider=self.name,
-                                 error="google-generativeai package not installed.")
-        # Gemini takes a system instruction separately; the rest becomes the prompt.
+                                 error="google-genai package not installed.")
+        # New SDK: system instruction goes in config; the rest is the prompt.
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         user_text = "\n\n".join(m["content"] for m in messages if m["role"] != "system")
         try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(
-                model_name=self.model,
-                system_instruction=system or None,
+            client = genai.Client(api_key=api_key)
+            resp = client.models.generate_content(
+                model=self.model,
+                contents=user_text,
+                config=types.GenerateContentConfig(
+                    system_instruction=system or None,
+                    max_output_tokens=max_tokens,
+                ),
             )
-            resp = model.generate_content(
-                user_text,
-                generation_config={"max_output_tokens": max_tokens},
-            )
-            text = (resp.text or "").strip()
+            text = (getattr(resp, "text", "") or "").strip()
             if not text:
                 return ExplainResult(False, provider=self.name,
                                      error="Empty response from provider.")
             return ExplainResult(True, text=text, provider=self.name)
         except Exception as e:
-            # Never leak data: return only the error TYPE.
+            # Distinguish transient overload/rate-limit (retryable) from other
+            # errors, so the UI can show a friendly "try again" message. Never
+            # leak data — only the error type/class is surfaced.
+            name = type(e).__name__
+            msg = str(e)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                return ExplainResult(False, provider=self.name,
+                                     error="rate_limited")
+            if "503" in msg or "UNAVAILABLE" in msg:
+                return ExplainResult(False, provider=self.name,
+                                     error="temporarily_unavailable")
             return ExplainResult(False, provider=self.name,
-                                 error=f"{type(e).__name__} from provider.")
+                                 error=f"{name} from provider.")
 
 
 class LocalModelProvider(LLMProvider):
@@ -171,5 +186,5 @@ def get_provider() -> LLMProvider:
         model = os.getenv("LLM_MODEL", "claude-sonnet-4-6")
         return HostedAnthropicProvider(model=model)
     # default / "gemini"
-    model = os.getenv("LLM_MODEL", "gemini-1.5-flash")
+    model = os.getenv("LLM_MODEL", "gemini-2.5-flash")
     return HostedGeminiProvider(model=model)

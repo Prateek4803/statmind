@@ -118,10 +118,17 @@ app.include_router(ppap_router)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logging.error(f"Unhandled exception: {exc}", exc_info=True)
+    logging.error(
+        "Unhandled %s on %s %s",
+        type(exc).__name__, request.method, request.url.path,
+    )
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc), "type": type(exc).__name__},
+        content={
+            "detail": "An internal error occurred while processing your request. "
+                      "Your data was not stored. Please check your input and retry.",
+            "type": type(exc).__name__,
+        },
     )
 
 # ── Security helpers ───────────────────────────────────────────────────────────
@@ -285,6 +292,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"]        = "1; mode=block"
     response.headers["Referrer-Policy"]         = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"]      = "geolocation=(), microphone=(), camera=()"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 # ── Health endpoints ───────────────────────────────────────────────────────────
@@ -920,8 +928,8 @@ async def intelligence_analyse(request: Request):
         )
         return jd(result)
     except Exception as e:
-        logging.error(f"Intelligence engine error: {e}", exc_info=True)
-        raise HTTPException(500, f"Intelligence analysis failed: {e}")
+        logging.error("Intelligence engine error: %s", type(e).__name__)
+        raise HTTPException(500, "Intelligence analysis failed. Your data was not stored.")
 
 # ── Phase 1 Extensions ─────────────────────────────────────────────────────────
 

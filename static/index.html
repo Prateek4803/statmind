@@ -3024,6 +3024,7 @@ function toggleAlarmExtra(el){var rows=el.closest('table').querySelectorAll('.al
   `);
 
   renderSPCCharts(r, alarmIdx);
+  if(!isSubrange) renderNextStep(r);
 }
 
 function applyTypedRange(){
@@ -3511,6 +3512,7 @@ function showNorm(colName){
   makeChartInteractive(charts.hist, document.getElementById('hist-chart'));
   charts.prob=new Chart(document.getElementById('prob-chart').getContext('2d'),{data:{datasets:[{type:'scatter',data:pd.theoretical_quantiles.map((q,i)=>({x:parseFloat(q.toFixed(4)),y:parseFloat(pd.sample_values[i].toFixed(4))})),backgroundColor:'rgba(45,212,160,0.6)',pointRadius:3},{type:'line',data:pd.fit_line_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(pd.fit_line_y[i].toFixed(4))})),borderColor:'#f05c5c',borderWidth:1.5,pointRadius:0,borderDash:[4,3]}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:11}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:11}}}}}});
   makeChartInteractive(charts.prob, document.getElementById('prob-chart'));
+  renderNextStep(r);
 }
 
 // ══ SESSION 4: GRR ═══════════════════════════════════════════════════════════
@@ -3637,6 +3639,7 @@ function renderGRR(r){
     <div class="card"><div class="ch"><div class="ct">Variance Components</div></div><div class="cb" style="overflow-x:auto"><table class="vc-table"><tr><th>Source</th><th>Std Dev</th><th>% Study Var</th></tr>${vcRows}</table></div></div>
     <div class="card"><div class="ch"><div class="ct">Analysis Notes</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button></div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
   `);
+  renderNextStep(r);
 }
 
 // ══ SESSION 6: PDF REPORT ════════════════════════════════════════════════════

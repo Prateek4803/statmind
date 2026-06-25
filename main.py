@@ -543,7 +543,18 @@ async def capa_v2_generate(request: Request):
 async def capa_override(request: Request):
     body = await request.json()
     try:
-        result = get_capa_for_rule(body.get("rule_id", ""), body.get("process_type", ""))
+        stats = _extract_stats(
+            body.get("normality_result"),
+            body.get("capability_result"),
+            body.get("spc_result"),
+            body.get("grr_result"),
+        )
+        result = get_capa_for_rule(
+            body.get("rule_id", ""),
+            stats,
+            body.get("process_context", body.get("process_type", "General")),
+            body.get("parameter_name", "Parameter"),
+        )
         return jd(result)
     except Exception as e:
         raise HTTPException(400, str(e))

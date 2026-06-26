@@ -121,6 +121,37 @@ def _extract_grr(r: dict) -> GroundingPayload:
                             r.get("verdict"), r.get("verdict_detail"))
 
 
+def _extract_generic(analysis_type: str, r: dict) -> GroundingPayload:
+    """Fallback extractor for any analysis type without a bespoke extractor.
+
+    Safely pulls only SCALAR facts (numbers, short strings, bools) from the
+    result dict and excludes raw data arrays / nested chart payloads, preserving
+    the no-raw-data guarantee universally. This is what makes 'explain on every
+    analysis' a property of the architecture rather than 30 hand-written cases.
+    """
+    EXCLUDE_HINTS = ("data", "curve", "histogram", "_x", "_y", "points",
+                     "bins", "raw", "values", "series", "chart")
+    facts = {}
+    for k, v in (r or {}).items():
+        kl = k.lower()
+        if any(h in kl for h in EXCLUDE_HINTS):
+            continue
+        # Only keep scalars and short strings; skip arrays/dicts (raw payloads).
+        if isinstance(v, bool):
+            facts[k] = v
+        elif isinstance(v, (int, float)):
+            facts[k] = _round(v)
+        elif isinstance(v, str) and len(v) <= 200:
+            facts[k] = v
+        # lists/dicts deliberately skipped — never send raw structures
+        if len(facts) >= 25:  # keep the prompt bounded
+            break
+    pretty = (analysis_type or "Analysis").replace("_", " ").title()
+    return GroundingPayload(pretty, facts,
+                            r.get("verdict") or r.get("overall_verdict"),
+                            r.get("verdict_detail"))
+
+
 _EXTRACTORS = {
     "capability": _extract_capability,
     "spc": _extract_spc,
@@ -130,12 +161,19 @@ _EXTRACTORS = {
 
 
 def build_grounding(analysis_type: str, result: dict) -> Optional[GroundingPayload]:
-    """Extract the safe, verified facts for an analysis result. Returns None for
-    unsupported types (caller should then not offer the explainer)."""
-    fn = _EXTRACTORS.get((analysis_type or "").strip().lower())
-    if fn is None:
+    """Extract the safe, verified facts for an analysis result.
+
+    Uses a bespoke extractor when one exists for the analysis type; otherwise
+    falls back to a generic scalar extractor so EVERY analysis can be explained
+    while still never leaking raw data. Returns None only if there are no usable
+    facts at all (caller then declines cleanly)."""
+    at = (analysis_type or "").strip().lower()
+    fn = _EXTRACTORS.get(at)
+    payload = fn(result or {}) if fn else _extract_generic(at, result or {})
+    # If even the generic extractor found nothing useful, decline.
+    if not payload.facts and not payload.verdict:
         return None
-    return fn(result or {})
+    return payload
 
 
 def build_messages(analysis_type: str, result: dict,

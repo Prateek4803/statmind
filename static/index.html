@@ -7760,6 +7760,7 @@ function renderToolResult(toolId, d, container){
   
   html += `</div>`;
   container.innerHTML = html;
+  try{ renderExplainButton(d, toolId); }catch(e){}
 }
 
 // ══ EMAIL CAPTURE MODAL ══════════════════════════════════════════════════════

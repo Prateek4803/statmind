@@ -49,6 +49,7 @@ from capability     import analyze_capability
 from control_charts import auto_select_and_build as analyze_control_chart
 from gauge_rr       import analyze_gauge_rr, parse_grr_csv
 from recommendations import recommend_next_step
+from ai_explainer import explain_result
 from capa_rules_engine import (
     run_capa_engine, run_capa_engine_v2,
     get_capa_for_rule, get_all_rules_catalog,
@@ -508,6 +509,43 @@ async def grr_preview(file: UploadFile = File(...)):
     })
 
 # ── Session 5: CAPA ────────────────────────────────────────────────────────────
+@app.post("/api/v1/explain")
+async def explain(request: Request):
+    """Grounded AI explanation of a computed analysis result. The LLM only
+    narrates verified numbers; it never recomputes or decides. Degrades
+    gracefully on provider rate-limit/unavailability. Privacy: only the
+    computed scalar summary is sent to the provider, never raw data."""
+    body = await request.json()
+    analysis_type = body.get("analysis_type", "")
+    result = body.get("result", {})
+    question = body.get("question")
+
+    if not analysis_type or not isinstance(result, dict):
+        raise HTTPException(400, "analysis_type and result are required.")
+
+    if question and len(str(question)) > 500:
+        question = str(question)[:500]
+
+    res = await asyncio.to_thread(
+        explain_result, analysis_type, result, question, max_tokens=1500
+    )
+
+    if res.ok:
+        return jd({"ok": True, "explanation": res.text, "provider": res.provider})
+
+    if res.error == "rate_limited":
+        return jd({"ok": False, "reason": "rate_limited",
+                   "message": "The AI explainer is busy right now (free-tier "
+                              "limit). Please try again in a minute."})
+    if res.error == "temporarily_unavailable":
+        return jd({"ok": False, "reason": "unavailable",
+                   "message": "The AI explainer is temporarily unavailable. "
+                              "Please try again shortly."})
+    return jd({"ok": False, "reason": "unavailable",
+               "message": "AI explanation isn't available for this result "
+                          "right now."})
+
+
 @app.post("/api/v1/capa/generate")
 async def capa_generate(request: Request):
     body = await request.json()

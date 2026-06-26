@@ -3025,6 +3025,7 @@ function toggleAlarmExtra(el){var rows=el.closest('table').querySelectorAll('.al
 
   renderSPCCharts(r, alarmIdx);
   if(!isSubrange) renderNextStep(r);
+  if(!isSubrange) renderExplainButton(r, 'spc');
 }
 
 function applyTypedRange(){
@@ -3456,6 +3457,7 @@ charts.ch = new Chart(document.getElementById('cap-hist').getContext('2d'), {
     // Fetch Cpk CI (non-blocking, enhances display)
   setTimeout(()=>{ if(typeof fetchAndShowCapCI==='function') fetchAndShowCapCI(r); },400);
   renderNextStep(r);
+  renderExplainButton(r, 'capability');
 }
 
 // ══ SESSION 1: NORMALITY ════════════════════════════════════════════════════
@@ -3513,6 +3515,7 @@ function showNorm(colName){
   charts.prob=new Chart(document.getElementById('prob-chart').getContext('2d'),{data:{datasets:[{type:'scatter',data:pd.theoretical_quantiles.map((q,i)=>({x:parseFloat(q.toFixed(4)),y:parseFloat(pd.sample_values[i].toFixed(4))})),backgroundColor:'rgba(45,212,160,0.6)',pointRadius:3},{type:'line',data:pd.fit_line_x.map((x,i)=>({x:parseFloat(x.toFixed(4)),y:parseFloat(pd.fit_line_y[i].toFixed(4))})),borderColor:'#f05c5c',borderWidth:1.5,pointRadius:0,borderDash:[4,3]}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:11}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:11}}}}}});
   makeChartInteractive(charts.prob, document.getElementById('prob-chart'));
   renderNextStep(r);
+  renderExplainButton(r, 'normality');
 }
 
 // ══ SESSION 4: GRR ═══════════════════════════════════════════════════════════
@@ -3640,6 +3643,7 @@ function renderGRR(r){
     <div class="card"><div class="ch"><div class="ct">Analysis Notes</div><div class="cs"><button onclick="autoPopulateCAPA();switchAnalysis('capa');setTimeout(()=>capaGoStep(2),50)" style="background:var(--teal);color:#0f1117;border:none;padding:4px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer" title="Go to CAPA Engine with this analysis attached">→ CAPA</button></div></div><div class="cb"><div class="hint-list">${hints}</div></div></div>
   `);
   renderNextStep(r);
+  renderExplainButton(r, 'grr');
 }
 
 // ══ SESSION 6: PDF REPORT ════════════════════════════════════════════════════
@@ -3742,6 +3746,47 @@ function renderNextStep(r){
       + 'onclick="switchAnalysis(\''+ns.next_tool+'\')">'+ns.title+' \u2192</button>';
     el.appendChild(wrap);
   }catch(e){ /* never break the result render over a recommendation */ }
+}
+function renderExplainButton(r, analysisType){
+  try{
+    if(!r || !analysisType) return;
+    const el = document.getElementById('content');
+    if(!el) return;
+    const box = document.createElement('div');
+    box.style.cssText = 'max-width:920px;margin:14px auto 0;border:1px solid var(--border);background:var(--bg2);border-radius:12px;padding:14px 18px';
+    box.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+      + '<div style="font-size:13px;color:var(--text2)"><span style="font-size:15px">\u2728</span> '
+      + 'Want this explained in plain language?</div>'
+      + '<button class="wa-btn" id="ai-explain-btn" style="border:1px solid var(--teal);color:var(--teal);background:rgba(45,212,160,0.07);font-weight:600">'
+      + 'Explain this result</button></div>'
+      + '<div id="ai-explain-out" style="display:none;margin-top:12px;font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap"></div>';
+    el.appendChild(box);
+    const btn = box.querySelector('#ai-explain-btn');
+    const out = box.querySelector('#ai-explain-out');
+    btn.addEventListener('click', async () => {
+      btn.disabled = true; btn.textContent = 'Thinking\u2026';
+      out.style.display = 'block'; out.textContent = '';
+      try{
+        const resp = await fetch('/api/v1/explain', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({analysis_type: analysisType, result: r})
+        });
+        const data = await resp.json();
+        if(data.ok){
+          out.textContent = data.explanation;
+        } else {
+          out.style.color = 'var(--text2)';
+          out.textContent = data.message || 'AI explanation is unavailable right now.';
+        }
+      }catch(e){
+        out.style.color = 'var(--text2)';
+        out.textContent = 'Could not reach the AI explainer. Please try again.';
+      }finally{
+        btn.disabled = false; btn.textContent = 'Explain this result';
+      }
+    });
+  }catch(e){ /* explain button is a bonus; never break the result */ }
 }
 function showContent(html){
   const el = document.getElementById('content');

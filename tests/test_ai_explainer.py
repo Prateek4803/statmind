@@ -107,15 +107,33 @@ def test_grr_grounding():
 
 # ── Unsupported types decline cleanly ────────────────────────────────────────
 
-def test_unsupported_type_returns_none():
-    assert build_grounding("weibull", {}) is None
-    assert build_messages("weibull", {}) is None
+def test_generic_fallback_handles_unlisted_type():
+    """Any analysis type now gets a grounded explanation via the generic
+    extractor — but still only scalar facts, never raw arrays."""
+    r = {"verdict": "Wear-out", "beta": 2.5, "eta": 1200.0,
+         "reliability_curve": [1, 2, 3] * 999, "probability_plot": {"x": [1, 2]}}
+    g = build_grounding("weibull", r)
+    assert g is not None
+    assert g.facts["beta"] == 2.5
+    assert g.verdict == "Wear-out"
+    # raw arrays/dicts excluded
+    assert "reliability_curve" not in g.facts
+    assert "probability_plot" not in g.facts
 
 
-def test_explain_result_declines_unsupported():
-    res = explain_result("weibull", {})
-    assert res.ok is False
-    assert "not available" in res.error.lower()
+def test_generic_fallback_excludes_raw_data():
+    r = {"verdict": "OK", "mean": 5.0,
+         "histogram_data": list(range(9999)), "curve_x": list(range(9999))}
+    msgs = build_messages("someanalysis", r)
+    blob = msgs[1]["content"].lower()
+    assert "9998" not in blob and "9999" not in blob
+    assert "histogram" not in blob and "curve" not in blob
+
+
+def test_truly_empty_result_returns_none():
+    """No facts and no verdict -> decline cleanly."""
+    assert build_grounding("mystery", {}) is None
+    assert build_grounding("mystery", {"some_data": [1, 2, 3]}) is None
 
 
 # ── Provider selection ───────────────────────────────────────────────────────

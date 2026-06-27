@@ -133,10 +133,10 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # ── Security helpers ───────────────────────────────────────────────────────────
-_BLOCKED_EXT = {
-    "exe","sh","bat","ps1","js","php","rb","pl","cmd","jar","dll",
-    "html","zip","tar",
-}
+# Allowlist: only the formats parse_any_file actually supports. An allowlist
+# is safer than a blocklist — anything not explicitly parseable is rejected
+# up front, rather than blocklisting a never-complete set of dangerous types.
+_ALLOWED_EXT = {"csv", "tsv", "txt", "xlsx", "xls"}
 
 def _validate_upload(file: UploadFile, content: bytes) -> None:
     """
@@ -144,8 +144,23 @@ def _validate_upload(file: UploadFile, content: bytes) -> None:
     Pass pre-read content bytes so size can be checked without re-reading.
     """
     ext = (file.filename or "").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else ""
-    if ext in _BLOCKED_EXT:
-        raise HTTPException(400, f"File type '.{ext}' is not allowed.")
+    if ext not in _ALLOWED_EXT:
+        raise HTTPException(
+            400,
+            f"File type '.{ext}' is not supported. Allowed: "
+            f"{', '.join('.' + e for e in sorted(_ALLOWED_EXT))}.",
+        )
+    # Light content sniffing: reject files whose bytes look like an executable
+    # or script regardless of extension (defends against a renamed binary).
+    head = content[:8]
+    _BAD_MAGIC = (
+        b"MZ",            # Windows PE/exe
+        b"\x7fELF",       # Linux ELF
+        b"\xca\xfe\xba\xbe",  # Mach-O
+        b"PK\x03\x04",    # zip (xlsx is zip-based, so only block for text exts)
+    )
+    if ext in {"csv", "tsv", "txt"} and any(head.startswith(m) for m in _BAD_MAGIC):
+        raise HTTPException(400, "File content does not look like text data.")
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(
             413,
@@ -158,18 +173,11 @@ def _sanitize_text(text: str, max_len: int = 5000) -> str:
     """Sanitize user text — strip HTML and cap length."""
     if not text:
         return ""
+    # Strip HTML and cap length. We deliberately do NOT attempt regex-based
+    # "prompt-injection filtering" — such filters are trivially bypassed and give
+    # false confidence. The real defense is the grounding layer (ai_explainer),
+    # which only ever sends the model verified scalar facts, never free user text.
     text = html_lib.unescape(re.sub(r"<[^>]+>", "", text))
-    injection_patterns = [
-        r"ignore (previous|all|above) instructions?",
-        r"system prompt",
-        r"you are now",
-        r"act as",
-        r"jailbreak",
-        r"DAN mode",
-        r"\\n(system|user|assistant):",
-    ]
-    for pattern in injection_patterns:
-        text = re.sub(pattern, "[FILTERED]", text, flags=re.IGNORECASE)
     return text[:max_len]
 
 

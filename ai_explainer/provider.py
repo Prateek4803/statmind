@@ -124,6 +124,11 @@ class HostedGeminiProvider(LLMProvider):
                 config=types.GenerateContentConfig(
                     system_instruction=system or None,
                     max_output_tokens=max_tokens,
+                    # Gemini 2.5 models spend "thinking" tokens that count against
+                    # max_output_tokens — which truncated explanations mid-sentence.
+                    # This task (narrating already-computed numbers) needs no deep
+                    # reasoning, so disable thinking: the full budget goes to output.
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                 ),
             )
             text = (getattr(resp, "text", "") or "").strip()

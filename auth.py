@@ -18,13 +18,30 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends, Request
+from fastapi import Header, APIRouter, BackgroundTasks, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from jose import jwt, JWTError
 
 # ── Config ────────────────────────────────────────────────────────────────────
-JWT_SECRET      = os.environ.get('JWT_SECRET', secrets.token_hex(32))
+_JWT_SECRET_ENV = os.environ.get('JWT_SECRET')
+_IS_PROD = (os.getenv('ENV') or os.getenv('ENVIRONMENT', 'development')).lower() == 'production'
+if _JWT_SECRET_ENV:
+    JWT_SECRET = _JWT_SECRET_ENV
+elif _IS_PROD:
+    # Fail fast: a random per-worker secret in prod silently breaks auth across
+    # gunicorn workers (token signed by one worker rejected by another) and
+    # makes sessions unverifiable. Refuse to start instead.
+    raise RuntimeError(
+        "JWT_SECRET must be set in production. Generate one with "
+        "`python -c \"import secrets; print(secrets.token_hex(32))\"` and set it "
+        "in the environment. Refusing to start with a random per-worker secret."
+    )
+else:
+    # Development only: ephemeral secret, with a visible warning.
+    JWT_SECRET = secrets.token_hex(32)
+    print("[AUTH WARNING] JWT_SECRET not set — using an ephemeral dev secret. "
+          "Tokens will not survive a restart. Set JWT_SECRET for stable auth.")
 JWT_ALGORITHM   = 'HS256'
 JWT_EXPIRE_MINS = int(os.environ.get('JWT_EXPIRE_MINUTES', 10080))  # 7 days
 RESEND_API_KEY  = ''  # loaded dynamically in send_magic_link_email()
@@ -120,6 +137,25 @@ async def require_auth(
     email = await get_current_user(credentials)
     if not email:
         raise HTTPException(401, 'Authentication required')
+    return email
+
+
+async def require_admin(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> str:
+    """Admin-only gate. Requires a valid login AND the correct ADMIN_SECRET
+    passed in the X-Admin-Secret header. Protects PII-listing endpoints from
+    being readable by any logged-in user."""
+    email = await get_current_user(credentials)
+    if not email:
+        raise HTTPException(401, 'Authentication required')
+    admin_secret = os.environ.get('ADMIN_SECRET', '')
+    if not admin_secret:
+        # No admin secret configured -> deny by default (never open to all).
+        raise HTTPException(403, 'Admin access is not configured.')
+    if not x_admin_secret or not secrets.compare_digest(x_admin_secret, admin_secret):
+        raise HTTPException(403, 'Admin privileges required.')
     return email
 
 # ── Email sender ──────────────────────────────────────────────────────────────
@@ -327,7 +363,7 @@ async def capture_email(body: EmailCaptureRequest):
 
 # ── Admin: list captured emails (auth required) ───────────────────────────────
 @auth_router.get('/admin/emails')
-async def list_captured_emails(email: str = Depends(require_auth)):
+async def list_captured_emails(email: str = Depends(require_admin)):
     """List all captured emails. Requires auth."""
     db = get_db()
     try:

@@ -364,8 +364,10 @@ def build_executive_summary(styles, results: dict) -> list:
     if spc:
         ta = spc.get('total_alarms', 0)
         ic = spc.get('in_control', True)
+        _spc_status = ('<font color="green">In Control</font>' if ic
+                       else f'<font color="red">{ta} rule violation(s)</font>')
         lines.append(f"<b>SPC:</b> {spc.get('chart_type','I-MR')} chart — "
-                     f"{'<font color=\"green\">In Control</font>' if ic else f'<font color=\"red\">{ta} rule violation(s)</font>'}. "
+                     f"{_spc_status}. "
                      f"{spc.get('stability_verdict','')}")
     if grr:
         pct = grr.get('gauge_rr', {}).get('pct_study_var', 0)

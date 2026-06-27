@@ -62,35 +62,35 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:32px 24p
 <div class="page">
   <div class="page-label">Legal</div>
   <h1 class="page-title">Privacy Policy</h1>
-  <div class="page-date">Effective Date: June 1, 2025 · Last Updated: June 1, 2025</div>
+  <div class="page-date">Effective Date: June 27, 2026 · Last Updated: June 27, 2026</div>
 
   <div class="highlight-box">
     <div class="highlight-box-title">🔒 The Short Version</div>
     <div class="highlight-box-text">
-      <strong>Your data never leaves your browser.</strong> StatMind runs all statistical computations client-side. When you upload a CSV or measurement file, it is processed locally and is not stored, logged, or transmitted to any external server. We take data privacy seriously — especially for users in regulated industries.
+      <strong>We don't store your data.</strong> When you run an analysis, your file is sent over an encrypted connection to our server, analyzed, and the result is returned to you. It is held in memory only long enough to compute your result, then discarded — never written to a database, never used to train any model. The optional "Explain this result" AI feature sends a computed summary (not your raw data) to Google's Gemini API; details below.
     </div>
   </div>
 
   <h2>1. Who We Are</h2>
-  <p>StatMind ("we," "us," or "our") is a browser-based process statistics platform built for quality engineers. We operate at <a href="https://statmind-production.up.railway.app">statmind-production.up.railway.app</a>.</p>
+  <p>StatMind ("we," "us," or "our") is a browser-based process statistics platform built for quality engineers. We operate at <a href="https://statmind.tech">statmind.tech</a>.</p>
 
-  <h2>2. Data You Upload</h2>
-  <p>When you upload a file (CSV, Excel, CMM export) for analysis:</p>
+  <h2>2. How Your Data Is Handled</h2>
+  <p>When you upload a file (CSV, Excel, CMM export) and run an analysis, the data is sent to our backend to compute the statistical result. This processing is:</p>
   <ul>
-    <li>The file is read in your browser using the FileReader API. It is never sent to our servers for storage.</li>
-    <li>Analysis computations (normality tests, capability, SPC, DOE) are performed via API calls that process the data and return results — raw measurement data is not persisted.</li>
-    <li>We do not log, retain, or sell your measurement data.</li>
-    <li>PDF reports you generate are assembled in your browser and downloaded locally.</li>
+    <li><strong>Not stored.</strong> Your uploaded data is held in memory only for as long as it takes to compute your result, then discarded. It is not written to a database or saved to disk in normal operation.</li>
+    <li><strong>Not logged.</strong> If an error occurs, we log only the error type and request path — never your data, and never an error message that might contain a value from your file.</li>
+    <li><strong>Not used for training.</strong> We do not use your data to train or improve any model we operate.</li>
+    <li><strong>Encrypted in transit.</strong> All communication uses HTTPS/TLS, with HSTS enforced.</li>
   </ul>
 
-  <h2>3. Data Processed by Our API</h2>
-  <p>Some analyses (e.g., normality tests, capability, SPC) send column data to our backend API to compute statistical results. This processing is:</p>
+  <h2>3. AI Explanations — What Is Sent, and to Whom</h2>
+  <p>StatMind offers an optional "Explain this result" feature on analyses. When you click it, we send a <strong>computed summary of that result</strong> — the statistics and verdict our engine already calculated (for example: Cpk, control limits, p-values, pass/fail verdict) — to <strong>Google's Gemini API</strong>, which generates the plain-language explanation.</p>
   <ul>
-    <li>Stateless — no data is written to a database or persisted after the response.</li>
-    <li>Ephemeral — server memory is cleared between requests.</li>
-    <li>In-transit encrypted — all API communication uses HTTPS/TLS.</li>
+    <li><strong>We send the computed summary, not your raw data.</strong> Your individual measurements and uploaded file contents are not sent to Google — only the scalar results StatMind already computed, and only when you click "Explain this result."</li>
+    <li><strong>The AI explains; it does not decide.</strong> The explanation is generated from numbers our verified statistical engine already computed. The AI is instructed to explain only those numbers, not to recalculate or override them.</li>
+    <li><strong>Google's terms apply.</strong> The explanation is produced by Google's Gemini API and is subject to Google's API data-use terms. We currently use the free Gemini tier, under which Google may use API inputs to improve their services. If this matters for your data, simply don't use the "Explain this result" feature — every analysis works fully without it.</li>
+    <li><strong>It's optional.</strong> Explanations are never generated automatically; you choose to request each one.</li>
   </ul>
-  <p>If you are subject to data sovereignty requirements (e.g., ITAR, EU GDPR Article 44+), please contact us about on-premises deployment options.</p>
 
   <h2>4. Information We Collect Automatically</h2>
   <p>Like most web services, our hosting infrastructure may collect:</p>
@@ -102,45 +102,49 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:32px 24p
   </ul>
   <p>This information is used solely for operating, monitoring, and improving the service. It is not sold or shared with third parties for marketing purposes.</p>
 
-  <h2>5. Cookies and Local Storage</h2>
-  <p>StatMind does not use tracking cookies or third-party analytics cookies. We may use browser sessionStorage to temporarily preserve your analysis state within a single browsing session. This data is cleared when you close the tab.</p>
+  <h2>5. Accounts</h2>
+  <p>If you create an account, we store your account details (such as email) to operate the service. We do not associate your uploaded analysis data with your account, because we do not retain uploaded data.</p>
 
-  <h2>6. No Third-Party Analytics</h2>
-  <p>We do not embed Google Analytics, Meta Pixel, Mixpanel, or any other third-party behavioral tracking tool. Your usage of StatMind is not profiled or monetized through advertising.</p>
+  <h2>6. Cookies and Local Storage</h2>
+  <p>StatMind does not use tracking cookies or third-party advertising cookies. We use browser storage and authentication cookies only as needed to keep you signed in and to preserve your analysis state within a session.</p>
 
-  <h2>7. Regulated Industry Users (GxP, ITAR, ISO 13485, IATF 16949)</h2>
-  <p>We understand that many of our users work in regulated environments. Please note:</p>
+  <h2>7. No Third-Party Behavioral Analytics</h2>
+  <p>We do not embed Google Analytics, Meta Pixel, Mixpanel, or similar behavioral tracking tools. Your usage of StatMind is not profiled or monetized through advertising.</p>
+
+  <h2>8. Regulated Industry Users</h2>
+  <p>We understand many of our users work in regulated environments (medical device, pharma, automotive, aerospace, and similar). Please note:</p>
   <ul>
-    <li>StatMind Free is not currently validated under 21 CFR Part 11 or IEC 62304.</li>
-    <li>Enterprise customers can request IQ/OQ/PQ validation documentation packages.</li>
-    <li>On-premises deployment (where data never leaves your network) is available for Enterprise plans.</li>
-    <li>For ITAR-controlled data, we recommend the on-premises option or consulting your compliance team before use.</li>
+    <li>StatMind is not currently validated under 21 CFR Part 11 or IEC 62304, and this page is not a compliance certification.</li>
+    <li>The optional AI explanation feature sends computed results to a third-party API (Google Gemini). If your requirements prohibit sending data to third-party services, do not use that feature.</li>
+    <li>For specific regulatory, validation, or data-residency requirements, contact us and we will tell you honestly what we currently do and do not support.</li>
   </ul>
 
-  <h2>8. Data Retention</h2>
-  <p>We do not retain user measurement data. Access logs (IP, timestamps) are retained for up to 30 days for security monitoring, then automatically deleted.</p>
+  <h2>9. Data Retention</h2>
+  <p>We do not retain your uploaded measurement data. Access logs (IP, timestamps) are retained for a limited period for security monitoring, then deleted.</p>
 
-  <h2>9. Your Rights</h2>
-  <p>Because we do not collect personally identifiable information beyond standard access logs, there is minimal data to request, correct, or delete. If you believe we hold data about you, please contact us at the address below and we will respond within 30 days.</p>
+  <h2>10. Security</h2>
+  <p>We use HTTPS/TLS for all connections (with HSTS), hardening headers (no-sniff, frame-deny, referrer and permissions policies), input validation on uploads, and error handling designed so failures never echo your data back to you or into our logs. Secrets are stored in the server environment, not in our codebase, and are rotated if ever exposed.</p>
 
-  <h2>10. Children's Privacy</h2>
+  <h2>11. Your Rights</h2>
+  <p>Because we collect little personal information beyond standard access logs and optional account details, there is minimal data to request, correct, or delete. If you believe we hold data about you, contact us at the address below and we will respond promptly.</p>
+
+  <h2>12. Children's Privacy</h2>
   <p>StatMind is designed for professional use by quality engineers. We do not knowingly collect information from anyone under 16 years of age.</p>
 
-  <h2>11. Changes to This Policy</h2>
-  <p>If we make material changes to this policy, we will update the "Last Updated" date at the top and, where possible, notify users via in-app notice. Continued use of StatMind after changes constitutes acceptance of the revised policy.</p>
+  <h2>13. Changes to This Policy</h2>
+  <p>If we make material changes, we will update the "Last Updated" date above and, where possible, notify users via in-app notice. Continued use after changes constitutes acceptance of the revised policy.</p>
 
-  <h2>12. Contact</h2>
-  <p>For privacy questions, data requests, or enterprise compliance inquiries:</p>
+  <h2>14. Contact</h2>
+  <p>For privacy questions or security reports:</p>
   <p><strong>Email:</strong> <a href="mailto:hello@statmind.tech">hello@statmind.tech</a></p>
-  <p>We aim to respond to all inquiries within 5 business days.</p>
 
   <div class="divider" style="margin-top:48px;"></div>
-  <p style="margin-top:20px;font-size:13px;color:var(--text3);">This privacy policy was last reviewed by the StatMind team on June 1, 2025.</p>
+  <p style="margin-top:20px;font-size:13px;color:var(--text3);">This page describes current behavior and is updated as the product changes.</p>
 </div>
 
 <footer>
   <div class="footer-inner">
-    <span class="footer-link">© 2025 StatMind</span>
+    <span class="footer-link">© 2026 StatMind</span>
     <div style="display:flex;gap:20px;">
       <a class="footer-link" href="/">Home</a>
       <a class="footer-link" href="/app">Open App</a>

@@ -32,6 +32,7 @@ import logging
 import threading
 
 import numpy as np
+import pandas as pd
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request, Form
 from auth import auth_router
 from ppap_generator import ppap_router
@@ -167,6 +168,34 @@ def _validate_upload(file: UploadFile, content: bytes) -> None:
             f"File too large ({len(content) // 1024 // 1024} MB). "
             f"Maximum allowed: {MAX_UPLOAD_MB} MB."
         )
+
+
+def _parse_upload(content: bytes, filename: str):
+    """Validate an uploaded file's bytes, then parse to a pandas DataFrame.
+
+    Used by the analysis endpoints that operate directly on a DataFrame
+    (weibull, pca, logistic, boxplot, msa/linearity). Routes through
+    parse_any_file (which enforces the allowlist + size cap via the caller's
+    _validate_upload) and returns the parsed .df. Centralizing this here also
+    closes the prior bug where these endpoints used an undefined helper and
+    skipped upload validation.
+    """
+    # Enforce the same size cap the other endpoints use.
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            413,
+            f"File too large ({len(content) // 1024 // 1024} MB). "
+            f"Maximum allowed: {MAX_UPLOAD_MB} MB."
+        )
+    ext = (filename or "").rsplit(".", 1)[-1].lower() if "." in (filename or "") else ""
+    if ext not in _ALLOWED_EXT:
+        raise HTTPException(
+            400,
+            f"File type '.{ext}' is not supported. Allowed: "
+            f"{', '.join('.' + e for e in sorted(_ALLOWED_EXT))}.",
+        )
+    result = parse_any_file(content, filename)
+    return result.df
 
 
 def _sanitize_text(text: str, max_len: int = 5000) -> str:
@@ -1127,127 +1156,6 @@ async def weibull_analyze(file: UploadFile = File(...), column: str = Form(...),
 
 
 # ── 2. PCA — Principal Component Analysis ─────────────────────────────────────
-@app.post("/api/v1/pca/analyze")
-async def pca_analyze(file: UploadFile = File(...),
-                       columns: str = Form(...),
-                       n_components: int = Form(0),
-                       scale: bool = Form(True)):
-    try:
-        contents = await file.read()
-        df = _parse_upload(contents, file.filename)
-        cols = [c.strip() for c in columns.split(",") if c.strip() in df.columns]
-        if len(cols) < 2:
-            raise HTTPException(400, f"Need at least 2 numeric columns. Got: {cols}")
-
-        X = df[cols].apply(pd.to_numeric, errors="coerce").dropna()
-        if len(X) < len(cols) + 1:
-            raise HTTPException(400, f"Need at least {len(cols)+1} complete rows")
-
-        from sklearn.preprocessing import StandardScaler
-        from sklearn.decomposition import PCA
-
-        if scale:
-            X_scaled = StandardScaler().fit_transform(X)
-        else:
-            X_scaled = X.values
-
-        n_comp = min(n_components if n_components > 0 else len(cols), len(cols), len(X))
-        pca = PCA(n_components=n_comp)
-        scores = pca.fit_transform(X_scaled)
-
-        explained = pca.explained_variance_ratio_
-        cumulative = np.cumsum(explained)
-
-        # Loadings
-        loadings = {}
-        for i, col in enumerate(cols):
-            loadings[col] = [round(float(pca.components_[j][i]), 4) for j in range(n_comp)]
-
-        # How many PCs explain 80% / 90%
-        n80 = int(np.argmax(cumulative >= 0.80)) + 1
-        n90 = int(np.argmax(cumulative >= 0.90)) + 1
-
-        return jd({
-            "n_components_computed": n_comp,
-            "n_variables": len(cols),
-            "n_observations": len(X),
-            "explained_variance_ratio": [round(float(e), 4) for e in explained],
-            "cumulative_variance": [round(float(c), 4) for c in cumulative],
-            "loadings": loadings,
-            "pc_labels": [f"PC{i+1}" for i in range(n_comp)],
-            "scores_sample": scores[:min(50, len(scores))].tolist(),
-            "components_for_80pct": n80,
-            "components_for_90pct": n90,
-            "verdict": f"{n80} component{'s' if n80>1 else ''} explain 80% of variance in {len(cols)} variables",
-        })
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(400, str(e))
-
-
-# ── 3. Logistic Regression ────────────────────────────────────────────────────
-@app.post("/api/v1/logistic/analyze")
-async def logistic_analyze(file: UploadFile = File(...),
-                            response: str = Form(...),
-                            predictors: str = Form(...)):
-    try:
-        contents = await file.read()
-        df = _parse_upload(contents, file.filename)
-        pred_cols = [c.strip() for c in predictors.split(",") if c.strip() in df.columns]
-        if response not in df.columns:
-            raise HTTPException(400, f"Response column '{response}' not found")
-        if not pred_cols:
-            raise HTTPException(400, "No valid predictor columns found")
-
-        from sklearn.linear_model import LogisticRegression
-        from sklearn.metrics import (classification_report, roc_auc_score,
-                                      confusion_matrix, accuracy_score)
-        from sklearn.preprocessing import LabelEncoder
-
-        sub = df[[response] + pred_cols].apply(pd.to_numeric, errors="coerce").dropna()
-        if len(sub) < 10:
-            raise HTTPException(400, "Need at least 10 complete rows")
-
-        y = sub[response].values
-        X = sub[pred_cols].values
-        unique = np.unique(y)
-        if len(unique) < 2:
-            raise HTTPException(400, "Response must have at least 2 unique values")
-
-        model = LogisticRegression(max_iter=1000, random_state=42)
-        model.fit(X, y)
-
-        y_pred = model.predict(X)
-        y_prob = model.predict_proba(X)[:, 1] if len(unique) == 2 else None
-
-        acc = float(accuracy_score(y, y_pred))
-        auc = float(roc_auc_score(y, y_prob)) if y_prob is not None else None
-        cm  = confusion_matrix(y, y_pred).tolist()
-
-        coefs = {pred_cols[i]: round(float(model.coef_[0][i]), 4)
-                 for i in range(len(pred_cols))}
-        odds  = {k: round(float(np.exp(v)), 4) for k, v in coefs.items()}
-
-        return jd({
-            "accuracy": round(acc, 4),
-            "auc_roc":  round(auc, 4) if auc else None,
-            "confusion_matrix": cm,
-            "coefficients": coefs,
-            "odds_ratios": odds,
-            "intercept": round(float(model.intercept_[0]), 4),
-            "n_observations": len(sub),
-            "classes": [str(c) for c in unique],
-            "predictors": pred_cols,
-            "verdict": f"Model accuracy: {acc*100:.1f}%" + (f" | AUC: {auc:.3f}" if auc else ""),
-        })
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(400, str(e))
-
-
-# ── 4. Box Plot / Violin data endpoint ────────────────────────────────────────
 @app.post("/api/v1/boxplot/analyze")
 async def boxplot_analyze(file: UploadFile = File(...),
                            columns: str = Form(...),
@@ -2092,21 +2000,6 @@ async def rsm_analyze(request: Request):
         raise
     except Exception as e:
         raise HTTPException(400, str(e))
- 
-@app.post("/api/v1/email/capture") 
-async def email_capture(request: Request): 
-    b = await request.json() 
-    email = b.get("email", "").strip() 
-    if not email or "@" not in email: 
-        raise HTTPException(400, "Valid email required.") 
- 
-@app.post("/api/v1/email/capture") 
-async def email_capture(request: Request): 
-    b = await request.json() 
-    email = b.get("email", "").strip() 
-    if not email or "@" not in email: 
-        raise HTTPException(400, "Valid email required.") 
-    return jd({"success": True, "message": "Email captured.", "email": email}) 
  
 @app.post("/api/v1/email/capture") 
 async def email_capture(request: Request): 

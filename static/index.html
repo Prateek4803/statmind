@@ -3747,6 +3747,30 @@ function renderNextStep(r){
     el.appendChild(wrap);
   }catch(e){ /* never break the result render over a recommendation */ }
 }
+function mdToSafeHtml(text){
+  // SAFETY: escape all HTML first so AI text can never inject markup, THEN
+  // apply only the limited markdown the explainer actually emits.
+  if(!text) return '';
+  let s = String(text)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  const lines = s.split(/\r?\n/);
+  let html = '', inList = false;
+  for(let line of lines){
+    const m = line.match(/^\s*(?:[*\-]|\d+\.)\s+(.*)$/);
+    if(m){
+      if(!inList){ html += '<ul style="margin:6px 0 6px 18px">'; inList = true; }
+      html += '<li>' + m[1] + '</li>';
+    } else {
+      if(inList){ html += '</ul>'; inList = false; }
+      if(line.trim() === '') { /* skip blank */ }
+      else html += '<p style="margin:6px 0">' + line + '</p>';
+    }
+  }
+  if(inList) html += '</ul>';
+  return html;
+}
+
 function renderExplainButton(r, analysisType){
   try{
     if(!r || !analysisType) return;
@@ -3774,7 +3798,7 @@ function renderExplainButton(r, analysisType){
         });
         const data = await resp.json();
         if(data.ok){
-          out.textContent = data.explanation;
+          out.innerHTML = mdToSafeHtml(data.explanation);
         } else {
           out.style.color = 'var(--text2)';
           out.textContent = data.message || 'AI explanation is unavailable right now.';

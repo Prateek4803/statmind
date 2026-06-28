@@ -280,11 +280,14 @@ def _with_next_step(d: dict, analysis_type: str, *, in_control=None, normality_v
     """Attach a single next-step recommendation to a result dict (in place).
     Safe: never raises into the response."""
     try:
+        _min = d.get("min_val")
+        _all_positive = (_min is not None and _min > 0)
         ns = recommend_next_step(
             analysis_type,
             verdict=d.get("verdict") or d.get("overall_verdict"),
             in_control=in_control if in_control is not None else d.get("in_control"),
             normality_verdict=normality_verdict,
+            all_positive=_all_positive if d.get("min_val") is not None else None,
         )
         if ns is not None:
             d["next_step"] = ns.to_dict()

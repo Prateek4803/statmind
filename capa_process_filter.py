@@ -20,7 +20,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Optional
 
-from capa_database_r3 import CAPA_RULES
+from capa_database import CAPA_RULES
 
 
 # Human-friendly groupings for the process selector. Maps a UI category to the

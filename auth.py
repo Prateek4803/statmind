@@ -92,6 +92,29 @@ def init_db():
     ''')
     db.commit()
     db.close()
+    cleanup_expired_tokens()
+
+
+def cleanup_expired_tokens():
+    """Delete used or expired magic tokens so the table doesn't grow unbounded.
+
+    Safe: both used tokens (used=1) and expired tokens (expires_at < now) are
+    already non-replayable — verify_magic_link rejects them — so removing them
+    deletes only dead rows and never affects a valid pending login. Runs on
+    startup; for a low-traffic app that's sufficient to keep the table bounded.
+    """
+    try:
+        db = get_db()
+        now = datetime.now(timezone.utc).isoformat()
+        db.execute(
+            'DELETE FROM magic_tokens WHERE used = 1 OR expires_at < ?',
+            (now,),
+        )
+        db.commit()
+        db.close()
+    except Exception:
+        # Cleanup is best-effort; never block startup on it.
+        pass
 
 # Run on import
 init_db()

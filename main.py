@@ -42,6 +42,7 @@ from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 # ── Statistical engines (hoisted — P0-ARCH-1) ─────────────────────────────────
 from file_parser    import parse_any_file
@@ -95,6 +96,10 @@ app.add_middleware(
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute", "600/hour"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# SlowAPIMiddleware makes default_limits apply to EVERY route — without it,
+# slowapi only enforces limits on handlers that declare a `request: Request`
+# param, leaving file-upload endpoints that omit it completely unthrottled.
+app.add_middleware(SlowAPIMiddleware)
 
 # ── Database init (deferred, non-fatal) ───────────────────────────────────────
 @app.on_event("startup")

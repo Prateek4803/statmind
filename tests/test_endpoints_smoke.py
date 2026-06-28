@@ -127,3 +127,108 @@ def test_aaa():
     r = _post("/api/v1/aaa/analyze?decision_col=Decision&sample_col=Sample&appraiser_col=Appraiser&replicate_col=Replicate&reference_col=Reference", _aaa_csv())
     assert r.status_code == 200
     assert "fleiss_kappa" in r.json()
+
+
+# ── Regression guard: endpoints that were dead-on-arrival (NameError on
+#    _parse_upload + missing pandas import) and the sklearn duplicates.
+#    These tests fail loudly if those defects ever return. ────────────────────
+
+def _post_form(url, data, form):
+    """Post a file plus multipart form fields (for Form(...)-based endpoints)."""
+    return client.post(
+        url,
+        files={"file": ("f.csv", data, "text/csv")},
+        data=form,
+    )
+
+
+def _weibull_csv():
+    """Positive failure-time data for Weibull MLE."""
+    np.random.seed(11)
+    # Weibull-distributed positive lifetimes
+    data = np.random.weibull(1.8, 60) * 1000 + 50
+    return pd.DataFrame({"FailureTime_hrs": data}).to_csv(index=False).encode()
+
+
+def _logistic_csv():
+    """Binary response + numeric predictors for logistic regression."""
+    np.random.seed(5)
+    n = 120
+    x1 = np.random.normal(0, 1, n)
+    x2 = np.random.normal(0, 1, n)
+    logit = 0.8 * x1 - 0.5 * x2
+    y = (1 / (1 + np.exp(-logit)) > np.random.rand(n)).astype(int)
+    return pd.DataFrame({"Pass": y, "Temp": x1, "Pressure": x2}).to_csv(index=False).encode()
+
+
+def test_weibull_analyze_not_dead():
+    """Was NameError: _parse_upload undefined. Must return real Weibull output."""
+    r = _post_form(
+        "/api/v1/weibull/analyze",
+        _weibull_csv(),
+        {"column": "FailureTime_hrs", "confidence": "0.95"},
+    )
+    assert r.status_code == 200, r.text
+    j = r.json()
+    # beta (shape) / eta (scale) are the core Weibull MLE outputs
+    assert any(k in j for k in ("beta", "shape", "eta", "scale"))
+
+
+def test_pca_analyze_not_dead():
+    """Duplicate sklearn route removed; pure analyze_pca engine must serve this URL."""
+    r = client.post(
+        "/api/v1/pca/analyze?columns=Etch_Rate_nm_min,CD_nm_DS2_shift,Thickness_A",
+        files={"file": ("f.csv", _csv(), "text/csv")},
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_boxplot_analyze_not_dead():
+    """Was NameError: _parse_upload undefined."""
+    r = _post_form(
+        "/api/v1/boxplot/analyze",
+        _csv(),
+        {"columns": "Etch_Rate_nm_min,CD_nm_DS2_shift"},
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_msa_linearity_not_dead():
+    """Was NameError: _parse_upload undefined."""
+    np.random.seed(3)
+    ref = np.repeat([2.0, 4.0, 6.0, 8.0, 10.0], 12)
+    meas = ref + np.random.normal(0, 0.15, len(ref))
+    csv = pd.DataFrame({"Reference": ref, "Measured": meas}).to_csv(index=False).encode()
+    r = _post_form(
+        "/api/v1/msa/linearity",
+        csv,
+        {"reference_col": "Reference", "measurement_col": "Measured"},
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_logistic_via_regression_route():
+    """Frontend uses /regression/logistic (pure engine); the sklearn
+    /logistic/analyze duplicate was removed. This route must keep working."""
+    r = client.post(
+        "/api/v1/regression/logistic?response=Pass&predictors=Temp,Pressure",
+        files={"file": ("f.csv", _logistic_csv(), "text/csv")},
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_rate_limiting_is_enforced_globally():
+    """SlowAPIMiddleware must throttle even upload endpoints that don't declare
+    a Request param. Without the middleware these escaped all limits (DoS surface).
+    Health is exempt-ish but heavy endpoints must 429 once the budget is spent."""
+    # Hammer a heavy upload endpoint past the per-minute default (60/min).
+    got_429 = False
+    for _ in range(75):
+        r = client.post(
+            "/api/v1/spc/analyze?column=Etch_Rate_nm_min&subgroup_size=1",
+            files={"file": ("f.csv", _csv(), "text/csv")},
+        )
+        if r.status_code == 429:
+            got_429 = True
+            break
+    assert got_429, "Expected a 429 after exceeding the rate limit; endpoint appears unthrottled."

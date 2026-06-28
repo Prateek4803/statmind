@@ -2554,6 +2554,23 @@ function goBackAnalysis(){
   if(prev) switchAnalysis(prev);
 }
 
+// Bridge the browser Back button to in-app analysis navigation. Without this,
+// Back leaves the app entirely (to the landing page) because analysis switches
+// happen in JS without browser history entries. On Back, switch to the previous
+// analysis if we have one; the _fromPopState guard stops switchAnalysis from
+// pushing a new history entry while we're handling one.
+window.addEventListener('popstate', function(ev){
+  const target = ev.state && ev.state.smTab;
+  if(target){
+    window._fromPopState = true;
+    try { switchAnalysis(target); } finally { window._fromPopState = false; }
+  } else if(analysisHistory.length >= 2){
+    window._fromPopState = true;
+    try { goBackAnalysis(); } finally { window._fromPopState = false; }
+  }
+  // If neither, allow default (leaving the app) — user is past the first view.
+});
+
 const analysisLabels={spc:'SPC',capa:'CAPA',capability:'Capability',normality:'Normality',grr:'GRR',report:'Report',hypothesis:'Hypothesis',pareto:'Pareto',sixpack:'Sixpack',regression:'Regression',transformation:'Box-Cox',multivari:'Multi-Vari',doe:'DOE',tolerance:'Tolerance',aaa:'Attr. Agreement',comparison:'Comparison',livestream:'Live Stream',processdash:'Dashboard'};
 
 function updateBackBtn(){
@@ -2590,6 +2607,13 @@ function switchAnalysis(tab){
       if(analysisHistory.length>20) analysisHistory.shift();
       currentAnalysis=tab;
       updateBackBtn();
+      // Integrate with the browser Back button: record this view in browser
+      // history so Back returns to the previous analysis instead of leaving the
+      // app. The _fromPopState guard prevents a loop when the switch was itself
+      // triggered by a popstate event.
+      if(!window._fromPopState && window.history && window.history.pushState){
+        try { window.history.pushState({smTab: tab}, '', '#' + tab); } catch(e){}
+      }
     }
     // Update active nav
     document.querySelectorAll('.nav-dd-item').forEach(x=>x.classList.remove('active'));
@@ -6903,6 +6927,31 @@ document.addEventListener('DOMContentLoaded', () => {
 // without navigating away, using the already-loaded global file
 
 async function capaRunInline(type) {
+  // Resolve which column the user actually wants analyzed. The "Parameter name"
+  // field (capa-col-name) is the user's explicit choice — honor it whenever it
+  // names a real column in the data (case-insensitive). Only fall back to the
+  // first available column when the field is empty or doesn't match anything.
+  function _capaResolveColumn() {
+    const typed = (document.getElementById('capa-col-name')?.value || '').trim();
+    const available = (window.globalColumns || []).map(c => c.name || c);
+    if (typed) {
+      // exact match first, then case-insensitive
+      const exact = available.find(n => n === typed);
+      if (exact) return exact;
+      const ci = available.find(n => (n || '').toLowerCase() === typed.toLowerCase());
+      if (ci) return ci;
+      // typed something that isn't a column — surface it rather than silently
+      // analyzing the wrong column.
+      if (available.length) {
+        throw new Error(`Column "${typed}" not found. Available: ${available.join(', ')}`);
+      }
+    }
+    // No usable typed name — fall back to prior behavior (first selected/first col).
+    return (typeof wizardSelectedCols !== 'undefined' && wizardSelectedCols[0]) ||
+           attachedNorm?.column ||
+           (normData?.results?.[0]?.column) ||
+           (window.globalColumns && window.globalColumns[0]?.name) || '';
+  }
   // Use any available file — globalFile is set by the Open File wizard
   const fileToUse = window.globalFile || normFile || capFile || spcFile;
   if (!fileToUse) {
@@ -6938,7 +6987,15 @@ async function capaRunInline(type) {
       const raw = await r.json();
       raw.results = raw.results.filter(rr => !wizardSelectedCols.length || wizardSelectedCols.includes(rr.column));
       normData = raw;
-      attachedNorm = normData.results[0];
+      // Attach the user-intended column if the Parameter name field names one;
+      // otherwise keep prior behavior (first result).
+      const _typedNorm = (document.getElementById('capa-col-name')?.value || '').trim();
+      if (_typedNorm) {
+        const _match = normData.results.find(rr => (rr.column || '').toLowerCase() === _typedNorm.toLowerCase());
+        attachedNorm = _match || normData.results[0];
+      } else {
+        attachedNorm = normData.results[0];
+      }
       updateAttachStatus();
 
       const verdict = attachedNorm?.overall_verdict || 'Unknown';
@@ -6974,11 +7031,8 @@ async function capaRunInline(type) {
         return;
       }
 
-      // Pick first available column
-      const col = wizardSelectedCols[0] ||
-                  attachedNorm?.column ||
-                  (normData?.results?.[0]?.column) ||
-                  (window.globalColumns && window.globalColumns[0]?.name) || '';
+      // Resolve the user-intended column (honors the Parameter name field).
+      const col = _capaResolveColumn();
       if (!col) throw new Error('No column detected — run normality first, or use the full Capability tab');
 
       const fd = new FormData(); fd.append('file', file);
@@ -7002,12 +7056,9 @@ async function capaRunInline(type) {
       showToast(`✅ Capability: Cpk=${data.cpk.toFixed(3)}`);
 
     } else if (type === 'spc') {
-      // SPC inline: use first col, default subgroup 1
+      // SPC inline: honor the Parameter name field, default subgroup 1
       const file = spcFile || normFile || capFile || window.globalFile || fileToUse;
-      const col = wizardSelectedCols[0] ||
-                  attachedNorm?.column ||
-                  (normData?.results?.[0]?.column) ||
-                  (window.globalColumns && window.globalColumns[0]?.name) || '';
+      const col = _capaResolveColumn();
       if (!col) throw new Error('No column detected — run normality first');
       const fd = new FormData(); fd.append('file', file);
       const r = await fetch(`${API}/api/v1/spc/analyze?column=${encodeURIComponent(col)}&subgroup_size=1`, { method:'POST', body:fd });

@@ -5,8 +5,22 @@ No LLM, no API key — fully deterministic
 """
 
 import dataclasses
+import re
 from typing import Optional
 from capa_database import CAPA_RULES, CAPARule, CAPAAction, PreventiveAction
+
+# SPC pattern fallback rules (Western Electric + Nelson). Low-weight, process-
+# agnostic — they ensure an unstable chart still yields cited guidance when no
+# process-specific rule matches. Imported defensively so the engine still runs
+# on the base rule set if this module is ever absent.
+try:
+    from capa_database_spc import SPC_PATTERN_RULES as _SPC_RULES
+except Exception:
+    _SPC_RULES = []
+
+# The full active rule set the matcher scores against: process-specific rules
+# first, SPC fallbacks appended (their lower weight makes specific rules win).
+ALL_RULES = list(CAPA_RULES) + list(_SPC_RULES)
 
 
 def score_rule(rule: CAPARule, stats: dict) -> float:
@@ -77,8 +91,21 @@ def score_rule(rule: CAPARule, stats: dict) -> float:
             matched_any = True
 
     # ── SPC alarm triggers ──
+    # Normalize Nelson codes so the detector vocabulary (N1–N8, emitted by
+    # control_charts.py) matches rule-authoring vocabulary (NE1–NE8 used across
+    # capa_database.py). Western Electric codes (WE1–WE4) are identical on both
+    # sides and pass through unchanged. Without this, every Nelson-based trigger
+    # silently fails to match (string equality: "N2" != "NE2").
     if rule.spc_rules and alarms:
-        matches = [r for r in alarms if r in rule.spc_rules]
+        def _norm_spc(code: str) -> str:
+            c = (code or "").upper().strip()
+            if c.startswith("NE") and c[2:].isdigit():
+                return "N" + c[2:]
+            if c.startswith("N") and c[1:].isdigit():
+                return c
+            return c  # WE#, etc. unchanged
+        rule_codes = {_norm_spc(r) for r in rule.spc_rules}
+        matches = [a for a in alarms if _norm_spc(a) in rule_codes]
         if matches:
             score += len(matches) * 1.5
             matched_any = True
@@ -123,9 +150,9 @@ def run_capa_engine(
     stats["process"] = (process_type + " " + parameter_name + " " + process_context).lower()
     stats["parameter"] = parameter_name.lower()
 
-    # Score all rules
+    # Score all rules (process-specific + SPC pattern fallbacks)
     scored = []
-    for rule in CAPA_RULES:
+    for rule in ALL_RULES:
         s = score_rule(rule, stats)
         if s > 0:
             scored.append((s, rule))
@@ -362,7 +389,10 @@ def run_capa_engine_v2(
     process_context: str = "", parameter_name: str = "", process_type: str = "",
 ) -> dict:
     """V2 engine — uses expanded R2 database with process-boosted scoring."""
-    from capa_database import CAPA_RULES
+    # Use the module-level combined set so SPC pattern fallbacks are active here
+    # too (v2 previously re-imported only the base CAPA_RULES, leaving the SPC
+    # fallbacks dead on this engine path).
+    _RULES = ALL_RULES
 
     stats = _extract_stats(normality_result, capability_result, spc_result, grr_result)
     stats["process"] = (process_type + " " + parameter_name + " " + process_context).lower()
@@ -370,7 +400,7 @@ def run_capa_engine_v2(
 
     # Score with process boost
     scored = []
-    for rule in CAPA_RULES:
+    for rule in _RULES:
         s = score_rule(rule, stats)
         if s == 0:
             continue

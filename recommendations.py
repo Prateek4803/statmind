@@ -118,7 +118,7 @@ def _spc_next(in_control: bool) -> NextStep:
 # Normality  (overall_verdict: Normal | Likely Normal | Non-Normal)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _normality_next(verdict: str) -> NextStep:
+def _normality_next(verdict: str, all_positive: Optional[bool] = None) -> NextStep:
     if verdict in ("Normal", "Likely Normal"):
         return NextStep(
             TOOL_CAPABILITY,
@@ -127,12 +127,25 @@ def _normality_next(verdict: str) -> NextStep:
             "directly. Enter your spec limits to assess capability.",
             "info",
         )
-    # Non-Normal
+    # Non-Normal. The right transformation depends on the data's sign:
+    # Box-Cox requires strictly positive data; with zeros/negatives it is
+    # mathematically invalid, so steer toward a non-parametric method instead.
+    if all_positive is False:
+        return NextStep(
+            TOOL_TRANSFORM,
+            "Use a non-parametric capability method",
+            "The data is non-normal and contains zero or negative values, so a "
+            "Box-Cox transformation cannot be applied. Use a percentile-based "
+            "(non-parametric) capability method instead of transforming.",
+            "action",
+            carry_data=True,
+        )
     return NextStep(
         TOOL_TRANSFORM,
-        "Transform the data",
-        "The data is non-normal. Apply a transformation (or use a non-normal "
-        "capability method) before computing Cpk, or the indices will mislead.",
+        "Transform the data (Box-Cox)",
+        "The data is non-normal but all-positive, so a Box-Cox transformation "
+        "can normalize it. Apply it before computing Cpk, or the indices will "
+        "mislead.",
         "action",
         carry_data=True,
     )
@@ -179,6 +192,7 @@ def recommend_next_step(
     *,
     in_control: Optional[bool] = None,
     normality_verdict: Optional[str] = None,
+    all_positive: Optional[bool] = None,
 ) -> Optional[NextStep]:
     """Return the single best next step for a completed analysis, or None if
     the analysis type isn't covered yet (caller should simply show nothing).
@@ -205,7 +219,7 @@ def recommend_next_step(
     if at == "normality":
         if verdict is None:
             return None
-        return _normality_next(verdict)
+        return _normality_next(verdict, all_positive)
 
     if at == "grr":
         if verdict is None:

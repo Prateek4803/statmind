@@ -95,6 +95,29 @@ def test_normality_nonnormal_carries_data():
     assert ns.carry_data is True
 
 
+def test_nonnormal_all_positive_recommends_boxcox():
+    """All-positive non-normal data -> Box-Cox is valid."""
+    ns = recommend_next_step("normality", "Non-Normal", all_positive=True)
+    assert ns.next_tool == TOOL_TRANSFORM
+    assert "box-cox" in ns.title.lower() or "box-cox" in ns.reason.lower()
+
+
+def test_nonnormal_with_negatives_recommends_nonparametric():
+    """Non-positive non-normal data -> Box-Cox invalid, steer non-parametric."""
+    ns = recommend_next_step("normality", "Non-Normal", all_positive=False)
+    assert ns.next_tool == TOOL_TRANSFORM
+    assert "non-parametric" in ns.reason.lower() or "percentile" in ns.reason.lower()
+    # must NOT recommend Box-Cox on data where it can't work
+    assert "box-cox" not in ns.title.lower()
+
+
+def test_nonnormal_unknown_positivity_falls_back_safely():
+    """No positivity info -> generic transform recommendation, still valid."""
+    ns = recommend_next_step("normality", "Non-Normal", all_positive=None)
+    assert ns.next_tool == TOOL_TRANSFORM
+    assert ns.carry_data is True
+
+
 # ── Gauge R&R ────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("verdict,expected_tool,priority", [

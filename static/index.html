@@ -6985,14 +6985,29 @@ async function capaRunInline(type) {
       const r = await fetch(`${API}/api/v1/normality/analyze?alpha=${alpha}`, { method:'POST', body:fd });
       if (!r.ok) throw new Error((await r.json()).detail);
       const raw = await r.json();
-      raw.results = raw.results.filter(rr => !wizardSelectedCols.length || wizardSelectedCols.includes(rr.column));
+      // The user's typed Parameter name is an explicit override: make sure the
+      // analysis keeps that column even if the file-open wizard selected others
+      // (or selected columns from a previous file). Without this, a stale
+      // wizardSelectedCols filter strips the intended column and the code falls
+      // back to the wrong (first) result.
+      const _typedNorm = (document.getElementById('capa-col-name')?.value || '').trim();
+      raw.results = raw.results.filter(rr => {
+        if (_typedNorm && (rr.column || '').toLowerCase() === _typedNorm.toLowerCase()) return true;
+        return !wizardSelectedCols.length || wizardSelectedCols.includes(rr.column);
+      });
       normData = raw;
       // Attach the user-intended column if the Parameter name field names one;
       // otherwise keep prior behavior (first result).
-      const _typedNorm = (document.getElementById('capa-col-name')?.value || '').trim();
       if (_typedNorm) {
         const _match = normData.results.find(rr => (rr.column || '').toLowerCase() === _typedNorm.toLowerCase());
-        attachedNorm = _match || normData.results[0];
+        if (_match) {
+          attachedNorm = _match;
+        } else {
+          // Typed a name that the analysis didn't return — surface it clearly
+          // instead of silently attaching the wrong column.
+          const _avail = (normData.results || []).map(rr => rr.column).join(', ');
+          throw new Error(`Column "${_typedNorm}" not found in this file. Available: ${_avail || 'none'}`);
+        }
       } else {
         attachedNorm = normData.results[0];
       }

@@ -1,0 +1,8 @@
+# Unifies commit author identities so git log / GitHub show a single contributor.
+# Format: Canonical Name <canonical-email>  Other Name <other-email>
+# This affects display only — it does not rewrite history.
+
+Prateek Banerjee <prateekbanerjee4@gmail.com> Prateek4803 <prateekbanerjee4@gmail.com>
+Prateek Banerjee <prateekbanerjee4@gmail.com> Prateek4803 <163301534+Prateek4803@users.noreply.github.com>
+Prateek Banerjee <prateekbanerjee4@gmail.com> Prateek Banerjee <your-github-email@example.com>
+Prateek Banerjee <prateekbanerjee4@gmail.com> EC2 Default User <ec2-user@ip-172-31-8-132.ec2.internal>

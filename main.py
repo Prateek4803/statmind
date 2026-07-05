@@ -17,6 +17,18 @@ FIXES APPLIED (P0/P1/P2 audit items):
              and Dockerfile HEALTHCHECK).
   P2-ARCH-1  control_charts: analyze_control_chart aliased correctly to
              auto_select_and_build (function was renamed in v3 engine).
+  P0-STAT-6  Anderson-Darling reimplemented internally (normality.py) —
+             scipy.stats.anderson API removed in SciPy 1.19 would hard-break
+             the normality engine on the next dependency bump.
+  P0-STAT-7  subgroup_size=0 caused ZeroDivisionError → 500 in capability;
+             now bounded at API layer (ge=1, le=100) and engine layer.
+  P1-SEC-3   Shared limiter (rate_limit.py); strict per-route limits on auth
+             endpoints (magic-link 3/min — was 60/min, enough to burn the
+             entire Resend daily quota and DoS login for all users).
+  P1-SEC-4   Real email validation + length caps; per-email pending-token
+             throttle; email-capture dedup (unbounded PII table growth).
+  P1-SEC-5   Content-Security-Policy header added.
+  P1-VAL-1   alpha query params bounded to (0, 1) on all 6 endpoints.
 """
 
 import os
@@ -39,8 +51,7 @@ from ppap_generator import ppap_router
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
@@ -93,7 +104,9 @@ app.add_middleware(
 )
 
 # ── Rate limiting ──────────────────────────────────────────────────────────────
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute", "600/hour"])
+# Shared limiter (rate_limit.py) so auth.py and other routers can declare
+# per-route limits on the same instance (P1-SEC-3).
+from rate_limit import limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # SlowAPIMiddleware makes default_limits apply to EVERY route — without it,
@@ -339,6 +352,22 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"]         = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"]      = "geolocation=(), microphone=(), camera=()"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # P1-SEC-5: CSP. The SPA uses inline scripts/styles, so 'unsafe-inline' is
+    # required for now, but this still blocks: injected external scripts from
+    # any origin except jsdelivr (Chart.js), plugin/object embeds, form posts
+    # to foreign origins, and framing (defense-in-depth with X-Frame-Options).
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "frame-ancestors 'none'"
+    )
     return response
 
 # ── Health endpoints ───────────────────────────────────────────────────────────
@@ -415,7 +444,7 @@ async def get_aaa_columns(request: Request, file: UploadFile = File(...)):
 # ── Session 1: Normality ───────────────────────────────────────────────────────
 @app.post("/api/v1/normality/analyze")
 @limiter.limit("30/minute")
-async def normality(request: Request, file: UploadFile = File(...), alpha: float = 0.05):
+async def normality(request: Request, file: UploadFile = File(...), alpha: float = Query(0.05, gt=0.0, lt=1.0)):
     c = await file.read()
     _validate_upload(file, c)
     try:
@@ -452,7 +481,7 @@ async def capability(
     usl: float          = Query(...),
     lsl: float          = Query(...),
     target: float       = Query(None),
-    subgroup_size: int  = Query(1),
+    subgroup_size: int  = Query(1, ge=1, le=100),
 ):
     c = await file.read()
     _validate_upload(file, c)
@@ -477,7 +506,7 @@ async def capability(
 async def spc(
     file: UploadFile  = File(...),
     column: str       = Query(...),
-    subgroup_size: int = Query(1),
+    subgroup_size: int = Query(1, ge=1, le=100),
     start_index: int  = Query(None),
     end_index: int    = Query(None),
 ):
@@ -711,7 +740,7 @@ def _all_cols_response(result):
 
 @app.post("/api/v1/regression/analyze")
 @limiter.limit("30/minute")
-async def regression_analyze(request: Request, file: UploadFile = File(...), y_col: str = Query(...), x_cols: str = Query(...), alpha: float = Query(0.05)):
+async def regression_analyze(request: Request, file: UploadFile = File(...), y_col: str = Query(...), x_cols: str = Query(...), alpha: float = Query(0.05, gt=0.0, lt=1.0)):
     c = await file.read(); _validate_upload(file, c)
     try:
         result = parse_any_file(c, file.filename)
@@ -1303,7 +1332,7 @@ async def outliers_analyze(
     file: UploadFile = File(...),
     column: str      = Query(...),
     method: str      = Query("grubbs"),
-    alpha: float     = Query(0.05),
+    alpha: float     = Query(0.05, gt=0.0, lt=1.0),
 ):
     """Outlier detection using Grubbs, Rosner ESD, or Dixon Q test."""
     c = await file.read()
@@ -1329,7 +1358,7 @@ async def equivalence_analyze(
     col_a: str       = Query(...),
     col_b: str       = Query(...),
     delta: float     = Query(None),
-    alpha: float     = Query(0.05),
+    alpha: float     = Query(0.05, gt=0.0, lt=1.0),
 ):
     """TOST equivalence testing between two columns of an uploaded file.
 
@@ -1565,7 +1594,7 @@ async def hypothesis_from_file(
     file: UploadFile = File(...),
     test: str        = Query(...),
     columns: str     = Query(...),
-    alpha: float     = Query(0.05),
+    alpha: float     = Query(0.05, gt=0.0, lt=1.0),
 ):
     """Run a hypothesis test on selected columns of an uploaded file.
 
@@ -1875,7 +1904,7 @@ async def two_way_anova(
     response: str      = Query(...),
     factor_a: str      = Query(...),
     factor_b: str      = Query(...),
-    alpha: float       = Query(0.05),
+    alpha: float       = Query(0.05, gt=0.0, lt=1.0),
 ):
     """Two-way ANOVA with interaction term."""
     c = await file.read()

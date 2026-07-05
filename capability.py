@@ -144,6 +144,12 @@ def estimate_sigma_within(data: np.ndarray, subgroup_size: int = 1) -> float:
     if n < 2:
         raise ValueError("Need ≥ 2 non-NaN points to estimate sigma_within.")
 
+    # P0-STAT-7: subgroup_size=0 previously reached `len(data) // 0`
+    # (ZeroDivisionError → unhandled 500); negatives produced garbage reshapes.
+    if int(subgroup_size) < 1:
+        raise ValueError(f"subgroup_size must be ≥ 1; got {subgroup_size}.")
+    subgroup_size = int(subgroup_size)
+
     if subgroup_size == 1:
         mr = np.abs(np.diff(data))
         if len(mr) == 0 or float(np.mean(mr)) == 0.0:

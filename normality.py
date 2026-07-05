@@ -6,11 +6,52 @@ Tests: Anderson-Darling, Shapiro-Wilk, Ryan-Joiner
 import numpy as np
 import pandas as pd
 from scipy import stats
-from scipy.stats import anderson, shapiro
+from scipy.stats import shapiro
 from dataclasses import dataclass, asdict
-from typing import Optional
+from typing import Optional, Tuple
 import warnings
 warnings.filterwarnings("ignore")
+
+
+# ── Anderson-Darling (self-contained) ─────────────────────────────────────────
+# P0-STAT-6: scipy.stats.anderson changed its API in SciPy 1.17 (FutureWarning)
+# and removes `critical_values` from the result object in 1.19, which would
+# hard-break run_anderson_darling on the next dependency bump. The statistic
+# and Stephens/D'Agostino critical values are implemented here directly so the
+# normality engine no longer depends on a churning SciPy API. Values verified
+# against scipy.stats.anderson (SciPy 1.17) in tests/test_normality_ad.py.
+
+# Base critical values for the normal case with estimated mean and variance
+# (Stephens 1974 case 3 as tabulated in SciPy), at significance levels
+# 15%, 10%, 5%, 2.5%, 1%.
+_AD_BASE_CRITICAL = np.array([0.561, 0.631, 0.752, 0.873, 1.035])
+_AD_SIG_LEVELS    = (0.15, 0.10, 0.05, 0.025, 0.01)
+
+
+def _anderson_darling_norm(data: np.ndarray) -> Tuple[float, np.ndarray]:
+    """
+    Anderson-Darling A² statistic for normality with estimated parameters,
+    plus small-sample-adjusted critical values.
+
+    Matches scipy.stats.anderson(data, dist='norm'):
+      A² = -n - (1/n) Σ (2i-1)[ln Φ(w_i) + ln(1 - Φ(w_{n+1-i}))]
+      CV = base / (1 + 0.75/n + 2.25/n²)   (Stephens 1974, case 3)
+    """
+    x = np.sort(np.asarray(data, dtype=np.float64))
+    n = len(x)
+    if n < 8:
+        raise ValueError(f"Anderson-Darling requires n ≥ 8; got {n}.")
+    mean = float(np.mean(x))
+    std = float(np.std(x, ddof=1))
+    if std == 0.0:
+        raise ValueError("Anderson-Darling is undefined for zero-variance data.")
+    w = (x - mean) / std
+    logcdf = stats.norm.logcdf(w)
+    logsf = stats.norm.logsf(w)
+    i = np.arange(1, n + 1)
+    A2 = -n - np.sum((2 * i - 1.0) / n * (logcdf + logsf[::-1]))
+    critical = _AD_BASE_CRITICAL / (1.0 + 0.75 / n + 2.25 / (n * n))
+    return float(A2), critical
 
 
 def _welford_std(data: np.ndarray, ddof: int = 1) -> float:
@@ -99,20 +140,20 @@ def run_shapiro_wilk(data: np.ndarray, alpha=0.05) -> NormalityTestResult:
 
 
 def run_anderson_darling(data: np.ndarray, alpha=0.05) -> NormalityTestResult:
-    result = anderson(data, dist='norm')
+    A2, critical_values = _anderson_darling_norm(data)
     # Map alpha to index: 15%, 10%, 5%, 2.5%, 1%
     alpha_map = {0.15: 0, 0.10: 1, 0.05: 2, 0.025: 3, 0.01: 4}
     idx = alpha_map.get(alpha, 2)
-    critical = result.critical_values[idx]
-    reject = result.statistic > critical
-    p_approx = _ad_p_value(result.statistic)
+    critical = critical_values[idx]
+    reject = A2 > critical
+    p_approx = _ad_p_value(A2)
     interp = (
-        f"A²={result.statistic:.4f}, CV={critical:.4f} at {alpha*100:.0f}%: "
+        f"A²={A2:.4f}, CV={critical:.4f} at {alpha*100:.0f}%: "
         + ("Evidence AGAINST normality." if reject else "No evidence against normality.")
     )
     return NormalityTestResult(
         test_name="Anderson-Darling",
-        statistic=round(float(result.statistic), 5),
+        statistic=round(float(A2), 5),
         p_value=round(float(p_approx), 5),
         critical_value=round(float(critical), 5),
         alpha=alpha,

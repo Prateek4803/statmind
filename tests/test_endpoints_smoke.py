@@ -220,15 +220,24 @@ def test_logistic_via_regression_route():
 def test_rate_limiting_is_enforced_globally():
     """SlowAPIMiddleware must throttle even upload endpoints that don't declare
     a Request param. Without the middleware these escaped all limits (DoS surface).
-    Health is exempt-ish but heavy endpoints must 429 once the budget is spent."""
-    # Hammer a heavy upload endpoint past the per-minute default (60/min).
-    got_429 = False
-    for _ in range(75):
-        r = client.post(
-            "/api/v1/spc/analyze?column=Etch_Rate_nm_min&subgroup_size=1",
-            files={"file": ("f.csv", _csv(), "text/csv")},
-        )
-        if r.status_code == 429:
-            got_429 = True
-            break
-    assert got_429, "Expected a 429 after exceeding the rate limit; endpoint appears unthrottled."
+    Health is exempt-ish but heavy endpoints must 429 once the budget is spent.
+
+    conftest.py disables the per-IP limiter for the rest of the suite (all test
+    requests share one pseudo-IP); this test re-enables it locally because the
+    limiter itself is the behavior under test."""
+    from rate_limit import limiter as _limiter
+    _limiter.enabled = True
+    try:
+        # Hammer a heavy upload endpoint past the per-minute default (60/min).
+        got_429 = False
+        for _ in range(75):
+            r = client.post(
+                "/api/v1/spc/analyze?column=Etch_Rate_nm_min&subgroup_size=1",
+                files={"file": ("f.csv", _csv(), "text/csv")},
+            )
+            if r.status_code == 429:
+                got_429 = True
+                break
+        assert got_429, "Expected a 429 after exceeding the rate limit; endpoint appears unthrottled."
+    finally:
+        _limiter.enabled = False

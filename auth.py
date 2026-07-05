@@ -12,6 +12,7 @@ Environment variables needed:
 """
 
 import os
+import re
 import sqlite3
 import secrets
 import hashlib
@@ -20,8 +21,26 @@ from typing import Optional
 
 from fastapi import Header, APIRouter, BackgroundTasks, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from jose import jwt, JWTError
+
+from rate_limit import limiter
+
+# ── Email validation (P1-SEC-4) ───────────────────────────────────────────────
+# The previous check was `'@' in email`, which accepted arbitrary garbage
+# (multi-KB strings, newlines, control chars) into the users / email_captures
+# tables and into the Resend `to` field. RFC-lite pattern + hard length cap.
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,63}$")
+_MAX_EMAIL_LEN = 254  # RFC 5321
+_MAX_PENDING_TOKENS = 3  # max unexpired unused magic links per email
+
+
+def _clean_email(raw: str) -> str:
+    """Normalize and validate an email address; raise HTTP 400 if invalid."""
+    email = (raw or "").strip().lower()
+    if not email or len(email) > _MAX_EMAIL_LEN or not _EMAIL_RE.match(email):
+        raise HTTPException(400, "Valid email required")
+    return email
 
 # ── Config ────────────────────────────────────────────────────────────────────
 _JWT_SECRET_ENV = os.environ.get('JWT_SECRET')
@@ -44,7 +63,6 @@ else:
           "Tokens will not survive a restart. Set JWT_SECRET for stable auth.")
 JWT_ALGORITHM   = 'HS256'
 JWT_EXPIRE_MINS = int(os.environ.get('JWT_EXPIRE_MINUTES', 10080))  # 7 days
-RESEND_API_KEY  = ''  # loaded dynamically in send_magic_link_email()
 APP_URL         = os.environ.get('APP_URL', 'https://statmind.tech')
 FROM_EMAIL      = 'StatMind <hello@statmind.tech>'
 MAGIC_EXPIRE_MINS = 15
@@ -90,6 +108,10 @@ def init_db():
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     ''')
+    # Indexes (P2-DB-1): token verification and pending-token throttle both
+    # filter on email; captures are deduped by (email, source).
+    db.execute('CREATE INDEX IF NOT EXISTS idx_magic_tokens_email ON magic_tokens(email)')
+    db.execute('CREATE INDEX IF NOT EXISTS idx_email_captures_email ON email_captures(email)')
     db.commit()
     db.close()
     cleanup_expired_tokens()
@@ -185,8 +207,7 @@ async def require_admin(
 async def send_magic_link_email(email: str, token: str):
     link = f'{APP_URL}/app?auth_token={token}&email={email}'
 
-    RESEND_API_KEY = ''  # loaded dynamically
-    RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+    RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')  # read at send time, not import time
     if not RESEND_API_KEY:
         # Dev mode — print link to console
         print(f'\n[AUTH DEV MODE] Magic link for {email}:\n{link}\n')
@@ -252,19 +273,38 @@ async def send_magic_link_email(email: str, token: str):
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @auth_router.post('/magic-link')
-async def send_magic_link(body: MagicLinkRequest, background_tasks: BackgroundTasks):
-    """Send a magic link to the user's email."""
-    email = body.email.strip().lower()
-    if not email or '@' not in email:
-        raise HTTPException(400, 'Valid email required')
+@limiter.limit('3/minute;10/hour')
+async def send_magic_link(request: Request, body: MagicLinkRequest, background_tasks: BackgroundTasks):
+    """Send a magic link to the user's email.
+
+    Abuse protections (P1-SEC-3/4):
+      - 3/min and 10/hour per IP (the global 60/min default allowed an
+        attacker to burn the entire Resend daily email quota in <2 minutes,
+        locking every user out of login).
+      - Per-email throttle: at most 3 unexpired unused tokens can be pending
+        for one address, so a victim's inbox can't be bombed from many IPs.
+    """
+    email = _clean_email(body.email)
 
     # Generate a secure token
     raw_token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=MAGIC_EXPIRE_MINS)).isoformat()
+    now = datetime.now(timezone.utc)
+    expires_at = (now + timedelta(minutes=MAGIC_EXPIRE_MINS)).isoformat()
 
     db = get_db()
     try:
+        # Per-email pending-token throttle
+        pending = db.execute(
+            'SELECT COUNT(*) FROM magic_tokens WHERE email = ? AND used = 0 AND expires_at > ?',
+            (email, now.isoformat()),
+        ).fetchone()[0]
+        if pending >= _MAX_PENDING_TOKENS:
+            raise HTTPException(
+                429,
+                'Too many sign-in links requested for this address. '
+                'Please use the most recent link or wait a few minutes.',
+            )
         # Upsert user
         db.execute(
             'INSERT OR IGNORE INTO users (email) VALUES (?)',
@@ -279,12 +319,9 @@ async def send_magic_link(body: MagicLinkRequest, background_tasks: BackgroundTa
     finally:
         db.close()
 
-    # Send email
+    # Send email in the background (failures are logged inside the sender;
+    # we always return success so responses can't be used to probe delivery).
     background_tasks.add_task(send_magic_link_email, email, raw_token)
-    sent = True
-
-    if not sent and RESEND_API_KEY:
-        raise HTTPException(500, 'Failed to send email. Please try again.')
 
     return {
         'success': True,
@@ -295,9 +332,10 @@ async def send_magic_link(body: MagicLinkRequest, background_tasks: BackgroundTa
 
 
 @auth_router.post('/verify')
-async def verify_magic_link(body: VerifyRequest):
+@limiter.limit('10/minute')
+async def verify_magic_link(request: Request, body: VerifyRequest):
     """Verify a magic link token and return a JWT."""
-    email = body.email.strip().lower()
+    email = _clean_email(body.email)
     token_hash = hashlib.sha256(body.token.encode()).hexdigest()
     now = datetime.now(timezone.utc).isoformat()
 
@@ -360,20 +398,29 @@ async def logout():
 
 # ── Email capture (enhanced) ──────────────────────────────────────────────────
 @auth_router.post('/email-capture')
-async def capture_email(body: EmailCaptureRequest):
-    """Capture an email address (pre-auth lead capture)."""
-    email = body.email.strip().lower()
-    if not email or '@' not in email:
-        raise HTTPException(400, 'Valid email required')
+@limiter.limit('5/minute')
+async def capture_email(request: Request, body: EmailCaptureRequest):
+    """Capture an email address (pre-auth lead capture).
+
+    Hardened (P1-SEC-4): validated + length-capped email, source string capped,
+    deduplicated per (email, source) so a bot loop can't grow the PII table
+    unbounded, and rate limited per IP.
+    """
+    email = _clean_email(body.email)
+    source = (body.source or 'unknown').strip()[:64]
 
     db = get_db()
     try:
-        db.execute(
-            'INSERT INTO email_captures (email, source) VALUES (?, ?)',
-            (email, body.source)
-        )
-        db.commit()
-        count = db.execute('SELECT COUNT(*) FROM email_captures').fetchone()[0]
+        exists = db.execute(
+            'SELECT 1 FROM email_captures WHERE email = ? AND source = ? LIMIT 1',
+            (email, source),
+        ).fetchone()
+        if not exists:
+            db.execute(
+                'INSERT INTO email_captures (email, source) VALUES (?, ?)',
+                (email, source)
+            )
+            db.commit()
     finally:
         db.close()
 

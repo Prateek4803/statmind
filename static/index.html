@@ -2115,15 +2115,25 @@ function openNewFileWizard(){
   openModal('new-file-modal');
 }
 
-function buildNewFileTable(){
+function buildNewFileTable(preserve=true){
+  // Snapshot typed values so resizing / +Row / +Column / Enter-at-last-row no
+  // longer wipes everything the user has entered (previous innerHTML rebuild
+  // destroyed all cell values — data loss mid-entry).
+  const prevVals={};
+  if(preserve){
+    document.querySelectorAll('.nf-cell').forEach(el=>{
+      if(el.value!=='') prevVals[el.dataset.row+','+el.dataset.col]=el.value;
+    });
+  }
   nfCols = parseInt(document.getElementById('nf-cols').value)||3;
   nfRows = parseInt(document.getElementById('nf-rows').value)||10;
   while(nfColNames.length < nfCols) nfColNames.push(`Column_${nfColNames.length+1}`);
   nfColNames = nfColNames.slice(0, nfCols);
+  const escAttr=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   const wrap = document.getElementById('new-file-table-wrap');
   let html = '<table class="data-table"><thead><tr><th style="width:40px">#</th>';
   for(let c=0;c<nfCols;c++){
-    html+=`<th><input class="col-header-input" value="${nfColNames[c]}" onchange="nfColNames[${c}]=this.value" style="width:100%"/></th>`;
+    html+=`<th><input class="col-header-input" value="${escAttr(nfColNames[c])}" data-col="${c}" onchange="nfColNames[${c}]=this.value" style="width:100%"/></th>`;
   }
   html+='</tr></thead><tbody>';
   for(let r=0;r<nfRows;r++){
@@ -2135,6 +2145,81 @@ function buildNewFileTable(){
   }
   html+='</tbody></table>';
   wrap.innerHTML=html;
+  if(preserve){
+    // Restore programmatically (never via value attribute) — immune to quotes/HTML in data
+    Object.keys(prevVals).forEach(key=>{
+      const parts=key.split(',');
+      const cell=wrap.querySelector(`.nf-cell[data-row="${parts[0]}"][data-col="${parts[1]}"]`);
+      if(cell) cell.value=prevVals[key];
+    });
+  }
+  initNFKeyboardNav();
+}
+
+/* ── Excel-style keyboard navigation for the datasheet ─────────────────────
+   Enter        → cell below (auto-adds a row at the bottom, data preserved)
+   Shift+Enter  → cell above
+   Tab / S-Tab  → cell right / left, wrapping across rows
+   Arrows       → adjacent cell. Up/Down always navigate. Left/Right navigate
+                  when in Excel "entry mode" (user has typed in this cell) or
+                  when the caret is already at the text boundary — clicking
+                  into a cell still allows caret movement to fix a typo.
+   Listeners are delegated on the wrap element, so they survive rebuilds.   */
+let _nfNavInit=false;
+function initNFKeyboardNav(){
+  if(_nfNavInit) return;
+  const wrap=document.getElementById('new-file-table-wrap');
+  if(!wrap) return;
+  _nfNavInit=true;
+  wrap.addEventListener('input',e=>{
+    if(e.target.classList&&e.target.classList.contains('nf-cell')) e.target.dataset.typing='1';
+  });
+  wrap.addEventListener('focusout',e=>{
+    if(e.target.classList&&e.target.classList.contains('nf-cell')) delete e.target.dataset.typing;
+  });
+  wrap.addEventListener('keydown',e=>{
+    const el=e.target;
+    if(!el.classList) return;
+    // Enter in a column header commits the name and drops into that column
+    if(el.classList.contains('col-header-input')&&e.key==='Enter'){
+      e.preventDefault();
+      el.blur();
+      nfFocusCell(0,parseInt(el.dataset.col)||0);
+      return;
+    }
+    if(!el.classList.contains('nf-cell')) return;
+    const r=parseInt(el.dataset.row), c=parseInt(el.dataset.col);
+    const typing=el.dataset.typing==='1';
+    const atStart=el.selectionStart===0&&el.selectionEnd===0;
+    const atEnd=el.selectionStart===el.value.length&&el.selectionEnd===el.value.length;
+    let target=null;
+    switch(e.key){
+      case 'Enter':
+        if(e.shiftKey){ target=r>0?[r-1,c]:null; break; }
+        if(r+1>=nfRows) addNFRow();          // grow the sheet downward, Excel-style
+        target=[r+1,c];
+        break;
+      case 'Tab':
+        target=e.shiftKey
+          ? (c>0?[r,c-1]:(r>0?[r-1,nfCols-1]:null))
+          : (c+1<nfCols?[r,c+1]:(r+1<nfRows?[r+1,0]:null));
+        if(!target) return;                  // let Tab leave the grid at the edges
+        break;
+      case 'ArrowDown':  target=r+1<nfRows?[r+1,c]:null; break;
+      case 'ArrowUp':    target=r>0?[r-1,c]:null; break;
+      case 'ArrowRight': if(typing||atEnd)  target=c+1<nfCols?[r,c+1]:null; break;
+      case 'ArrowLeft':  if(typing||atStart)target=c>0?[r,c-1]:null; break;
+      default: return;
+    }
+    if(target){
+      e.preventDefault();
+      nfFocusCell(target[0],target[1]);
+    }
+  });
+}
+function nfFocusCell(r,c){
+  const cell=document.querySelector(`.nf-cell[data-row="${r}"][data-col="${c}"]`);
+  if(cell){ cell.focus(); cell.select(); }
 }
 
 function addNFRow(){
@@ -2170,7 +2255,7 @@ function pasteNFData(){
   nfColNames=headers;
   document.getElementById('nf-cols').value=nfCols;
   document.getElementById('nf-rows').value=nfRows;
-  buildNewFileTable();
+  buildNewFileTable(false);  // paste replaces the sheet — don't restore stale values
   lines.slice(1).forEach((line,r)=>{
     const vals=line.split(sep);
     vals.forEach((v,c)=>{

@@ -675,6 +675,28 @@ async def capa_override(request: Request):
 async def capa_catalog():
     return jd(get_all_rules_catalog())
 
+@app.get("/api/v1/capa/processes")
+async def capa_processes():
+    """Process selector metadata: every process tag in the rule library with
+    its rule count, grouped by industry category. Honest counts — thin
+    processes show their real numbers rather than hiding them."""
+    from capa_process_filter import list_processes
+    return jd({"groups": list_processes()})
+
+@app.get("/api/v1/capa/rules")
+async def capa_rules_by_process(
+    process: str = Query(..., min_length=1, max_length=40),
+    include_general: bool = Query(True),
+):
+    """Hard-filtered rule list for one process tag (e.g. Etch, CMP) — powers
+    the re-filter dropdown in the CAPA rules section. Cross-cutting General
+    rules are included by default and tagged scope='general'."""
+    from capa_process_filter import get_rules_by_process
+    rules = get_rules_by_process(process, include_general=include_general)
+    n_process = sum(1 for r in rules if r.get("scope") == "process")
+    return jd({"process": process, "count": len(rules),
+               "process_rule_count": n_process, "rules": rules})
+
 @app.get("/api/v1/capa/v2/catalog")
 async def capa_v2_catalog():
     return jd(get_all_rules_catalog_v2())

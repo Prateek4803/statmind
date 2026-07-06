@@ -388,14 +388,46 @@ def run_capa_engine_v2(
     spc_result=None, grr_result=None,
     process_context: str = "", parameter_name: str = "", process_type: str = "",
 ) -> dict:
-    """V2 engine — uses expanded R2 database with process-boosted scoring."""
+    """V2 engine — uses expanded R2 database with process-boosted scoring.
+
+    Process handling (feat/capa-process-filter):
+      - Explicit process_type (e.g. "Etch"): matched_rules are HARD-filtered to
+        that process + cross-cutting General rules. Previously process was only
+        a soft ranking signal, so an Etch context could surface Pharma or
+        Automotive rules — confirmed by the 2026-07-06 test campaign.
+      - Auto mode (process_type empty or "General"): the semantic matcher
+        infers the process family from the parameter name/context, and the
+        result reports it (`detected_process`, `detection_confidence`) so the
+        user can see — and correct — what Auto-Detect chose.
+      - `effective_process` is whichever of the two applies; the UI's
+        re-filter dropdown is driven by it.
+    """
     # Use the module-level combined set so SPC pattern fallbacks are active here
     # too (v2 previously re-imported only the base CAPA_RULES, leaving the SPC
     # fallbacks dead on this engine path).
     _RULES = ALL_RULES
 
+    explicit = (process_type or "").strip()
+    if explicit.lower() == "general":
+        explicit = ""
+
+    detected_process = None
+    detection_confidence = None
+    if not explicit:
+        # Auto-detect from parameter name + free-text context. Defensive import:
+        # the engine must still run if the intelligence module is unavailable.
+        try:
+            from statmind_intelligence import SemanticMatcher
+            detected_process, detection_confidence = SemanticMatcher.match_process(
+                parameter_name or "", process_context or ""
+            )
+        except Exception:
+            detected_process, detection_confidence = "General", 0.0
+
+    effective_process = explicit or detected_process or "General"
+
     stats = _extract_stats(normality_result, capability_result, spc_result, grr_result)
-    stats["process"] = (process_type + " " + parameter_name + " " + process_context).lower()
+    stats["process"] = (effective_process + " " + parameter_name + " " + process_context).lower()
     stats["parameter"] = parameter_name.lower()
 
     # Score with process boost
@@ -404,24 +436,38 @@ def run_capa_engine_v2(
         s = score_rule(rule, stats)
         if s == 0:
             continue
-        # Boost rules whose process matches user-selected process_type
-        if process_type and rule.process.lower() in process_type.lower():
+        # HARD filter on explicit selection: only this process + General survive.
+        if explicit and rule.process.lower() not in (explicit.lower(), "general"):
+            continue
+        # Boost rules whose process matches the effective process
+        if effective_process != "General" and rule.process.lower() in effective_process.lower():
             s *= 1.8
-        # Boost general rules if no specific process selected
-        elif not process_type and rule.process == "General":
+        # Boost general rules if nothing specific applies
+        elif effective_process == "General" and rule.process == "General":
             s *= 1.2
-        # Penalise if process clearly doesn't match (e.g. Automotive for semiconductor data)
-        if process_type and rule.process not in ("General", process_type):
+        # Soft penalty in AUTO mode for clearly-foreign processes (detection
+        # may be wrong, so foreign rules are demoted, not removed).
+        if not explicit and effective_process != "General" and rule.process not in ("General", effective_process):
             s *= 0.5
         scored.append((s, rule))
 
     scored.sort(key=lambda x: x[0], reverse=True)
 
+    _proc_meta = {
+        "process_mode": "explicit" if explicit else "auto",
+        "effective_process": effective_process,
+        "detected_process": detected_process,
+        "detection_confidence": detection_confidence,
+    }
+
     if not scored:
         return {
             "matched_rules": [], "primary_capa": None,
             "stats_summary": stats, "auto_severity": "Minor",
-            "message": "No rule violations detected.",
+            "message": "No rule violations detected."
+                       + (f" (No {explicit}-specific or General rules matched — "
+                          f"try Auto-Detect or another process.)" if explicit else ""),
+            **_proc_meta,
         }
 
     matched = []
@@ -430,6 +476,7 @@ def run_capa_engine_v2(
             "rule_id": rule.rule_id, "process": rule.process,
             "fault_pattern": rule.fault_pattern, "severity": rule.severity,
             "score": round(score, 2), "description": rule.description,
+            "scope": "general" if rule.process == "General" else "process",
         })
 
     top_score, top_rule = scored[0]
@@ -444,6 +491,7 @@ def run_capa_engine_v2(
         "stats_summary": stats, "auto_severity": auto_sev,
         "top_rule_id": top_rule.rule_id,
         "message": f"Matched {len(scored)} rule(s). Primary: {top_rule.fault_pattern}",
+        **_proc_meta,
     }
 
 

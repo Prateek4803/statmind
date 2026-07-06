@@ -10,12 +10,30 @@
 <script src="/static/chart_config_patch.js"></script>
 <style>
 :root{
+  /* ── StatMind design tokens (Session 4, feat/design-system) ──────────────
+     SEMANTIC COLOR CONTRACT (regulated-industry rule — do not violate):
+       --red/--alarm  = out-of-spec, SPC alarm, Critical ONLY. Never decorative.
+       --amber/--warn = marginal, Major, caution ONLY.
+       --green/--ok   = pass, in-control, capable ONLY.
+     All text tokens meet WCAG 2.1 AA (≥4.5:1) on every surface bg..bg4;
+     verified programmatically 2026-07-07 (text3 and red were failing and
+     have been adjusted: 7a9080→8ba394, f05c5c→f47272).                    */
   --bg:#0f1117;--bg2:#161b24;--bg3:#1e2535;--bg4:#252e40;
   --border:rgba(100,200,180,0.12);--border2:rgba(100,200,180,0.28);
-  --text:#f0f2f0;--text2:#b8c4bb;--text3:#7a9080;
+  --text:#f0f2f0;--text2:#b8c4bb;--text3:#8ba394;
   --accent:#2dd4a0;--accent2:#0fb888;
-  --green:#34d980;--amber:#f0b429;--red:#f05c5c;--purple:#a78bfa;
+  --green:#34d980;--amber:#f0b429;--red:#f47272;--purple:#a78bfa;
   --teal:#2dd4a0;--coral:#f87171;--blue:#60a5fa;
+  /* semantic aliases — prefer these in new code so intent is explicit */
+  --ok:var(--green);--warn:var(--amber);--alarm:var(--red);--info:var(--blue);
+  /* chart series palette — Okabe-Ito, colorblind-safe (~8% of male engineers
+     are red-green colorblind); use in order for multi-series charts.
+     Semantic verdict coloring still uses --ok/--warn/--alarm.              */
+  --chart-1:#56b4e9;--chart-2:#e69f00;--chart-3:#009e73;--chart-4:#f0e442;
+  --chart-5:#0072b2;--chart-6:#d55e00;--chart-7:#cc79a7;--chart-8:#999999;
+  /* type scale (5 sizes) and 4px spacing grid — reference for new UI      */
+  --fs-xs:12px;--fs-sm:13px;--fs-md:16px;--fs-lg:20px;--fs-xl:28px;
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px;
   --card-r:12px;
   --font:'SF Pro Display','Inter','Segoe UI',system-ui,sans-serif;
   --mono:'SF Mono','Fira Code','Consolas',monospace;
@@ -381,7 +399,8 @@ textarea{resize:vertical;min-height:52px;}
 .metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:14px;}
 .mc{background:var(--bg3);border-radius:8px;padding:10px 12px;text-align:center;border:1px solid var(--border);}
 .ml{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
-.mv{font-size:18px;font-weight:700;font-family:var(--mono);margin-top:2px;}
+.mv{font-size:18px;font-weight:700;font-family:var(--mono);margin-top:2px;font-variant-numeric:tabular-nums;}
+.data-table td{font-variant-numeric:tabular-nums;}
 .alarm-table{width:100%;border-collapse:collapse;font-size:13px;}
 .alarm-table th{font-size:11px;color:var(--text3);text-align:left;padding:5px 10px;border-bottom:1px solid var(--border);}
 .alarm-table td{padding:7px 10px;border-bottom:1px solid var(--border);font-family:var(--mono);}
@@ -2323,6 +2342,7 @@ function showNewFileTable(){
 }
 
 const API=window.location.origin.includes('localhost')?'http://localhost:8010':'';
+window.SM_CHART_PALETTE=['#56b4e9','#e69f00','#009e73','#f0e442','#0072b2','#d55e00','#cc79a7','#999999']; // Okabe-Ito, colorblind-safe — keep in sync with --chart-* tokens
 // ── StatMind AI Narrative Engine (in-house rule-based LLM stub) ──────────────
 // This calls our own ai_narrative.py endpoint — no external AI API
 // The narrative is generated from deterministic rules trained on manufacturing data

@@ -180,6 +180,7 @@ def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
 
 def _extract_numeric_columns(
     df: pd.DataFrame,
+    min_numeric: int = MIN_NUMERIC_VALUES,
 ) -> tuple[pd.DataFrame, List[str]]:
     """
     Convert every column that can be numeric to float64.
@@ -189,7 +190,7 @@ def _extract_numeric_columns(
     for col in df.columns:
         coerced = pd.to_numeric(df[col], errors="coerce")
         valid_count = int(coerced.notna().sum())
-        if valid_count >= MIN_NUMERIC_VALUES:
+        if valid_count >= min_numeric:
             df[col] = coerced
             numeric_cols.append(col)
     return df, numeric_cols
@@ -197,7 +198,9 @@ def _extract_numeric_columns(
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def parse_any_file(file_bytes: bytes, filename: str = "file") -> ParseResult:
+def parse_any_file(file_bytes: bytes, filename: str = "file",
+                   min_numeric: int = MIN_NUMERIC_VALUES,
+                   require_numeric: bool = True) -> ParseResult:
     """
     Parse any supported file format into a ParseResult.
 
@@ -247,12 +250,17 @@ def parse_any_file(file_bytes: bytes, filename: str = "file") -> ParseResult:
             "Check that the file contains rows below the header."
         )
 
-    df, numeric_cols = _extract_numeric_columns(df)
+    # P1-VAL-2 (2026-07-06 campaign): the 10-value minimum is right for
+    # measurement data but wrong for categorical analyses — a 7-category
+    # pre-aggregated Pareto log is perfectly valid. Callers like the Pareto
+    # endpoints pass min_numeric=2 / require_numeric=False; the default keeps
+    # the original behaviour for every other analysis.
+    df, numeric_cols = _extract_numeric_columns(df, min_numeric=min_numeric)
 
-    if not numeric_cols:
+    if not numeric_cols and require_numeric:
         raise ParseError(
             f"No numeric columns found in '{filename}'. "
-            "StatMind needs at least one column with 10+ numeric values."
+            f"StatMind needs at least one column with {min_numeric}+ numeric values."
         )
 
     col_stats = [_compute_stats(df[c], c) for c in numeric_cols]

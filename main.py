@@ -109,6 +109,18 @@ app.add_middleware(
 from rate_limit import limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# P2-UX-2 (2026-07-06 campaign): endpoints reading `await request.json()` raised
+# an unhandled JSONDecodeError -> 500 on malformed/empty bodies. One handler
+# fixes every such endpoint at once.
+from json import JSONDecodeError as _JSONDecodeError
+from fastapi.responses import JSONResponse as _JSONResponse
+
+@app.exception_handler(_JSONDecodeError)
+async def _bad_json_handler(request, exc):
+    return _JSONResponse(status_code=400, content={
+        "detail": "Request body must be valid JSON (Content-Type: application/json)."
+    })
 # SlowAPIMiddleware makes default_limits apply to EVERY route — without it,
 # slowapi only enforces limits on handlers that declare a `request: Request`
 # param, leaving file-upload endpoints that omit it completely unthrottled.
@@ -551,11 +563,12 @@ async def grr_analyze(
     file: UploadFile    = File(...),
     tolerance: float    = Query(None),
     method: str         = Query("ANOVA"),
+    column: str         = Query(None, max_length=100, description="Measurement column (required if the file has several numeric candidates)"),
 ):
     c = await file.read()
     _validate_upload(file, c)
     try:
-        measurements, parts, operators, col_name = parse_grr_csv(c, file.filename)
+        measurements, parts, operators, col_name = parse_grr_csv(c, file.filename, measurement_col=column)
     except Exception as e:
         raise HTTPException(400, str(e))
     try:
@@ -567,11 +580,11 @@ async def grr_analyze(
         raise HTTPException(400, str(e))
 
 @app.post("/api/v1/grr/preview")
-async def grr_preview(file: UploadFile = File(...)):
+async def grr_preview(file: UploadFile = File(...), column: str = Query(None, max_length=100)):
     c = await file.read()
     _validate_upload(file, c)
     try:
-        measurements, parts, operators, col_name = parse_grr_csv(c, file.filename)
+        measurements, parts, operators, col_name = parse_grr_csv(c, file.filename, measurement_col=column)
     except Exception as e:
         raise HTTPException(400, str(e))
     return jd({
@@ -851,7 +864,9 @@ async def multivari_analyze(request: Request, file: UploadFile = File(...), valu
 async def pareto_columns(request: Request, file: UploadFile = File(...)):
     c = await file.read(); _validate_upload(file, c)
     try:
-        return _all_cols_response(parse_any_file(c, file.filename))
+        # Pareto accepts short categorical files (P1-VAL-2): 2+ numeric values
+        # qualify a count column, and a category-only event log needs none.
+        return _all_cols_response(parse_any_file(c, file.filename, min_numeric=2, require_numeric=False))
     except Exception as e:
         raise HTTPException(400, str(e))
 
@@ -861,7 +876,7 @@ async def pareto_columns(request: Request, file: UploadFile = File(...)):
 async def pareto_analyze(request: Request, file: UploadFile = File(...), category_col: str = Query(...), count_col: str = Query(None), threshold: float = Query(80.0)):
     c = await file.read(); _validate_upload(file, c)
     try:
-        result = parse_any_file(c, file.filename)
+        result = parse_any_file(c, file.filename, min_numeric=2, require_numeric=False)
     except Exception as e:
         raise HTTPException(400, str(e))
     for col in [category_col, count_col]:
@@ -1007,10 +1022,21 @@ async def scatter_matrix_ep(
     except Exception as e:
         raise HTTPException(400, str(e))
 
+def _require_fields(body: dict, fields: list, chart: str) -> None:
+    """P2-UX-1 (2026-07-06 campaign): missing JSON fields previously leaked raw
+    KeyErrors to the user ({"detail": "\'subgroup_size\'"}). Name the field."""
+    missing = [f for f in fields if f not in body]
+    if missing:
+        raise HTTPException(
+            400, f"Missing required field(s) for {chart}: {', '.join(missing)}. "
+                 f"Required: {', '.join(fields)}."
+        )
+
 # ── Attribute charts ───────────────────────────────────────────────────────────
 @app.post("/api/v1/attribute-charts/p")
 async def p_chart_ep(request: Request):
     body = await request.json()
+    _require_fields(body, ["defectives", "subgroup_sizes"], "p-chart")
     try:
         d_arr  = np.array(body["defectives"], dtype=float)
         n_arr  = np.array(body["subgroup_sizes"], dtype=float)
@@ -1022,6 +1048,7 @@ async def p_chart_ep(request: Request):
 @app.post("/api/v1/attribute-charts/np")
 async def np_chart_ep(request: Request):
     body = await request.json()
+    _require_fields(body, ["defectives", "subgroup_size"], "np-chart")
     try:
         d_arr  = np.array(body["defectives"], dtype=float)
         n      = int(body["subgroup_size"])
@@ -1033,6 +1060,7 @@ async def np_chart_ep(request: Request):
 @app.post("/api/v1/attribute-charts/u")
 async def u_chart_ep(request: Request):
     body = await request.json()
+    _require_fields(body, ["defects", "subgroup_sizes"], "u-chart")
     try:
         d_arr  = np.array(body["defects"], dtype=float)
         n_arr  = np.array(body["subgroup_sizes"], dtype=float)
@@ -1044,6 +1072,7 @@ async def u_chart_ep(request: Request):
 @app.post("/api/v1/attribute-charts/c")
 async def c_chart_ep(request: Request):
     body = await request.json()
+    _require_fields(body, ["defects"], "c-chart")
     try:
         d_arr  = np.array(body["defects"], dtype=float)
         result = await asyncio.to_thread(build_c_chart, d_arr, body.get("column", "Defects"))

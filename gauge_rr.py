@@ -442,7 +442,7 @@ def _build_chart_data(measurements, parts, operators, unique_parts, unique_opera
     return {"by_operator": by_op, "part_variation": part_var, "interaction": interaction}
 
 
-def parse_grr_csv(file_bytes: bytes, filename: str):
+def parse_grr_csv(file_bytes: bytes, filename: str, measurement_col: str = None):
     """
     Parse a GRR study CSV with columns: Part, Operator, Measurement
     (or similar — auto-detects column names).
@@ -464,7 +464,21 @@ def parse_grr_csv(file_bytes: bytes, filename: str):
     part_col = next((c for c in df.columns if 'part' in c.lower()), None)
     op_col   = next((c for c in df.columns if any(x in c.lower() for x in ['oper', 'appraiser', 'inspector'])), None)
     import pandas as pd
-    meas_cols = [
+
+    # P0-STAT-8 (2026-07-06 campaign): the standard AIAG study format includes a
+    # numeric Trial/Replicate column. The old detector took the FIRST numeric
+    # non-Part/Operator column — which was Trial — and silently reported
+    # %GRR = 100% "Unacceptable" on a perfectly good gauge. Index-like columns
+    # are now excluded, and if more than one measurement candidate remains the
+    # caller must choose explicitly rather than us guessing.
+    _INDEX_LIKE = ('trial', 'replicate', 'repeat', 'rep', 'run', 'cycle',
+                   'sample', 'order', 'seq', 'index', 'id', 'no', 'num')
+
+    def _is_index_like(name: str) -> bool:
+        tokens = [t for t in ''.join(ch if ch.isalnum() else ' ' for ch in name.lower()).split() if t]
+        return any(t in _INDEX_LIKE for t in tokens)
+
+    numeric_cols = [
         c for c in df.columns
         if c not in [part_col, op_col]
         and (
@@ -472,13 +486,40 @@ def parse_grr_csv(file_bytes: bytes, filename: str):
             or df[c].apply(lambda x: isinstance(x, (int, float)) and not pd.isna(x)).all()
         )
     ]
+    meas_cols = [c for c in numeric_cols if not _is_index_like(c)]
 
     if not part_col or not op_col:
         raise ValueError(f"Could not find Part/Operator columns. Found: {list(df.columns)}. "
                          f"Please name columns 'Part', 'Operator', 'Measurement'.")
 
-    meas_col = meas_cols[0] if meas_cols else None
-    if not meas_col:
+    if measurement_col:
+        # Caller specified the measurement column explicitly — honour it.
+        match = next((c for c in df.columns if c.lower() == measurement_col.strip().lower()), None)
+        if match is None or match in (part_col, op_col):
+            raise ValueError(
+                f"Measurement column '{measurement_col}' not found in file. "
+                f"Available: {', '.join(str(c) for c in df.columns)}."
+            )
+        if not pd.api.types.is_numeric_dtype(df[match]):
+            raise ValueError(f"Measurement column '{measurement_col}' is not numeric.")
+        meas_col = match
+    elif len(meas_cols) == 1:
+        meas_col = meas_cols[0]
+    elif len(meas_cols) > 1:
+        raise ValueError(
+            f"Multiple possible measurement columns found: {', '.join(meas_cols)}. "
+            f"Please specify which one to analyze (measurement column parameter), "
+            f"or remove the extra numeric columns from the file."
+        )
+    elif numeric_cols:
+        # Everything numeric looked index-like (e.g. only a Trial column) —
+        # refuse rather than analyze an index and report a false verdict.
+        raise ValueError(
+            f"Only index-like numeric columns found ({', '.join(numeric_cols)}). "
+            f"These look like trial/run counters, not measurements. "
+            f"Please include a numeric measurement column, or specify one explicitly."
+        )
+    else:
         available = ", ".join(str(c) for c in df.columns)
         raise ValueError(
             f"Could not find a numeric measurement column. "

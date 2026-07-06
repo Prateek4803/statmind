@@ -3294,13 +3294,45 @@ function updateAttachStatus(){
   if(cBtn&&attachedCap){cBtn.textContent='✓ Done';cBtn.style.background='rgba(52,217,128,0.1)';cBtn.style.borderColor='rgba(52,217,128,0.3)';cBtn.style.color='var(--green)';}
 }
 
+/* ── Override catalog process filter (feat/capa-override-filter) ──────────────
+   The manual-override catalog previously listed all ~93 rules regardless of the
+   selected process. It now follows the same contract as the matched-rules card:
+   filtered to <selected process> + General, with an explicit "Show all" toggle.
+   Used by BOTH renderers (populateOverrideList at Step 3, buildOverrideList at
+   Step 4) so the two stay consistent. */
+let _capaShowAllRules=false;
+let _overrideRerender=null;
+let _capaCatalogCache=null;
+function _capaOverrideProc(){
+  return (typeof selectedProcess!=='undefined'&&selectedProcess)?selectedProcess:(window._capaLastEffProc||'');
+}
+function _filterCatalogRules(rules){
+  const proc=_capaOverrideProc();
+  if(_capaShowAllRules||!proc) return {rules:rules,proc:proc,filtered:false,total:rules.length};
+  const f=rules.filter(r=>{const p=(r.process||'').toLowerCase();return p===proc.toLowerCase()||p==='general';});
+  return {rules:f,proc:proc,filtered:true,total:rules.length};
+}
+function capaToggleAllRules(){_capaShowAllRules=!_capaShowAllRules;if(_overrideRerender)_overrideRerender();}
+function _overrideFilterBar(info){
+  if(!info.proc) return null;
+  const bar=document.createElement('div');
+  bar.style.cssText='font-size:11px;color:var(--text3);padding:2px 2px 8px;display:flex;gap:10px;align-items:center';
+  bar.innerHTML=info.filtered
+    ?`<span>Showing <strong style="color:var(--teal)">${info.proc} + General</strong> · ${info.rules.length} of ${info.total} rules</span><a href="#" style="color:var(--text2);text-decoration:underline" onclick="event.preventDefault();capaToggleAllRules()">Show all ${info.total}</a>`
+    :`<span>Showing all ${info.total} rules</span><a href="#" style="color:var(--text2);text-decoration:underline" onclick="event.preventDefault();capaToggleAllRules()">Filter to ${info.proc} + General</a>`;
+  return bar;
+}
+
 async function loadCatalog(){
-  try{const r=await fetch(`${API}/api/v1/capa/v2/catalog`);if(!r.ok)return;const d=await r.json();buildOverrideList(Array.isArray(d)?d:(d.rules||[]));}catch(e){console.error('loadCatalog failed',e);}
+  try{const r=await fetch(`${API}/api/v1/capa/v2/catalog`);if(!r.ok)return;const d=await r.json();_capaCatalogCache=Array.isArray(d)?d:(d.rules||[]);buildOverrideList(_capaCatalogCache);}catch(e){console.error('loadCatalog failed',e);}
 }
 
 function buildOverrideList(rules){
+  _overrideRerender=()=>buildOverrideList(_capaCatalogCache||rules);
   const list=document.getElementById('override-list');list.innerHTML='';
-  rules.forEach(r=>{
+  const info=_filterCatalogRules(rules);
+  const bar=_overrideFilterBar(info);if(bar)list.appendChild(bar);
+  info.rules.forEach(r=>{
     const el=document.createElement('div');el.className='override-item';el.dataset.ruleId=r.rule_id;
     const sev=r.severity==='Critical'?'var(--red)':r.severity==='Major'?'var(--amber)':'var(--green)';
     el.innerHTML=`<div class="oi-id">${r.rule_id}</div><div class="oi-name">${r.fault_pattern}</div><div style="font-size:11px;color:${sev};margin-top:2px">${r.severity} · ${r.process}</div>`;
@@ -3347,6 +3379,8 @@ async function runCAPA(){
     if(!data.primary_capa || !(data.matched_rules&&data.matched_rules.length))
       throw new Error(data.message||'No CAPA rules matched the attached results.');
     const key=`${document.getElementById('capa-col-name').value||'param'}_${Date.now()}`;
+    window._capaLastEffProc=data.effective_process||'';
+    _capaShowAllRules=false;  // new generation → filter reflects the new selection
     capaReports[key]={...data.primary_capa,_matched:data.matched_rules,_timestamp:new Date().toLocaleTimeString(),
       _procMode:data.process_mode,_procUsed:data.effective_process,_detected:data.detected_process,_detConf:data.detection_confidence};
     buildCAPANav();renderCAPA(capaReports[key]);
@@ -5742,8 +5776,12 @@ function populateOverrideList(){
       const list=document.getElementById('override-list');
       const rules=Array.isArray(d)?d:(d.rules||[]);
       if(!list||!rules.length) return;
+      _capaCatalogCache=rules;
+      _overrideRerender=populateOverrideList;
       list.innerHTML='';
-      rules.forEach(rule=>{
+      const info=_filterCatalogRules(rules);
+      const bar=_overrideFilterBar(info);if(bar)list.appendChild(bar);
+      info.rules.forEach(rule=>{
         // Catalog returns rule_id + fault_pattern (not rule.id / rule.name)
         const ruleId   = rule.rule_id   || rule.id   || '—';
         const ruleName = rule.fault_pattern || rule.name  || rule.fault || ruleId;

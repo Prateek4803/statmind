@@ -3347,7 +3347,8 @@ async function runCAPA(){
     if(!data.primary_capa || !(data.matched_rules&&data.matched_rules.length))
       throw new Error(data.message||'No CAPA rules matched the attached results.');
     const key=`${document.getElementById('capa-col-name').value||'param'}_${Date.now()}`;
-    capaReports[key]={...data.primary_capa,_matched:data.matched_rules,_timestamp:new Date().toLocaleTimeString()};
+    capaReports[key]={...data.primary_capa,_matched:data.matched_rules,_timestamp:new Date().toLocaleTimeString(),
+      _procMode:data.process_mode,_procUsed:data.effective_process,_detected:data.detected_process,_detConf:data.detection_confidence};
     buildCAPANav();renderCAPA(capaReports[key]);
     document.getElementById('override-section').style.display='block';loadCatalog();
     showToast(`✅ Matched ${data.matched_rules.length} rule(s)`);
@@ -3378,7 +3379,13 @@ function renderCAPA(r){
   const dispIcon=disp.recommendation==='Hold'?'🚫':disp.recommendation==='Scrap'?'🗑':disp.recommendation==='Release'?'✅':'⚠️';
   const matchedRules=r._matched||[];
   const maxScore=matchedRules[0]?.score||1;
-  const matchedHtml=matchedRules.length?`<div class="card" style="margin-bottom:14px"><div class="ch"><div class="ct">Auto-Detected Matches</div><div class="cs">sorted by confidence</div></div><div class="cb" style="padding:10px 14px"><div class="matches-bar">${matchedRules.map((m,i)=>{const sp=m.severity==='Critical'?'var(--red)':m.severity==='Major'?'var(--amber)':'var(--green)';const pct=Math.round((m.score/maxScore)*100);return `<div class="match-item ${i===0?'active':''}" onclick="loadMatchedRule('${m.rule_id}',this)"><span class="match-rule-id">${m.rule_id}</span><div style="flex:1"><div style="font-size:12px">${m.fault_pattern}</div><div class="score-bar-wrap" style="margin-top:3px"><div class="score-bar" style="width:${pct}%"></div></div></div><span style="font-size:11px;font-weight:600;color:${sp}">${m.severity}</span></div>`;}).join('')}</div></div></div>`:'';
+  const _procOpts=['','Etch','CMP','Lithography','Diffusion','CMM','Automotive','Aerospace','Medical'];
+  const _curProc=r._procMode==='explicit'?(r._procUsed||''):'';
+  const _procSel=`<select id="capa-refilter" onchange="capaRefilter(this.value)" style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:7px;padding:3px 8px;font-size:11px;font-family:var(--font);cursor:pointer">${_procOpts.map(p=>`<option value="${p}" ${p===_curProc?'selected':''}>${p===''?'🔮 Auto-Detect':p}</option>`).join('')}</select>`;
+  const _procBadge=r._procMode==='explicit'
+    ?`<span style="font-size:11px;color:var(--teal);background:rgba(45,212,160,0.08);border:1px solid rgba(45,212,160,0.25);border-radius:12px;padding:2px 10px">Showing <strong>${r._procUsed}</strong> + General rules only</span>`
+    :(r._detected?`<span style="font-size:11px;color:var(--teal);background:rgba(45,212,160,0.08);border:1px solid rgba(45,212,160,0.25);border-radius:12px;padding:2px 10px">🔮 Auto-detected: <strong>${r._detected}</strong>${r._detConf!=null?` · ${Math.round(r._detConf*100)}% match`:''}</span>`:'');
+  const matchedHtml=matchedRules.length?`<div class="card" style="margin-bottom:14px"><div class="ch"><div><div class="ct">Matched Rules</div><div class="cs">sorted by confidence</div></div><div style="display:flex;align-items:center;gap:8px;margin-left:auto">${_procBadge}${_procSel}</div></div><div class="cb" style="padding:10px 14px"><div class="matches-bar">${matchedRules.map((m,i)=>{const sp=m.severity==='Critical'?'var(--red)':m.severity==='Major'?'var(--amber)':'var(--green)';const pct=Math.round((m.score/maxScore)*100);return `<div class="match-item ${i===0?'active':''}" onclick="loadMatchedRule('${m.rule_id}',this)"><span class="match-rule-id">${m.rule_id}</span><div style="flex:1"><div style="font-size:12px">${m.fault_pattern}${m.scope==='general'?' <span style="font-size:9px;color:var(--text3);border:1px solid var(--border2);border-radius:8px;padding:1px 6px;vertical-align:middle">GENERAL</span>':''}</div><div class="score-bar-wrap" style="margin-top:3px"><div class="score-bar" style="width:${pct}%"></div></div></div><span style="font-size:11px;font-weight:600;color:${sp}">${m.severity}</span></div>`;}).join('')}</div></div></div>`:'';
   const evHtml=(r.problem_statement?.statistical_evidence||[]).map(e=>`<div class="hint-item"><div class="hd" style="background:var(--red)"></div><div>${e}</div></div>`).join('');
   const altHtml=(r.root_cause_analysis?.alternative_hypotheses||[]).map(e=>`<div class="hint-item"><div class="hd" style="background:var(--green)"></div><div>${e}</div></div>`).join('');
   const corrHtml=(r.corrective_actions||[]).map(a=>`<div class="action-card"><div style="display:flex;align-items:center;gap:7px;margin-bottom:6px"><span class="priority-badge ${(a.priority||'P3').toLowerCase()}">${a.priority}</span><span class="timeline-badge">${a.timeline}</span><span style="font-size:12px;color:var(--text2);margin-left:auto">${a.owner}</span></div><div style="font-size:13px;margin-bottom:3px">${a.action}</div><div style="font-size:12px;color:var(--text3)">${a.expected_impact}</div></div>`).join('');
@@ -5677,6 +5684,7 @@ function capaGoStep(n){
 
 function capaSelectProc(proc, el){
   capaSelectedProc=proc;
+  selectedProcess=proc;  // FIX: runCAPA sends selectedProcess — the cards previously updated visuals only, so the user's choice never reached the engine
   // Reset ALL cards fully - override any inline styles
   document.querySelectorAll('.capa-proc-card').forEach(c=>{
     c.style.border='1px solid var(--border2)';
@@ -5697,6 +5705,19 @@ function capaSelectProc(proc, el){
 function capaRunPrereq(tab){
   switchAnalysis(tab);
   showToast(`Run ${tab} analysis, then return to CAPA`);
+}
+
+/* Re-filter from the rules section: switch the process (e.g. Etch → CMP)
+   without redoing Step 1. Attached analysis results are still in memory, so we
+   sync the selection back to the Step-1 cards and regenerate. */
+async function capaRefilter(proc){
+  const btn=document.getElementById('run-capa-btn');
+  if(btn&&btn.disabled) return;                     // a generation is already running
+  const card=document.getElementById('cpc-'+proc); // '' → the Auto-Detect card (id "cpc-")
+  if(card) capaSelectProc(proc,card);
+  else { selectedProcess=proc; capaSelectedProc=proc; }
+  showToast(proc?`Re-matching rules for ${proc}…`:'Re-matching with Auto-Detect…');
+  await runCAPA();
 }
 
 function capaCheckPrereqs(){

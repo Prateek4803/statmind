@@ -77,7 +77,7 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:32px 24p
   <h2>2. How Your Data Is Handled</h2>
   <p>When you upload a file (CSV, Excel, CMM export) and run an analysis, the data is sent to our backend to compute the statistical result. This processing is:</p>
   <ul>
-    <li><strong>Not stored.</strong> Your uploaded data is held in memory only for as long as it takes to compute your result, then discarded. It is not written to a database or saved to disk in normal operation.</li>
+    <li><strong>Not stored.</strong> Your uploaded data is held in memory only for as long as it takes to compute your result, then discarded. It is not written to a database. The one exception: if you generate a PDF report, that report file is held in temporary server storage for up to one hour so you can download it, then automatically deleted.</li>
     <li><strong>Not logged.</strong> If an error occurs, we log only the error type and request path — never your data, and never an error message that might contain a value from your file.</li>
     <li><strong>Not used for training.</strong> We do not use your data to train or improve any model we operate.</li>
     <li><strong>Encrypted in transit.</strong> All communication uses HTTPS/TLS, with HSTS enforced.</li>
@@ -120,7 +120,7 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:32px 24p
   </ul>
 
   <h2>9. Data Retention</h2>
-  <p>We do not retain your uploaded measurement data. Access logs (IP, timestamps) are retained for a limited period for security monitoring, then deleted.</p>
+  <p>We do not retain your uploaded measurement data. Generated PDF reports are held in temporary server storage for up to one hour (so you can download them) and are then automatically deleted. Access logs (IP, timestamps) are retained for a limited period for security monitoring, then deleted.</p>
 
   <h2>10. Security</h2>
   <p>We use HTTPS/TLS for all connections (with HSTS), hardening headers (no-sniff, frame-deny, referrer and permissions policies), input validation on uploads, and error handling designed so failures never echo your data back to you or into our logs. Secrets are stored in the server environment, not in our codebase, and are rotated if ever exposed.</p>
@@ -148,7 +148,7 @@ footer{background:var(--bg2);border-top:1px solid var(--border);padding:32px 24p
     <div style="display:flex;gap:20px;">
       <a class="footer-link" href="/">Home</a>
       <a class="footer-link" href="/app">Open App</a>
-      <a class="footer-link" href="/pricing">Pricing</a>
+      <a class="footer-link" href="/terms">Terms</a>
       <a class="footer-link" href="mailto:hello@statmind.tech">Contact</a>
     </div>
   </div>

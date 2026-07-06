@@ -1901,8 +1901,11 @@ textarea{resize:vertical;min-height:52px;}
 // Register zoom plugin globally
 if(typeof ChartZoom !== 'undefined') Chart.register(ChartZoom);
 // ══ WIZARD & FILE LOADING ════════════════════════════════════════════════════
-let globalFile = null;
-let globalProcType = '';
+// `var` (not `let`): saved_sessions.js / session_persistence.js read these
+// as window.* properties; top-level `let` never creates them, which silently
+// broke session save/restore since it shipped (found 2026-07-06).
+var globalFile = null;
+var globalProcType = '';
 let globalColumns = [];
 let wizardSelectedCols = [];
 let wizardFile = null;
@@ -2601,7 +2604,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
-let spcData={}, capData={}, normData=null, grrData={}, capaReports={};
+var spcData={}, capData={}, normData=null, grrData={}, capaReports={};  // var: must be window.* for session save/restore
 let spcFile=null, capFile=null, normFile=null;
 let colStatsSpc=[], colStatsCap=[];
 let selectedSpcCol=null, selectedCapCol=null, selectedProcess='';
@@ -2629,7 +2632,7 @@ const tabMap={spc:'sb-spc',capa:'sb-capa',capability:'sb-cap',normality:'sb-norm
     datastudio:'sb-datastudio',logistic:'sb-logistic',stepwise:'sb-stepwise'};
 
 // Analysis history for back navigation
-let analysisHistory=[];
+var analysisHistory=[];  // var: must be window.* for session save/restore
 let currentAnalysis=null;
 
 function goBackAnalysis(){

@@ -49,7 +49,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request, Fo
 from auth import auth_router
 from ppap_generator import ppap_router
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -749,6 +749,31 @@ async def generate_pdf_report(request: Request):
         })
     except Exception as e:
         raise HTTPException(500, f"PDF generation failed: {str(e)}")
+
+@app.post("/api/v1/export/xlsx")
+@limiter.limit("10/minute")
+async def export_session_xlsx(request: Request):
+    """Export a saved session (the frontend's snapshot object) as a formatted
+    Excel dashboard. Built entirely in memory and streamed back — nothing is
+    written to disk, consistent with the privacy policy."""
+    body = await request.json()
+    session = body.get("session") or body
+    name = re.sub(r"[^A-Za-z0-9 _.\-]", "", str(body.get("name") or "statmind_session")).lstrip(". ")[:60] or "statmind_session"
+    try:
+        from xlsx_export import build_session_workbook
+        buf = await asyncio.to_thread(build_session_workbook, session)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception:
+        logging.exception("xlsx export failed")
+        raise HTTPException(500, "Excel export failed. Your data was not stored.")
+    headers = {"Content-Disposition": f'attachment; filename="{name}.xlsx"'}
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers=headers,
+    )
+
 
 @app.get("/api/v1/report/download/{report_id}")
 async def download_report(report_id: str):

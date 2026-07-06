@@ -129,6 +129,44 @@
     }
   }
 
+  // ── Excel dashboard export (feat/session-excel-export) ─────────────────
+  // Sends the saved snapshot to the backend, which builds a formatted
+  // multi-sheet workbook (dashboard + per-analysis sheets with native Excel
+  // charts) entirely in memory and streams it back.
+  async function exportSessionXlsx(id, btn) {
+    const entry = readList().find(s => s.id === id);
+    if (!entry) { toast('Session not found.', true); return; }
+    const orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      const API = window.API || '';
+      const r = await fetch(`${API}/api/v1/export/xlsx`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: entry.data, name: entry.name }),
+      });
+      if (!r.ok) {
+        let msg = 'Export failed.';
+        try { msg = (await r.json()).detail || msg; } catch (_) {}
+        throw new Error(msg);
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (entry.name || 'statmind_session').replace(/[^\w .\-]/g, '') + '.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast('📊 Excel dashboard downloaded');
+    } catch (e) {
+      toast(e.message || 'Export failed.', true);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
+    }
+  }
+
   // ── Toast (reuse app toast if present) ─────────────────────────────
   function toast(msg, isErr) {
     if (typeof window.showToast === 'function') { window.showToast(msg, !!isErr); return; }
@@ -177,6 +215,9 @@
           <div style="font-weight:600;color:#e8eaf0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(s.name)}</div>
           <div style="color:#8b8fa8;font-size:12px">${s.count} result${s.count !== 1 ? 's' : ''} · ${escapeHtml(s.fileName)} · ${fmtAge(s.ts)}</div>
         </div>
+        <button class="sm-sess-xlsx" data-id="${s.id}" title="Download as Excel dashboard"
+          style="background:rgba(56,140,255,.12);border:1px solid rgba(56,140,255,.35);color:#6aa9ff;
+                 padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font,system-ui,sans-serif)">Excel</button>
         <button class="sm-sess-restore" data-id="${s.id}"
           style="background:rgba(45,212,160,.15);border:1px solid rgba(45,212,160,.4);color:#2dd4a0;
                  padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font,system-ui,sans-serif)">Restore</button>
@@ -218,6 +259,9 @@
     });
     modal.querySelectorAll('.sm-sess-restore').forEach(btn => {
       btn.addEventListener('click', () => { restoreSession(btn.dataset.id); modal.remove(); });
+    });
+    modal.querySelectorAll('.sm-sess-xlsx').forEach(btn => {
+      btn.addEventListener('click', () => { exportSessionXlsx(btn.dataset.id, btn); });
     });
     modal.querySelectorAll('.sm-sess-delete').forEach(btn => {
       btn.addEventListener('click', () => {

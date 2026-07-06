@@ -57,6 +57,28 @@ def generate_design(
     k = len(factor_names)
     if k < 2:
         raise ValueError("Need at least 2 factors for a DOE.")
+
+    # P1-VAL-3 (2026-07-06 campaign): a mismatched response count was silently
+    # truncated (16 responses on an 8-run design used the first 8) or silently
+    # partial-filled — both compute effects on data the user didn't intend.
+    # Responses map positionally to THIS design's standard run order, so the
+    # count must match exactly; the error states the expected count so the
+    # user can align their data.
+    _expected_runs = {"full": 2 ** k,
+                      "half": 2 ** (k - 1),
+                      "quarter": 2 ** (k - 2) if k >= 2 else None}
+    if responses is not None:
+        _dt = design_type if design_type in _expected_runs else (
+            "full" if k <= 4 else "half" if k <= 6 else "quarter")
+        _n_expected = _expected_runs.get(_dt)
+        if _n_expected and len(responses) != _n_expected:
+            raise ValueError(
+                f"Response count mismatch: this {_dt} design for {k} factors has "
+                f"{_n_expected} runs, but {len(responses)} response values were "
+                f"provided. Responses are matched to the design's standard run "
+                f"order, so the count must be exactly {_n_expected}. If you ran "
+                f"replicates, average them per run (or submit one replicate set)."
+            )
     if k > 8:
         raise ValueError("StatMind DOE supports up to 8 factors. Use screening designs for more.")
 

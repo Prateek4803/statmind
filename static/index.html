@@ -3862,6 +3862,7 @@ document.getElementById('run-report-btn').addEventListener('click',async()=>{
 // ══ Shared Utilities ══════════════════════════════════════════════════════════
 function setupUpload(zoneId,inputId,titleId,handler){
   const input=document.getElementById(inputId),zone=document.getElementById(zoneId);
+  zone._smHandler=handler;  // teaching-empty-states: sample buttons call the same handler as drop/browse
   zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
   zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
   zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');if(e.dataTransfer.files[0])handler(e.dataTransfer.files[0]);});
@@ -7305,6 +7306,69 @@ if (_origApiCheck) {
 
 
 /* ── loadSampleDataset: one-click demo with realistic process data ─────── */
+/* ── Teaching empty states (Session 5, feat/teaching-empty-states) ─────────
+   Every upload zone gets a one-sentence "what/why" and a one-click sample
+   built from the verified campaign datasets (static/samples/). The button
+   fabricates a File and calls the zone's OWN handler (stored by setupUpload),
+   so samples flow through the identical pipeline as a real drag-and-drop. */
+const SM_SAMPLES = {
+  'norm-upload':    {file:'semiconductor_etch_process.csv', why:'Check whether your data follows a normal distribution — the assumption behind Cpk and control limits.'},
+  'cap-upload':     {file:'semiconductor_etch_process.csv', why:'Measure how well your process fits its spec limits (Cp/Cpk). Try USL 480, LSL 420 on Etch_Rate_nm_min.'},
+  'spc-upload':     {file:'semiconductor_etch_process.csv', why:'Detect shifts and drifts over time — this sample has a real process shift hidden in it.'},
+  'sixpack-upload': {file:'semiconductor_etch_process.csv', why:'The full picture on one page: control, distribution, and capability together.'},
+  'tol-upload':     {file:'semiconductor_etch_process.csv', why:'Compute a statistical tolerance interval — the range covering e.g. 99% of production.'},
+  'trans-upload':   {file:'semiconductor_etch_process.csv', why:'Fix non-normal data with a Box-Cox or Johnson transformation before capability analysis.'},
+  'cusum-upload':   {file:'semiconductor_etch_process.csv', why:'CUSUM catches small sustained shifts that Shewhart charts miss.'},
+  'reg-upload':     {file:'semiconductor_etch_process.csv', why:'Model how inputs drive an output — try CD_nm vs Etch_Rate_nm_min and RF_Power_W.'},
+  'step-upload':    {file:'logistic_pass_fail.csv',         why:'Automatically select which predictors matter for a pass/fail outcome.'},
+  'logit-upload':   {file:'logistic_pass_fail.csv',         why:'Model pass/fail probability — try Fail vs Temperature_C and Pressure_mTorr.'},
+  'hyp-upload':     {file:'tool_comparison_AB.csv',         why:'Compare two tools or lines statistically — is the difference real or noise?'},
+  'grr-upload':     {file:'gauge_rr_study.csv',             why:'Can you trust your gauge? Standard AIAG study: 10 parts × 3 operators × 3 trials.'},
+  'pareto-upload':  {file:'pareto_defect_log.csv',          why:'Find the vital few — which defect types cause 80% of your problems.'},
+  'mv-upload':      {file:'multivari_oxide_study.csv',      why:'Locate where variation lives: lot-to-lot, wafer-to-wafer, or within-wafer.'},
+  'capa-direct-upload': {file:'semiconductor_etch_process.csv', why:'Generate a corrective-action report straight from process data.'},
+};
+
+async function smLoadSample(zoneId, btn){
+  const spec = SM_SAMPLES[zoneId];
+  const zone = document.getElementById(zoneId);
+  if(!spec || !zone || typeof zone._smHandler!=='function'){ showToast('Sample unavailable for this analysis', true); return; }
+  const orig = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent='Loading sample…'; }
+  try{
+    const r = await fetch(`/static/samples/${spec.file}`);
+    if(!r.ok) throw new Error('Sample fetch failed');
+    const blob = await r.blob();
+    const f = new File([blob], spec.file, {type:'text/csv'});
+    zone._smHandler(f);
+    showToast(`⚡ Sample loaded: ${spec.file}`);
+  }catch(e){
+    showToast('Could not load sample data', true);
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent=orig; }
+  }
+}
+
+function initTeachingEmptyStates(){
+  Object.keys(SM_SAMPLES).forEach(zoneId=>{
+    const zone = document.getElementById(zoneId);
+    if(!zone || zone.parentElement.querySelector('.sm-sample-row')) return;
+    const row = document.createElement('div');
+    row.className = 'sm-sample-row';
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;margin-top:8px;font-size:var(--fs-xs);color:var(--text3);line-height:1.45';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '⚡ Try sample data';
+    btn.style.cssText = 'flex:none;background:rgba(45,212,160,0.08);border:1px solid var(--border2);color:var(--accent);padding:4px 10px;border-radius:7px;font-size:var(--fs-xs);font-weight:600;cursor:pointer;font-family:var(--font)';
+    btn.addEventListener('click', ()=>smLoadSample(zoneId, btn));
+    const why = document.createElement('span');
+    why.textContent = SM_SAMPLES[zoneId].why;
+    row.appendChild(btn); row.appendChild(why);
+    zone.insertAdjacentElement('afterend', row);
+  });
+}
+initTeachingEmptyStates();
+
 function loadSampleDataset() {
   // Realistic semiconductor etch depth measurements (nm) — 3 parameters
   const sampleCSV = [

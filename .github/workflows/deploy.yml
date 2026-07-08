@@ -165,8 +165,10 @@ jobs:
             cd /opt/statmind
             git pull origin main
 
-            # Rebuild with new code
-            docker build -t statmind:latest .
+            # Rebuild with new code — bake the just-pulled SHA so the
+            # health endpoint can prove the NEW code is serving (Session 6)
+            EXPECTED_SHA=$(git rev-parse HEAD)
+            docker build --build-arg GIT_SHA=$EXPECTED_SHA -t statmind:latest .
 
             # Graceful container replacement
             docker stop statmind 2>/dev/null || true
@@ -174,14 +176,14 @@ jobs:
 
             sudo systemctl restart statmind
 
-            # Wait up to 120s for healthy response
-            echo "Waiting for app to be healthy..."
+            # Wait up to 120s for the NEW release to answer. HTTP 200 alone is
+            # not enough — during PR #65 the OLD container answered 200 mid-swap.
+            echo "Waiting for release $EXPECTED_SHA to be healthy..."
             for i in $(seq 1 24); do
-              HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-                http://localhost:8000/api/v1/health 2>/dev/null || echo "000")
-              echo "  Attempt $i/24 — HTTP $HTTP"
-              if [ "$HTTP" = "200" ]; then
-                echo "✓ StatMind is healthy — deploy complete"
+              BODY=$(curl -s http://localhost:8000/api/v1/health 2>/dev/null || echo "")
+              echo "  Attempt $i/24"
+              if echo "$BODY" | grep -q '"status":"ok"' && echo "$BODY" | grep -q "$EXPECTED_SHA"; then
+                echo "✓ StatMind healthy AND serving release $EXPECTED_SHA — deploy complete"
                 exit 0
               fi
               sleep 5
@@ -198,12 +200,13 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-              http://localhost:8000/api/v1/health)
-            if [ "$HTTP" = "200" ]; then
-              echo "✓ Deployment verified — https://www.statmind.tech is live"
+            EXPECTED_SHA=$(cd /opt/statmind && git rev-parse HEAD)
+            BODY=$(curl -s http://localhost:8000/api/v1/health)
+            if echo "$BODY" | grep -q '"status":"ok"' && echo "$BODY" | grep -q "$EXPECTED_SHA"; then
+              echo "✓ Deployment verified — release $EXPECTED_SHA live at https://www.statmind.tech"
             else
-              echo "✗ Verification failed (HTTP $HTTP)"
+              echo "✗ Verification failed — health did not report release $EXPECTED_SHA"
+              echo "  body: $BODY"
               docker logs statmind --tail 30 2>/dev/null || true
               exit 1
             fi

@@ -1,5 +1,9 @@
 ﻿FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+# Release verification (Session 6): deploy.yml passes the just-pulled SHA;
+# /api/v1/health reports it so the deploy can assert the NEW code is serving.
+ARG GIT_SHA=unknown
+ENV RELEASE_SHA=$GIT_SHA
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 libglib2.0-0 curl && rm -rf /var/lib/apt/lists/*
 RUN useradd -m -u 1000 statmind
 WORKDIR /app

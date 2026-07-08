@@ -388,6 +388,7 @@ def _health_payload() -> dict:
         "status":    "ok",
         "service":   "StatMind",
         "version":   "2.0.0",
+        "release":   os.getenv("RELEASE_SHA", "unknown"),  # Session 6: deploy verifies new code is serving
         "env":       ENV,
         "sessions":  ["normality", "capability", "spc", "grr", "capa", "pdf"],
         "capa_rules": 31,

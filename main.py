@@ -1158,7 +1158,7 @@ if os.path.isdir(_static_dir):
 def _serve_static_html(filename: str) -> HTMLResponse:
     path = os.path.join(os.path.dirname(__file__), "static", filename)
     if os.path.exists(path):
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return HTMLResponse(f.read())
     return HTMLResponse(f"<h1>Not found: {filename}</h1>", status_code=404)
 
@@ -1171,7 +1171,7 @@ async def serve_landing():
 async def serve_frontend():
     html_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
     if os.path.exists(html_path):
-        with open(html_path) as f:
+        with open(html_path, encoding="utf-8") as f:
             content = f.read()
         content = content.replace(
             "const API=window.location.origin.includes('localhost')?'http://localhost:8010':'';",
